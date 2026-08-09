@@ -33,3 +33,20 @@
   animation: ambientPulse 2s ease-in-out infinite;
 }
 
+/* Hardware-Accelerated GPU Layer & Typography Optimization (ChatGPT/Gemini style) */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: scroll-position;
+  backface-visibility: hidden;
+}
+
+.chat-scroll {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.chat-message-card {
+  contain: content;
+}
+

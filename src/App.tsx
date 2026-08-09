@@ -2239,6 +2239,71 @@ export const LocalAudioRenderer = ({ src, sender, isDarkMode, isVoiceMessage }) 
 };
 
 
+/**
+ * Ultra-Fast Memoized Chat Message Item (ChatGPT/Gemini Style Performance Optimization)
+ * Prevents unnecessary re-rendering and re-parsing of past messages when typing or streaming.
+ */
+export const ChatMessageItem = React.memo(({ 
+  msg, 
+  isDarkMode, 
+  isStreaming 
+}: { 
+  msg: any; 
+  isDarkMode: boolean; 
+  isStreaming: boolean; 
+}) => {
+  return (
+    <div
+      className={`flex gap-4 items-start chat-message-card ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+    >
+      {msg.sender === 'bot' && (
+        <div className="hidden sm:flex items-center justify-center flex-shrink-0 mt-1 mr-2">
+          <XareLogo 
+            className="w-8 h-8 sm:w-9 sm:h-9" 
+            scale={3.4} 
+            x="-8%" 
+            isDarkMode={isDarkMode} 
+          />
+        </div>
+      )}
+
+      <div
+        className={`${msg.sender === 'user' ? 'max-w-[85%] md:max-w-[75%]' : 'max-w-[96%] md:max-w-[94%]'} ${
+          msg.sender === 'user'
+          ? (isDarkMode ? 'bg-[#080c14] text-slate-100 border border-slate-800/50' : 'bg-[#f0f4f9] text-slate-900') + ' rounded-[24px] px-5 py-3 shadow-sm'
+          : (isDarkMode ? 'bg-[#0f1523] text-slate-100 border-slate-800/50' : 'bg-white text-slate-900 border-slate-200/50 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)]') + ' border rounded-[24px] px-5 py-4 sm:px-6 sm:py-5 overflow-hidden'
+        } ${isStreaming ? (isDarkMode ? 'ring-1 ring-cyan-500/30 shadow-[0_0_20px_-3px_rgba(56,189,248,0.15)]' : 'ring-1 ring-blue-400/40 shadow-[0_0_20px_-3px_rgba(59,130,246,0.12)]') : ''} transition-all duration-300`}
+      >
+        {msg.image && <LocalImageRenderer src={msg.image} isDarkMode={isDarkMode} />}
+
+        {msg.document && <LocalDocumentRenderer src={msg.document} isDarkMode={isDarkMode} />}
+
+        {!(msg.audio && msg.text === "🎤 Voice Message") && (
+          <div dir="auto" className={`font-normal w-full ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ wordBreak: 'break-word' }}>
+            {formatMessageText(msg.text, isDarkMode, isStreaming)}
+          </div>
+        )}
+
+        {msg.sender === 'bot' && msg.text && !isStreaming && !(msg.audio && msg.text === "🎤 Voice Message") && (
+          <MessageActions text={msg.text} isDarkMode={isDarkMode} />
+        )}
+
+        {msg.audio && (
+          <LocalAudioRenderer src={msg.audio} sender={msg.sender} isDarkMode={isDarkMode} isVoiceMessage={msg.text === "🎤 Voice Message"} />
+        )}
+      </div>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.msg.id === nextProps.msg.id &&
+    prevProps.msg.text === nextProps.msg.text &&
+    prevProps.isDarkMode === nextProps.isDarkMode &&
+    prevProps.isStreaming === nextProps.isStreaming
+  );
+});
+
+
 export default function App() {
   const { isDarkMode, toggleDarkMode } = useTheme();
 
@@ -2310,9 +2375,12 @@ export default function App() {
     let lastTime = performance.now();
     let lastRenderTime = 0;
     
-    // Throttle React state re-renders to ~25fps (every 40ms) so main thread stays 100% free for scrolling
-    const RENDER_THROTTLE_MS = 40;
-    const charsPerSecond = STREAMING_SPEED_CHARS_PER_SEC;
+    // Adaptive Streaming Speed Algorithm (ChatGPT/Gemini style):
+    // Dynamically scales character rate for longer responses so long code blocks/essays finish quickly
+    const baseSpeed = STREAMING_SPEED_CHARS_PER_SEC;
+    const charsPerSecond = totalLength > 350 
+      ? Math.min(160, Math.max(baseSpeed, Math.ceil(totalLength / 6))) 
+      : baseSpeed;
 
     const step = (now: number) => {
       const deltaSeconds = Math.min((now - lastTime) / 1000, 0.1);
@@ -3945,55 +4013,17 @@ const AI_PRESETS = [
             onWheel={handleWheel} 
             onTouchStart={handleTouchStart} 
             onTouchMove={handleTouchMove} 
-            className="flex-1 overflow-y-auto chat-scroll w-full relative z-10"
+            className="flex-1 overflow-y-auto chat-scroll gpu-accelerated w-full relative z-10"
           >
             <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2">
 
               {messages.map((msg) => (
-                <div
+                <ChatMessageItem
                   key={msg.id}
-                  className={`flex gap-4 items-start ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  {msg.sender === 'bot' && (
-                    <div className="hidden sm:flex items-center justify-center flex-shrink-0 mt-1 mr-2">
-                      {/* ========================================== */}
-                      {/* 6. LOGO INSTANCE: Bot Chat Message Avatar */}
-                      {/* ========================================== */}
-                      <XareLogo 
-                        className="w-8 h-8 sm:w-9 sm:h-9" 
-                        scale={3.4} 
-                        x="-8%" 
-                        isDarkMode={isDarkMode} 
-                      />
-                    </div>
-                  )}
-
-                  <div
-                    className={`${msg.sender === 'user' ? 'max-w-[85%] md:max-w-[75%]' : 'max-w-[96%] md:max-w-[94%]'} ${
-                      msg.sender === 'user'
-                      ? (isDarkMode ? 'bg-[#080c14] text-slate-100 border border-slate-800/50' : 'bg-[#f0f4f9] text-slate-900') + ' rounded-[24px] px-5 py-3 shadow-sm'
-                      : (isDarkMode ? 'bg-[#0f1523] text-slate-100 border-slate-800/50' : 'bg-white text-slate-900 border-slate-200/50 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)]') + ' border rounded-[24px] px-5 py-4 sm:px-6 sm:py-5 overflow-hidden'
-                    } ${msg.id === streamingMessageId ? (isDarkMode ? 'ring-1 ring-cyan-500/30 shadow-[0_0_20px_-3px_rgba(56,189,248,0.15)]' : 'ring-1 ring-blue-400/40 shadow-[0_0_20px_-3px_rgba(59,130,246,0.12)]') : ''} transition-all duration-300`}
-                  >
-                    {msg.image && <LocalImageRenderer src={msg.image} isDarkMode={isDarkMode} />}
-
-                    {msg.document && <LocalDocumentRenderer src={msg.document} isDarkMode={isDarkMode} />}
-
-                    {!(msg.audio && msg.text === "🎤 Voice Message") && (
-                      <div dir="auto" className={`font-normal w-full ${msg.id === streamingMessageId ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ wordBreak: 'break-word' }}>
-                        {formatMessageText(msg.text, isDarkMode, msg.id === streamingMessageId)}
-                      </div>
-                    )}
-
-                    {msg.sender === 'bot' && msg.text && msg.id !== streamingMessageId && !(msg.audio && msg.text === "🎤 Voice Message") && (
-                      <MessageActions text={msg.text} isDarkMode={isDarkMode} />
-                    )}
-
-                    {msg.audio && (
-                      <LocalAudioRenderer src={msg.audio} sender={msg.sender} isDarkMode={isDarkMode} isVoiceMessage={msg.text === "🎤 Voice Message"} />
-                    )}
-                  </div>
-                </div>
+                  msg={msg}
+                  isDarkMode={isDarkMode}
+                  isStreaming={msg.id === streamingMessageId}
+                />
               ))}
 
               {isLoading && activeLoadingChatId === currentChatId && (
