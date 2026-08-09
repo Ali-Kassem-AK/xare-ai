@@ -2742,13 +2742,53 @@ const AI_PRESETS = [
     if (window.innerWidth >= 1024) setIsSidebarOpen(true);
   }, []);
 
+  const touchStartYRef = useRef<number | null>(null);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.deltaY < 0) {
+      // User is scrolling UP - instantly lock auto-scroll with zero delay
+      isUserScrolledUpRef.current = true;
+      setIsUserScrolledUp(true);
+    } else if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      if (scrollHeight - scrollTop - clientHeight <= 20) {
+        isUserScrolledUpRef.current = false;
+        setIsUserScrolledUp(false);
+      }
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartYRef.current !== null) {
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - touchStartYRef.current;
+      if (deltaY > 4) { // Pulling down -> content scrolling UP
+        isUserScrolledUpRef.current = true;
+        setIsUserScrolledUp(true);
+      }
+    }
+  };
+
   const handleChatScroll = () => {
     if (!chatContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-    // If user is more than 80px away from bottom, mark user as scrolled up
-    const isScrolledUp = scrollHeight - scrollTop - clientHeight > 80;
-    isUserScrolledUpRef.current = isScrolledUp;
-    setIsUserScrolledUp(isScrolledUp);
+    const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+    
+    if (distanceToBottom > 30) {
+      if (!isUserScrolledUpRef.current) {
+        isUserScrolledUpRef.current = true;
+        setIsUserScrolledUp(true);
+      }
+    } else {
+      if (isUserScrolledUpRef.current) {
+        isUserScrolledUpRef.current = false;
+        setIsUserScrolledUp(false);
+      }
+    }
   };
 
   const scrollToBottom = (force = false) => {
@@ -3952,7 +3992,14 @@ const AI_PRESETS = [
             </div>
           </header>
 
-          <div ref={chatContainerRef} onScroll={handleChatScroll} className="flex-1 overflow-y-auto chat-scroll w-full relative z-10">
+          <div 
+            ref={chatContainerRef} 
+            onScroll={handleChatScroll} 
+            onWheel={handleWheel} 
+            onTouchStart={handleTouchStart} 
+            onTouchMove={handleTouchMove} 
+            className="flex-1 overflow-y-auto chat-scroll w-full relative z-10"
+          >
             <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2">
 
               {messages.map((msg) => (
