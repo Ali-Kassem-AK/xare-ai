@@ -27,7 +27,7 @@ import {
  * - 75 - 100: Fast reading pace
  * - 150+    : Ultra high-speed streaming
  */
-export const STREAMING_SPEED_CHARS_PER_SEC = 80;
+export const STREAMING_SPEED_CHARS_PER_SEC = 42;
 
 // ==========================================
 // --- FIREBASE CONFIGURATION & INITIALIZATION
@@ -3973,14 +3973,14 @@ const AI_PRESETS = [
                       msg.sender === 'user'
                       ? (isDarkMode ? 'bg-[#080c14] text-slate-100 border border-slate-800/50' : 'bg-[#f0f4f9] text-slate-900') + ' rounded-[24px] px-5 py-3 shadow-sm'
                       : (isDarkMode ? 'bg-[#0f1523] text-slate-100 border-slate-800/50' : 'bg-white text-slate-900 border-slate-200/50 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)]') + ' border rounded-[24px] px-5 py-4 sm:px-6 sm:py-5 overflow-hidden'
-                    }`}
+                    } ${msg.id === streamingMessageId ? (isDarkMode ? 'ring-1 ring-cyan-500/30 shadow-[0_0_20px_-3px_rgba(56,189,248,0.15)]' : 'ring-1 ring-blue-400/40 shadow-[0_0_20px_-3px_rgba(59,130,246,0.12)]') : ''} transition-all duration-300`}
                   >
                     {msg.image && <LocalImageRenderer src={msg.image} isDarkMode={isDarkMode} />}
 
                     {msg.document && <LocalDocumentRenderer src={msg.document} isDarkMode={isDarkMode} />}
 
                     {!(msg.audio && msg.text === "🎤 Voice Message") && (
-                      <div dir="auto" className={`font-normal w-full ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ wordBreak: 'break-word' }}>
+                      <div dir="auto" className={`font-normal w-full ${msg.id === streamingMessageId ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ wordBreak: 'break-word' }}>
                         {formatMessageText(msg.text, isDarkMode, msg.id === streamingMessageId)}
                       </div>
                     )}

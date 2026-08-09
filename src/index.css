@@ -2,20 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-@keyframes smoothGlow {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.8), 0 0 4px rgba(56, 189, 248, 0.4);
+@keyframes softTextFade {
+  0% {
+    opacity: 0.75;
+    transform: translateY(1.5px);
   }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.96);
-    box-shadow: 0 0 6px rgba(56, 189, 248, 0.4), 0 0 2px rgba(56, 189, 248, 0.2);
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.animate-cursor-glow {
-  animation: smoothGlow 1.2s ease-in-out infinite;
+.soft-stream-text {
+  animation: softTextFade 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes ambientPulse {
+  0%, 100% {
+    opacity: 0.9;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.35), 0 0 4px rgba(56, 189, 248, 0.15);
+  }
+  50% {
+    opacity: 0.4;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.15);
+  }
+}
+
+.ambient-stream-glow {
+  animation: ambientPulse 2s ease-in-out infinite;
 }
 
