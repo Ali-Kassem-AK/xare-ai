@@ -494,26 +494,15 @@ const renderInline = (text, isDarkMode) => {
 };
 
 /**
- * Glowing Animated Typing Cursor Component
+ * Typing Cursor Component (Disabled)
  */
-export const TypingCursor = ({ isDarkMode }: { isDarkMode?: boolean }) => (
-  <span className="inline-flex items-center ml-1 select-none align-baseline">
-    <span className="inline-block w-2 h-4.5 rounded-full bg-gradient-to-b from-blue-400 via-cyan-300 to-emerald-300 animate-cursor-glow align-middle -mt-0.5" />
-  </span>
-);
+export const TypingCursor = ({ isDarkMode }: { isDarkMode?: boolean }) => null;
 
 /**
  * Main Message Formatter with Token-by-Token Streaming Support
  */
 const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean = false) => {
-  if (!text && !isStreaming) return null;
-  if (!text && isStreaming) {
-    return (
-      <div className="flex items-center min-h-[1.5rem] py-1">
-        <TypingCursor isDarkMode={isDarkMode} />
-      </div>
-    );
-  }
+  if (!text) return null;
 
   if (typeof text !== 'string') {
     try {
@@ -524,7 +513,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
   }
   
   let processedText = cleanThinkTags(text).replace(/\\n/g, '\n').replace(/\\"/g, '"');
-  if (!processedText.trim() && !isStreaming) return null;
+  if (!processedText.trim()) return null;
 
   let formatText = processedText;
   if (isStreaming) {
@@ -541,23 +530,16 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
   }
 
   const blocks = formatText.split(/(```[\s\S]*?```|\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\])/g);
-  const totalBlocks = blocks.length;
 
   return blocks.map((block, bIdx) => {
     if (!block) return null;
-    const isLastBlock = bIdx === totalBlocks - 1 || (bIdx === totalBlocks - 2 && !blocks[totalBlocks - 1]);
     
     // Code Blocks
     if (block.startsWith('```') && block.endsWith('```')) {
       const lines = block.slice(3, -3).split('\n');
       const lang = lines[0].trim();
       const code = lines.slice(1).join('\n') || lines[0]; 
-      return (
-        <React.Fragment key={bIdx}>
-          <CodeBlock code={code} lang={lang} isDarkMode={isDarkMode} />
-          {isStreaming && isLastBlock && <TypingCursor isDarkMode={isDarkMode} />}
-        </React.Fragment>
-      );
+      return <CodeBlock key={bIdx} code={code} lang={lang} isDarkMode={isDarkMode} />;
     }
 
     // Display Math
@@ -565,19 +547,15 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
       return (
         <div key={bIdx} className="my-5 py-3 overflow-x-auto flex items-center justify-center chat-scroll">
           <span className={`text-[1.15rem] font-sans font-medium tracking-wide whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} dangerouslySetInnerHTML={{ __html: renderMath(block, isDarkMode) }} />
-          {isStreaming && isLastBlock && <TypingCursor isDarkMode={isDarkMode} />}
         </div>
       );
     }
 
     const paragraphs = block.split(/\n{2,}/g);
-    const totalParagraphs = paragraphs.length;
     
     return paragraphs.map((para, pIdx) => {
       if (!para.trim()) return null;
-      const isLastParagraph = isLastBlock && (pIdx === totalParagraphs - 1 || (pIdx === totalParagraphs - 2 && !paragraphs[totalParagraphs - 1]));
       const lines = para.split('\n');
-      const totalLines = lines.length;
       
       const elements: any[] = [];
       let tableRows: string[] = [];
@@ -629,8 +607,6 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
 
       lines.forEach((line, lIdx) => {
         const trimmedLine = line.trim();
-        const isLastLine = isLastParagraph && lIdx === totalLines - 1;
-
         if (!trimmedLine) return;
 
         if (trimmedLine.includes('|') && trimmedLine.split('|').length > 2) {
@@ -650,12 +626,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
             `text-lg font-semibold mt-4 mb-2 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`, 
             `text-base font-semibold mt-3 mb-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`
           ];
-          elements.push(
-            <div key={`h-${lIdx}`} className={sizeClasses[level-1]}>
-              {renderInline(content, isDarkMode)}
-              {isStreaming && isLastLine && <TypingCursor isDarkMode={isDarkMode} />}
-            </div>
-          );
+          elements.push(<div key={`h-${lIdx}`} className={sizeClasses[level-1]}>{renderInline(content, isDarkMode)}</div>);
           return;
         }
 
@@ -664,10 +635,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           elements.push(
             <div key={`ul-${lIdx}`} className="flex gap-3 ml-2 mt-1.5 items-baseline">
               <span className={`select-none text-lg leading-none ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>•</span>
-              <span className="flex-1">
-                {renderInline(listMatch[1], isDarkMode)}
-                {isStreaming && isLastLine && <TypingCursor isDarkMode={isDarkMode} />}
-              </span>
+              <span className="flex-1">{renderInline(listMatch[1], isDarkMode)}</span>
             </div>
           );
           return;
@@ -678,10 +646,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           elements.push(
             <div key={`ol-${lIdx}`} className="flex gap-2 ml-2 mt-1.5 items-baseline">
               <span className={`font-semibold min-w-[24px] select-none ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{numListMatch[1]}</span>
-              <span className="flex-1">
-                {renderInline(numListMatch[2], isDarkMode)}
-                {isStreaming && isLastLine && <TypingCursor isDarkMode={isDarkMode} />}
-              </span>
+              <span className="flex-1">{renderInline(numListMatch[2], isDarkMode)}</span>
             </div>
           );
           return;
@@ -692,7 +657,6 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           elements.push(
             <blockquote key={`bq-${lIdx}`} className={`border-l-[3px] px-4 py-2.5 my-3 italic rounded-r-xl ${isDarkMode ? 'border-slate-500 bg-slate-800/30 text-slate-300' : 'border-slate-400 bg-slate-50 text-slate-700'}`}>
               {renderInline(quoteMatch[1], isDarkMode)}
-              {isStreaming && isLastLine && <TypingCursor isDarkMode={isDarkMode} />}
             </blockquote>
           );
           return;
@@ -701,19 +665,11 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         elements.push(
           <div key={`p-${lIdx}`} className={`min-h-[1.5rem] mt-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
             {renderInline(line, isDarkMode)}
-            {isStreaming && isLastLine && <TypingCursor isDarkMode={isDarkMode} />}
           </div>
         );
       });
       
       flushTable(); 
-
-      if (isStreaming && isLastParagraph && tableRows.length === 0 && elements.length > 0) {
-        const lastEl = elements[elements.length - 1];
-        if (lastEl && lastEl.key && String(lastEl.key).startsWith('table-')) {
-          elements.push(<TypingCursor key="table-cursor" isDarkMode={isDarkMode} />);
-        }
-      }
 
       return (
         <div key={`${bIdx}-${pIdx}`} className="mb-4 last:mb-0 space-y-1 text-[15px] sm:text-[16px] leading-relaxed w-full">
@@ -2652,42 +2608,30 @@ const AI_PRESETS = [
           setLoadingPhase('Thinking deeply');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Analyzing possibilities');
-            timeout2 = setTimeout(() => {
-              setLoadingPhase('Typing');
-            }, 6000);
           }, 7000);
           break;
         case 'audio':
           setLoadingPhase('Listening');
           timeout1 = setTimeout(() => {
-            setLoadingPhase('Thinking');
-            timeout2 = setTimeout(() => {
-              setLoadingPhase('Recording');
-            }, 6000); 
-          }, 8000); 
+            setLoadingPhase('Processing audio');
+          }, 6000); 
           break;
         case 'image':
           setLoadingPhase('Analyzing image');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Thinking');
-            timeout2 = setTimeout(() => {
-              setLoadingPhase('Typing');
-            }, 6000);
-          }, 12000);
+          }, 6000);
           break;
         case 'document':
           setLoadingPhase('Analyzing document');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Thinking');
-            timeout2 = setTimeout(() => {
-              setLoadingPhase('Typing');
-            }, 5000);
-          }, 15000);
+          }, 6000);
           break;
         case 'summarize':
           setLoadingPhase('Summarizing');
           timeout1 = setTimeout(() => {
-            setLoadingPhase('Typing');
+            setLoadingPhase('Thinking');
           }, 5000);
           break;
         case 'search':
@@ -2696,38 +2640,29 @@ const AI_PRESETS = [
             setLoadingPhase('Reading sources');
             timeout2 = setTimeout(() => {
               setLoadingPhase('Thinking');
-              timeout3 = setTimeout(() => {
-                setLoadingPhase('Typing');
-              }, 5000);
             }, 6000);
-          }, 9000);
+          }, 7000);
           break;
         case 'explain':
           setLoadingPhase('Analyzing code');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Thinking');
-            timeout2 = setTimeout(() => {
-              setLoadingPhase('Typing');
-            }, 7000);
           }, 5000);
           break;
         case 'translate':
           setLoadingPhase('Translating');
           timeout1 = setTimeout(() => {
-            setLoadingPhase('Typing');
+            setLoadingPhase('Thinking');
           }, 5000);
           break;
         case 'fix':
           setLoadingPhase('Analyzing grammar');
           timeout1 = setTimeout(() => {
-            setLoadingPhase('Typing');
+            setLoadingPhase('Thinking');
           }, 5000);
           break;
         default:
           setLoadingPhase('Thinking');
-          timeout1 = setTimeout(() => {
-            setLoadingPhase('Typing');
-          }, 3000);
           break;
       }
     }
