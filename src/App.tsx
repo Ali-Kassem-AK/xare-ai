@@ -18,6 +18,18 @@ import {
 } from 'firebase/firestore';
 
 // ==========================================
+// --- GLOBAL STREAMING SPEED CONFIGURATION
+// ==========================================
+/**
+ * STREAMING_SPEED_CHARS_PER_SEC: Controls how fast characters stream out on screen.
+ * - 25 - 35 : Extra slow & calm reading pace
+ * - 48      : Standard comfortable reading pace (Default)
+ * - 75 - 100: Fast reading pace
+ * - 150+    : Ultra high-speed streaming
+ */
+export const STREAMING_SPEED_CHARS_PER_SEC = 48;
+
+// ==========================================
 // --- FIREBASE CONFIGURATION & INITIALIZATION
 // ==========================================
 
@@ -2297,14 +2309,7 @@ export default function App() {
     let charIndex = 0;
     let lastTime = performance.now();
 
-    // =========================================================================
-    // LIQUID STREAMING SPEED CONTROL: Adjust charsPerSecond to tune typing speed
-    // =========================================================================
-    //   - 40 - 50: Calm, ultra-smooth, eye-friendly reading pace (Default)
-    //   - 60 - 75: Standard AI typing pace
-    //   - 100+: High-speed typing
-    // =========================================================================
-    const charsPerSecond = 48;
+    const charsPerSecond = STREAMING_SPEED_CHARS_PER_SEC;
 
     const step = (now: number) => {
       const deltaSeconds = Math.min((now - lastTime) / 1000, 0.1);
