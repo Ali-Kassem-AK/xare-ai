@@ -27,7 +27,7 @@ import {
  * - 75 - 100: Fast reading pace
  * - 150+    : Ultra high-speed streaming
  */
-export const STREAMING_SPEED_CHARS_PER_SEC = 42;
+export const STREAMING_SPEED_CHARS_PER_SEC = 55;
 
 // ==========================================
 // --- FIREBASE CONFIGURATION & INITIALIZATION
