@@ -2338,12 +2338,20 @@ export default function App() {
     const tokens = fullText.match(/(\s+|\S+)/g) || [fullText];
     let currentTokenIndex = 0;
     
-    // Dynamic batch size for zero-delay, smooth high-speed typing animation
-    const batchSize = Math.max(1, Math.ceil(tokens.length / 150));
-    const tickInterval = 14;
+    // =========================================================================
+    // STREAMING SPEED CONTROL: Adjust these two values to tune typing speed
+    // =========================================================================
+    // tickInterval: Time in milliseconds between ticks.
+    //   - 45ms: Slow & calm reading pace
+    //   - 30ms - 35ms: Standard comfortable typing pace (Default)
+    //   - 15ms: Ultra fast typing pace
+    // tokensPerTick: Number of words/tokens revealed per tick (1 = word-by-word)
+    // =========================================================================
+    const tickInterval = 32; 
+    const tokensPerTick = 1; 
 
     streamingTimerRef.current = setInterval(() => {
-      currentTokenIndex += batchSize;
+      currentTokenIndex += tokensPerTick;
       if (currentTokenIndex >= tokens.length) {
         currentTokenIndex = tokens.length;
         clearInterval(streamingTimerRef.current);
