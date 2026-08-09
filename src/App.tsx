@@ -498,7 +498,7 @@ const renderInline = (text, isDarkMode) => {
  */
 export const TypingCursor = ({ isDarkMode }: { isDarkMode?: boolean }) => (
   <span className="inline-flex items-center ml-1 select-none align-baseline">
-    <span className="inline-block w-2.5 h-4.5 rounded-[2px] bg-cyan-400 dark:bg-cyan-300 animate-pulse shadow-[0_0_10px_rgba(34,211,238,0.9)] align-middle -mt-0.5" />
+    <span className="inline-block w-2 h-4.5 rounded-full bg-gradient-to-b from-blue-400 via-cyan-300 to-emerald-300 animate-cursor-glow align-middle -mt-0.5" />
   </span>
 );
 
@@ -2317,16 +2317,16 @@ export default function App() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false); 
   const [suggestions, setSuggestions] = useState([]); 
   
-  // --- Token-by-Token Streaming & User Scroll Lock State ---
+  // --- Token-by-Token Liquid Streaming & User Scroll Lock State ---
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
-  const streamingTimerRef = useRef<any>(null);
+  const streamingAnimFrameRef = useRef<number | null>(null);
   const isUserScrolledUpRef = useRef(false);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
 
   const streamBotResponse = (msgId: string, fullText: string, targetChatId: string, onComplete?: () => void) => {
-    if (streamingTimerRef.current) {
-      clearInterval(streamingTimerRef.current);
-      streamingTimerRef.current = null;
+    if (streamingAnimFrameRef.current) {
+      cancelAnimationFrame(streamingAnimFrameRef.current);
+      streamingAnimFrameRef.current = null;
     }
 
     if (!fullText || typeof fullText !== 'string' || !fullText.trim()) {
@@ -2337,35 +2337,34 @@ export default function App() {
 
     setStreamingMessageId(msgId);
 
-    const tokens = fullText.match(/(\s+|\S+)/g) || [fullText];
-    let currentTokenIndex = 0;
-    
-    // =========================================================================
-    // STREAMING SPEED CONTROL: Adjust these two values to tune typing speed
-    // =========================================================================
-    // tickInterval: Time in milliseconds between ticks.
-    //   - 45ms: Slow & calm reading pace
-    //   - 30ms - 35ms: Standard comfortable typing pace (Default)
-    //   - 15ms: Ultra fast typing pace
-    // tokensPerTick: Number of words/tokens revealed per tick (1 = word-by-word)
-    // =========================================================================
-    const tickInterval = 42; 
-    const tokensPerTick = 1; 
+    const totalLength = fullText.length;
+    let charIndex = 0;
+    let lastTime = performance.now();
 
-    streamingTimerRef.current = setInterval(() => {
-      currentTokenIndex += tokensPerTick;
-      if (currentTokenIndex >= tokens.length) {
-        currentTokenIndex = tokens.length;
-        clearInterval(streamingTimerRef.current);
-        streamingTimerRef.current = null;
+    // =========================================================================
+    // LIQUID STREAMING SPEED CONTROL: Adjust charsPerSecond to tune typing speed
+    // =========================================================================
+    //   - 40 - 50: Calm, ultra-smooth, eye-friendly reading pace (Default)
+    //   - 60 - 75: Standard AI typing pace
+    //   - 100+: High-speed typing
+    // =========================================================================
+    const charsPerSecond = 48;
 
-        const finalStreamText = fullText;
+    const step = (now: number) => {
+      const deltaSeconds = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+
+      charIndex += charsPerSecond * deltaSeconds;
+
+      if (charIndex >= totalLength) {
+        charIndex = totalLength;
+        streamingAnimFrameRef.current = null;
 
         setChatHistory(prev => prev.map(c => {
           if (c.id !== targetChatId) return c;
           return {
             ...c,
-            messages: (c.messages || []).map(m => m.id === msgId ? { ...m, text: finalStreamText } : m),
+            messages: (c.messages || []).map(m => m.id === msgId ? { ...m, text: fullText } : m),
             updatedAt: new Date()
           };
         }));
@@ -2376,10 +2375,14 @@ export default function App() {
         }
         if (onComplete) onComplete();
       } else {
-        const partialText = tokens.slice(0, currentTokenIndex).join('');
+        const nextCharCount = Math.floor(charIndex);
+        const partialText = fullText.slice(0, nextCharCount);
 
         setChatHistory(prev => prev.map(c => {
           if (c.id !== targetChatId) return c;
+          const targetMsg = (c.messages || []).find(m => m.id === msgId);
+          if (targetMsg && targetMsg.text === partialText) return c;
+
           return {
             ...c,
             messages: (c.messages || []).map(m => m.id === msgId ? { ...m, text: partialText } : m),
@@ -2390,8 +2393,12 @@ export default function App() {
         if (chatContainerRef.current && !isUserScrolledUpRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
+
+        streamingAnimFrameRef.current = requestAnimationFrame(step);
       }
-    }, tickInterval);
+    };
+
+    streamingAnimFrameRef.current = requestAnimationFrame(step);
   };
   
   // --- Media & Tools State ---
@@ -2826,9 +2833,9 @@ const AI_PRESETS = [
   };
 
   const switchChat = (chatId: string) => {
-    if (streamingTimerRef.current) {
-      clearInterval(streamingTimerRef.current);
-      streamingTimerRef.current = null;
+    if (streamingAnimFrameRef.current) {
+      cancelAnimationFrame(streamingAnimFrameRef.current);
+      streamingAnimFrameRef.current = null;
     }
     setStreamingMessageId(null);
     setCurrentChatId(chatId);
@@ -2935,6 +2942,11 @@ const AI_PRESETS = [
   };
 
   const createNewChat = async () => {
+    if (streamingAnimFrameRef.current) {
+      cancelAnimationFrame(streamingAnimFrameRef.current);
+      streamingAnimFrameRef.current = null;
+    }
+    setStreamingMessageId(null);
     if (!currentUser) return;
 
     const existingEmptyChat = chatHistory.find(

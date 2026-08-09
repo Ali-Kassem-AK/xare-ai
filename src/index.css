@@ -1,3 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes smoothGlow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.8), 0 0 4px rgba(56, 189, 248, 0.4);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.96);
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.4), 0 0 2px rgba(56, 189, 248, 0.2);
+  }
+}
+
+.animate-cursor-glow {
+  animation: smoothGlow 1.2s ease-in-out infinite;
+}
+
