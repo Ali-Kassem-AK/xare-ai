@@ -2769,6 +2769,82 @@ const AI_PRESETS = [
     if (window.innerWidth >= 1024) setIsSidebarOpen(true);
   }, []);
 
+  // ==========================================
+  // --- DIRECT CLIPBOARD PASTE (IMAGES & PDFS)
+  // ==========================================
+  const processPastedFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Data = event.target?.result as string;
+      
+      if (file.type.startsWith('image/')) {
+        setPendingAttachment({
+          type: 'image',
+          data: base64Data,
+          name: file.name || `pasted_image_${Date.now()}.png`,
+          size: file.size
+        });
+      } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        setPendingAttachment({
+          type: 'document',
+          data: base64Data,
+          name: file.name || `pasted_document_${Date.now()}.pdf`,
+          size: file.size
+        });
+      } else {
+        setPendingAttachment({
+          type: 'document',
+          data: base64Data,
+          name: file.name || `pasted_file_${Date.now()}`,
+          size: file.size
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (!file) continue;
+        e.preventDefault();
+        processPastedFile(file);
+        break;
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || (target.tagName === 'TEXTAREA' && target !== textareaRef.current))) {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (!file) continue;
+          e.preventDefault();
+          processPastedFile(file);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => window.removeEventListener('paste', handleGlobalPaste);
+  }, []);
+
   const touchStartYRef = useRef<number | null>(null);
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -4279,6 +4355,7 @@ const AI_PRESETS = [
                   value={inputValue}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
                   dir="auto"
                   placeholder={activeTool ? activeTool.placeholder : "Ask Xare anything..."}
                   className={`w-full max-h-48 min-h-[42px] sm:min-h-[56px] px-4 sm:px-6 bg-transparent outline-none resize-none text-[15px] ${activeTool || pendingAttachment ? 'pt-2 pb-3 sm:pb-4' : 'py-2.5 sm:py-4'} ${isDarkMode ? 'text-slate-100 placeholder-slate-500' : 'text-slate-900 placeholder-slate-500'}`}
