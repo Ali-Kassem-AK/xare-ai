@@ -2308,7 +2308,10 @@ export default function App() {
     const totalLength = fullText.length;
     let charIndex = 0;
     let lastTime = performance.now();
-
+    let lastRenderTime = 0;
+    
+    // Throttle React state re-renders to ~25fps (every 40ms) so main thread stays 100% free for scrolling
+    const RENDER_THROTTLE_MS = 40;
     const charsPerSecond = STREAMING_SPEED_CHARS_PER_SEC;
 
     const step = (now: number) => {
@@ -2336,23 +2339,27 @@ export default function App() {
         }
         if (onComplete) onComplete();
       } else {
-        const nextCharCount = Math.floor(charIndex);
-        const partialText = fullText.slice(0, nextCharCount);
+        if (now - lastRenderTime >= RENDER_THROTTLE_MS) {
+          lastRenderTime = now;
 
-        setChatHistory(prev => prev.map(c => {
-          if (c.id !== targetChatId) return c;
-          const targetMsg = (c.messages || []).find(m => m.id === msgId);
-          if (targetMsg && targetMsg.text === partialText) return c;
+          const nextCharCount = Math.floor(charIndex);
+          const partialText = fullText.slice(0, nextCharCount);
 
-          return {
-            ...c,
-            messages: (c.messages || []).map(m => m.id === msgId ? { ...m, text: partialText } : m),
-            updatedAt: new Date()
-          };
-        }));
+          setChatHistory(prev => prev.map(c => {
+            if (c.id !== targetChatId) return c;
+            const targetMsg = (c.messages || []).find(m => m.id === msgId);
+            if (targetMsg && targetMsg.text === partialText) return c;
 
-        if (chatContainerRef.current && !isUserScrolledUpRef.current) {
-          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+            return {
+              ...c,
+              messages: (c.messages || []).map(m => m.id === msgId ? { ...m, text: partialText } : m),
+              updatedAt: new Date()
+            };
+          }));
+
+          if (chatContainerRef.current && !isUserScrolledUpRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+          }
         }
 
         streamingAnimFrameRef.current = requestAnimationFrame(step);
