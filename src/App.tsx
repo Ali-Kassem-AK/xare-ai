@@ -4032,26 +4032,6 @@ const AI_PRESETS = [
 
           <div className={`absolute bottom-0 w-full p-3 sm:p-6 z-20 pointer-events-none pb-4 sm:pb-8 ${isDarkMode ? 'bg-gradient-to-t from-[#020617] via-[#020617]/95 to-transparent' : 'bg-gradient-to-t from-white via-white/95 to-transparent'}`}>
             
-            {isUserScrolledUp && (
-              <div className="flex justify-center max-w-5xl mx-auto mb-2 pointer-events-auto">
-                <button
-                  onClick={() => {
-                    isUserScrolledUpRef.current = false;
-                    setIsUserScrolledUp(false);
-                    scrollToBottom(true);
-                  }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold shadow-xl backdrop-blur-md transition-all hover:scale-105 active:scale-95 ${
-                    isDarkMode 
-                      ? 'bg-slate-800/90 text-cyan-400 border border-slate-700/80 shadow-cyan-950/50' 
-                      : 'bg-white/95 text-blue-600 border border-slate-200 shadow-slate-300/50'
-                  }`}
-                >
-                  <ChevronDown className="w-4 h-4 animate-bounce" />
-                  <span>Scroll to bottom</span>
-                </button>
-              </div>
-            )}
-            
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
                 <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
                 {suggestions.map((sug, i) => (
