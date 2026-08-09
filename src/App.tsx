@@ -4,7 +4,7 @@ import {
   Sun, Moon, Send, Bot, User, Loader2, Paperclip, Mic, ImageIcon, 
   FileText, Menu, Plus, MessageSquare, Settings, Play, Pause, X, 
   LogOut, Lock, Mail, AlignLeft, CheckCircle, Code, Languages, 
-  Globe, ChevronLeft, ChevronRight, AudioLines, Copy, Brain, Download,
+  Globe, ChevronLeft, ChevronRight, ChevronDown, AudioLines, Copy, Brain, Download,
   Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, Maximize2 // Added Zoom Icons
 } from 'lucide-react';
 
@@ -2317,9 +2317,11 @@ export default function App() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false); 
   const [suggestions, setSuggestions] = useState([]); 
   
-  // --- Token-by-Token Streaming State ---
+  // --- Token-by-Token Streaming & User Scroll Lock State ---
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const streamingTimerRef = useRef<any>(null);
+  const isUserScrolledUpRef = useRef(false);
+  const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
 
   const streamBotResponse = (msgId: string, fullText: string, targetChatId: string, onComplete?: () => void) => {
     if (streamingTimerRef.current) {
@@ -2369,7 +2371,7 @@ export default function App() {
         }));
 
         setStreamingMessageId(null);
-        if (chatContainerRef.current) {
+        if (chatContainerRef.current && !isUserScrolledUpRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
         if (onComplete) onComplete();
@@ -2385,7 +2387,7 @@ export default function App() {
           };
         }));
 
-        if (chatContainerRef.current) {
+        if (chatContainerRef.current && !isUserScrolledUpRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
       }
@@ -2733,17 +2735,26 @@ const AI_PRESETS = [
     if (window.innerWidth >= 1024) setIsSidebarOpen(true);
   }, []);
 
-  const scrollToBottom = () => {
+  const handleChatScroll = () => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    // If user is more than 80px away from bottom, mark user as scrolled up
+    const isScrolledUp = scrollHeight - scrollTop - clientHeight > 80;
+    isUserScrolledUpRef.current = isScrolledUp;
+    setIsUserScrolledUp(isScrolledUp);
+  };
+
+  const scrollToBottom = (force = false) => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTo({
-        top: chatContainerRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
+      if (isUserScrolledUpRef.current && !force) return;
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (!isUserScrolledUpRef.current) {
+      scrollToBottom();
+    }
   }, [currentChatId, chatHistory, isLoading, isVoiceModeActive, isGeneratingImage, loadingPhase, suggestions]);
 
   useEffect(() => {
@@ -3338,6 +3349,10 @@ const AI_PRESETS = [
     if (e) e.preventDefault();
     if (!inputValue.trim() && !pendingAttachment) return;
 
+    isUserScrolledUpRef.current = false;
+    setIsUserScrolledUp(false);
+    scrollToBottom(true);
+
     let baseText = inputValue.trim();
     if (!baseText && pendingAttachment) {
       baseText = pendingAttachment.type === 'image' ? " Sent an image" : ` Sent document: ${pendingAttachment.name}`;
@@ -3925,7 +3940,7 @@ const AI_PRESETS = [
             </div>
           </header>
 
-          <div ref={chatContainerRef} className="flex-1 overflow-y-auto chat-scroll w-full relative z-10">
+          <div ref={chatContainerRef} onScroll={handleChatScroll} className="flex-1 overflow-y-auto chat-scroll w-full relative z-10">
             <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2">
 
               {messages.map((msg) => (
@@ -4022,6 +4037,26 @@ const AI_PRESETS = [
           </div>
 
           <div className={`absolute bottom-0 w-full p-3 sm:p-6 z-20 pointer-events-none pb-4 sm:pb-8 ${isDarkMode ? 'bg-gradient-to-t from-[#020617] via-[#020617]/95 to-transparent' : 'bg-gradient-to-t from-white via-white/95 to-transparent'}`}>
+            
+            {isUserScrolledUp && (
+              <div className="flex justify-center max-w-5xl mx-auto mb-2 pointer-events-auto">
+                <button
+                  onClick={() => {
+                    isUserScrolledUpRef.current = false;
+                    setIsUserScrolledUp(false);
+                    scrollToBottom(true);
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold shadow-xl backdrop-blur-md transition-all hover:scale-105 active:scale-95 ${
+                    isDarkMode 
+                      ? 'bg-slate-800/90 text-cyan-400 border border-slate-700/80 shadow-cyan-950/50' 
+                      : 'bg-white/95 text-blue-600 border border-slate-200 shadow-slate-300/50'
+                  }`}
+                >
+                  <ChevronDown className="w-4 h-4 animate-bounce" />
+                  <span>Scroll to bottom</span>
+                </button>
+              </div>
+            )}
             
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
                 <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
