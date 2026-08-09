@@ -2347,7 +2347,7 @@ export default function App() {
     //   - 15ms: Ultra fast typing pace
     // tokensPerTick: Number of words/tokens revealed per tick (1 = word-by-word)
     // =========================================================================
-    const tickInterval = 50; 
+    const tickInterval = 42; 
     const tokensPerTick = 1; 
 
     streamingTimerRef.current = setInterval(() => {
