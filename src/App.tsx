@@ -514,7 +514,16 @@ export const TypingCursor = ({ isDarkMode }: { isDarkMode?: boolean }) => null;
  * Main Message Formatter with Token-by-Token Streaming Support
  */
 const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean = false) => {
-  if (!text) return null;
+  if (!text && !isStreaming) return null;
+  if (!text && isStreaming) {
+    return (
+      <div className="flex items-center gap-1.5 py-1">
+        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse [animation-delay:150ms]" />
+        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse [animation-delay:300ms]" />
+      </div>
+    );
+  }
 
   if (typeof text !== 'string') {
     try {
@@ -2374,6 +2383,9 @@ export default function App() {
     let charIndex = 0;
     let lastTime = performance.now();
     let lastRenderTime = 0;
+    
+    // Throttle React state re-renders to ~30fps (every 35ms) so main thread stays 100% free for scrolling
+    const RENDER_THROTTLE_MS = 35;
     
     // Adaptive Streaming Speed Algorithm (ChatGPT/Gemini style):
     // Dynamically scales character rate for longer responses so long code blocks/essays finish quickly
