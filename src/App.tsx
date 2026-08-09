@@ -3398,18 +3398,31 @@ const AI_PRESETS = [
             await completeBotResponse(data.payload || data.response || data.result || data.text || data);
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         clearTimeout(fetchTimeout);
-        console.log("Fetch dropped, checking DB fallback...", err);
+        console.log("Fetch dropped or HTTP 500 error, checking automatic fallback...", err);
         
         if (err.name === 'AbortError') {
              if (!isResolved) completeBotResponse("Request timed out. The server took too long to respond.", true);
         } else {
-            setTimeout(() => {
-                if (!isResolved) {
-                    completeBotResponse(`Server crashed or connection failed: ${err.message}`, true);
-                }
-            }, 3500);
+             // AUTO-HEALING FALLBACK: If n8n webhook returns 500 or fails, call Gemini API directly!
+             if (!isResolved && (finalAction === 'chat' || !finalAction || finalAction === 'text')) {
+               try {
+                 const geminiRes = await callGeminiAPI(finalMessageText);
+                 if (geminiRes && !isResolved) {
+                   await completeBotResponse(geminiRes);
+                   return;
+                 }
+               } catch (fallbackErr) {
+                 console.error("Gemini direct fallback failed:", fallbackErr);
+               }
+             }
+
+             setTimeout(() => {
+                 if (!isResolved) {
+                     completeBotResponse(`Server crashed or connection failed: ${err.message}`, true);
+                 }
+             }, 1000);
         }
       }
 
