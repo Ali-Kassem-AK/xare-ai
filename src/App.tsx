@@ -2388,10 +2388,10 @@ export default function App() {
     const RENDER_THROTTLE_MS = 35;
     
     // Adaptive Streaming Speed Algorithm (ChatGPT/Gemini style):
-    // Dynamically scales character rate for longer responses so long code blocks/essays finish quickly
+    // Dynamically scales character rate for long responses (>500 chars, e.g. code blocks) up to 120 chars/sec max
     const baseSpeed = STREAMING_SPEED_CHARS_PER_SEC;
-    const charsPerSecond = totalLength > 350 
-      ? Math.min(160, Math.max(baseSpeed, Math.ceil(totalLength / 6))) 
+    const charsPerSecond = totalLength > 500 
+      ? Math.min(120, Math.max(baseSpeed, Math.ceil(totalLength / 6))) 
       : baseSpeed;
 
     const step = (now: number) => {
