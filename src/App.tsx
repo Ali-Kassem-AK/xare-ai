@@ -745,6 +745,20 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
   // Normalize 4+ backticks to 3 backticks
   let formatText = processedText.replace(/`{4,}/g, '```');
 
+  // Auto-recovery: If text has inline `python` / `js` tag followed by code lines OR raw code without triple backticks:
+  if (!formatText.includes('```')) {
+    const inlineLangMatch = formatText.match(/`([a-zA-Z0-9_\-\+\#]+)`\s*\n+([\s\S]+)/);
+    if (inlineLangMatch) {
+      const detectedLang = inlineLangMatch[1];
+      const restCode = inlineLangMatch[2];
+      if (/\b(import|def|class|function|const|let|var|return|pygame|config)\b/.test(restCode)) {
+        const prefixIndex = inlineLangMatch.index || 0;
+        const prefixBefore = formatText.substring(0, prefixIndex);
+        formatText = (prefixBefore ? prefixBefore.trim() + '\n' : '') + '```' + detectedLang + '\n' + restCode.trim() + '\n```';
+      }
+    }
+  }
+
   if (isStreaming) {
     // Virtual-close unclosed code block during streaming so code renders inside code block container
     const codeBlockCount = (formatText.match(/```/g) || []).length;
@@ -3865,6 +3879,10 @@ const AI_PRESETS = [
     } else if (msgText.toLowerCase().startsWith('/imagine ')) {
       finalAction = 'generate_image';
       finalMessageText = msgText.substring(9).trim();
+    }
+
+    if (/\b(code|python|script|pygame|game|function|program|build|write|create|cpp|java|html|js|javascript|sql)\b/i.test(msgText)) {
+      finalMessageText += "\n\n[FORMAT DIRECTIVE: If your response includes code or scripts, you MUST wrap all code inside a standard markdown triple-backtick block, e.g. ```python\n# code\n```. Do NOT output code as plain text or inline backticks.]";
     }
 
     if (finalAction === 'generate_image' && dailyUsage.imageGenCount >= 10) {
