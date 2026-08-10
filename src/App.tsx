@@ -5126,7 +5126,7 @@ const AI_PRESETS = [
                     type="submit"
                     disabled={isLoading}
                     title="Send Message"
-                    className="group rounded-full bg-[#0B1528] hover:bg-[#11203b] text-cyan-400 border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:border-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.35)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 cursor-pointer"
+                    className="group rounded-full bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 hover:from-indigo-500 hover:via-blue-500 hover:to-cyan-400 text-white border border-indigo-300/40 shadow-[0_0_20px_rgba(79,70,229,0.45)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 cursor-pointer"
                   >
                     <Send className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
                   </button>
@@ -5137,7 +5137,7 @@ const AI_PRESETS = [
                     title={isRecording ? "Send Voice Note" : "Record Voice Note"}
                     className={`group rounded-full backdrop-blur-md transition-all border shadow-sm flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 ${
                       isRecording
-                      ? 'bg-[#0B1528] text-cyan-400 border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
+                      ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 text-white border-indigo-300/40 shadow-[0_0_20px_rgba(79,70,229,0.45)]'
                       : (isDarkMode ? 'bg-[#0c1324]/80 text-slate-300 hover:bg-slate-800 border-slate-800/50' : 'bg-white/80 text-slate-600 hover:bg-white border-slate-200/50')
                     }`}
                   >
