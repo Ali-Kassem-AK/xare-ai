@@ -3919,7 +3919,8 @@ const AI_PRESETS = [
         let rawBotText = "";
         
         if (isError) {
-           newBotMsg = { id: generateUniqueId(), text: `⚠️ **Task Error**\n\n${responseData}`, sender: 'bot', timestamp: new Date() };
+           const fallbackMessage = typeof responseData === 'string' && responseData.trim() ? responseData : "sorry but the free now fininshed please try again after 5 mins";
+           newBotMsg = { id: generateUniqueId(), text: fallbackMessage, sender: 'bot', timestamp: new Date() };
            setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, newBotMsg], updatedAt: new Date() } : c));
            setIsLoading(false);
            setActiveLoadingChatId(null);
@@ -3931,6 +3932,11 @@ const AI_PRESETS = [
 
            let botImage = parsedData.image;
            let botAudio = parsedData.audio;
+
+           // Fallback for empty text responses or rate limits
+           if ((!rawBotText || !rawBotText.trim()) && !botImage && !botAudio) {
+               rawBotText = "sorry but the free now fininshed please try again after 5 mins";
+           }
 
            if (botImage && botImage.length > 5000) { 
                const localId = 'localdb_' + generateUniqueId();
@@ -4075,7 +4081,7 @@ const AI_PRESETS = [
 
              setTimeout(() => {
                  if (!isResolved) {
-                     completeBotResponse(`Server crashed or connection failed: ${err.message}`, true);
+                     completeBotResponse("sorry but the free now fininshed please try again after 5 mins", true);
                  }
              }, 1000);
         }
@@ -4083,7 +4089,7 @@ const AI_PRESETS = [
 
     } catch (error) {
       console.error("[ERROR]:", error);
-      const errorMsg = { id: generateUniqueId(), text: `⚠️ **Message Failed to Send**\n\n${error.message}`, sender: 'bot', timestamp: new Date() };
+      const errorMsg = { id: generateUniqueId(), text: "sorry but the free now fininshed please try again after 5 mins", sender: 'bot', timestamp: new Date() };
       setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, errorMsg], updatedAt: new Date() } : c));
       setIsLoading(false);
       setActiveLoadingChatId(null);
