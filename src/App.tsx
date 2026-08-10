@@ -742,7 +742,9 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
   let processedText = cleanThinkTags(text).replace(/\\n/g, '\n').replace(/\\"/g, '"');
   if (!processedText.trim()) return null;
 
-  let formatText = processedText;
+  // Normalize 4+ backticks to 3 backticks
+  let formatText = processedText.replace(/`{4,}/g, '```');
+
   if (isStreaming) {
     // Virtual-close unclosed code block during streaming so code renders inside code block container
     const codeBlockCount = (formatText.match(/```/g) || []).length;
@@ -761,12 +763,33 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
   return blocks.map((block, bIdx) => {
     if (!block) return null;
     
-    // Code Blocks
-    if (block.startsWith('```') && block.endsWith('```')) {
-      const lines = block.slice(3, -3).split('\n');
-      const lang = lines[0].trim();
-      const code = lines.slice(1).join('\n') || lines[0]; 
-      return <CodeBlock key={bIdx} code={code} lang={lang} isDarkMode={isDarkMode} />;
+    // Code Blocks (Handles leading/trailing whitespace and language tags safely)
+    const trimmedBlock = block.trim();
+    if (trimmedBlock.startsWith('```')) {
+      let raw = trimmedBlock;
+      if (raw.endsWith('```')) {
+        raw = raw.slice(3, -3);
+      } else {
+        raw = raw.slice(3);
+      }
+
+      const firstNewline = raw.indexOf('\n');
+      let lang = '';
+      let code = '';
+
+      if (firstNewline !== -1) {
+        const possibleLang = raw.substring(0, firstNewline).trim();
+        if (/^[a-zA-Z0-9_\-\+\#]+$/.test(possibleLang)) {
+          lang = possibleLang;
+          code = raw.substring(firstNewline + 1);
+        } else {
+          code = raw;
+        }
+      } else {
+        code = raw;
+      }
+
+      return <CodeBlock key={bIdx} code={code.trimEnd()} lang={lang} isDarkMode={isDarkMode} />;
     }
 
     // Display Math
