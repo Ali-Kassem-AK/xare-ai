@@ -1021,9 +1021,9 @@ export const useTheme = () => {
       if (savedTheme) {
         return savedTheme === 'dark';
       }
-      return false;
+      return true; // Default to Dark Mode
     }
-    return false;
+    return true;
   });
 
   useEffect(() => {
@@ -1611,10 +1611,6 @@ export const ThemeToggleSwitch = ({ isDarkMode, toggleDarkMode }) => {
     </button>
   );
 };
-
-// ==========================================
-
-
 
 // ==========================================
 // --- CUSTOM AUDIO PLAYER COMPONENT
