@@ -1564,213 +1564,11 @@ export const ThemeToggleSwitch = ({ isDarkMode, toggleDarkMode }) => {
 // --- ANTI-GRAVITY BACKGROUND COMPONENT
 // ==========================================
 
-export const AntiGravityBackground = ({ isDarkMode }) => {
-  const canvasRef = useRef(null);
-  const targetMouseRef = useRef({ x: 0, y: 0 });
-  const currentMouseRef = useRef({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animationFrameId;
-    const particles = [];
-    const dpr = window.devicePixelRatio || 1; 
-
-    const initParticles = () => {
-      particles.length = 0; 
-      const spacing = 35; 
-
-      const cols = Math.floor(window.innerWidth / spacing) + 2;
-      const rows = Math.floor(window.innerHeight / spacing) + 2;
-
-      for (let i = -1; i < cols; i++) {
-        for (let j = -1; j < rows; j++) {
-          particles.push({
-            baseX: i * spacing + (Math.random() * 20 - 10), 
-            baseY: j * spacing + (Math.random() * 20 - 10), 
-            x: i * spacing, 
-            y: j * spacing, 
-            vx: 0, 
-            vy: 0, 
-            restAngle: Math.random() * Math.PI, 
-          });
-        }
-      }
-    };
-
-    let resizeTimeout;
-    const resize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        if (canvasRef.current) {
-          canvas.width = window.innerWidth * dpr;
-          canvas.height = window.innerHeight * dpr;
-          canvas.style.width = `${window.innerWidth}px`;
-          canvas.style.height = `${window.innerHeight}px`;
-          ctx.scale(dpr, dpr);
-          initParticles();
-        }
-      }, 150);
-    };
-
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    canvas.style.width = `${window.innerWidth}px`;
-    canvas.style.height = `${window.innerHeight}px`;
-    ctx.scale(dpr, dpr);
-    initParticles();
-
-    window.addEventListener('resize', resize);
-
-    const handleMouseMove = (e) => {
-      targetMouseRef.current.x = e.clientX;
-      targetMouseRef.current.y = e.clientY;
-    };
-
-    const handleTouchMove = (e) => {
-      targetMouseRef.current.x = e.touches[0].clientX;
-      targetMouseRef.current.y = e.touches[0].clientY;
-    };
-
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: true });
-
-    const colorPalette = isDarkMode ? [
-      '56, 189, 248',  // Soft Matte Cyan
-      '129, 140, 248', // Soft Matte Indigo
-      '148, 163, 184', // Soft Matte Slate
-      '99, 102, 241',  // Soft Muted Violet
-      '56, 189, 248'
-    ] : [
-      '148, 163, 184', // Soft Slate
-      '100, 116, 139', // Muted Gray
-      '71, 85, 105',   // Deep Slate
-      '148, 163, 184'
-    ];
-
-    const render = () => {
-      currentMouseRef.current.x += (targetMouseRef.current.x - currentMouseRef.current.x) * 0.08;
-      currentMouseRef.current.y += (targetMouseRef.current.y - currentMouseRef.current.y) * 0.08;
-
-      const mouse = currentMouseRef.current;
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-
-      const repulsionRadius = 300;
-      const repulsionRadiusSq = repulsionRadius * repulsionRadius; 
-      const maxVisibilityRadius = 500;
-      const maxVisSq = maxVisibilityRadius * maxVisibilityRadius; 
-      const time = Date.now() * 0.001;
-
-      const renderBuckets = {};
-
-      particles.forEach(particle => {
-        const baseDistX = particle.baseX - mouse.x;
-        const baseDistY = particle.baseY - mouse.y;
-        const baseDistSq = baseDistX * baseDistX + baseDistY * baseDistY;
-
-        if (baseDistSq > maxVisSq + 20000) {
-          particle.x = particle.baseX; 
-          particle.y = particle.baseY; 
-          particle.vx = 0; 
-          particle.vy = 0;
-          return; 
-        }
-
-        const waveX = Math.sin(particle.baseX * 0.005 + time) * 12 + Math.sin(particle.baseY * 0.005 - time) * 8;
-        const waveY = Math.cos(particle.baseY * 0.005 + time) * 12 + Math.cos(particle.baseX * 0.005 - time) * 8;
-        const targetX = particle.baseX + waveX;
-        const targetY = particle.baseY + waveY;
-
-        let dx = particle.x - mouse.x;
-        let dy = particle.y - mouse.y;
-        let distanceSq = dx * dx + dy * dy;
-
-        if (distanceSq < repulsionRadiusSq) {
-          let distance = Math.sqrt(distanceSq) || 1;
-          let force = (repulsionRadius - distance) / repulsionRadius;
-          particle.vx += (dx / distance) * force * 1.5;
-          particle.vy += (dy / distance) * force * 1.5;
-        }
-
-        particle.vx += (targetX - particle.x) * 0.015;
-        particle.vy += (targetY - particle.y) * 0.015;
-
-        particle.vx *= 0.92;
-        particle.vy *= 0.92;
-
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-
-        let currentAngle = particle.restAngle;
-        let displacementSq = (particle.x - targetX) * (particle.x - targetX) + (particle.y - targetY) * (particle.y - targetY);
-
-        if (displacementSq > 4) {
-          currentAngle = Math.atan2(particle.y - targetY, particle.x - targetX);
-        } else {
-          currentAngle = particle.restAngle + Math.sin(time + particle.baseX * 0.01) * 0.4;
-        }
-
-        if (baseDistSq < maxVisSq) {
-          const baseDistance = Math.sqrt(baseDistSq);
-          let opacity = Math.max(0, 1 - (baseDistance / maxVisibilityRadius));
-          opacity = opacity * opacity; 
-
-          if (opacity > 0.01) {
-            let colorIndex = Math.floor((baseDistance / maxVisibilityRadius) * colorPalette.length);
-            colorIndex = Math.max(0, Math.min(colorIndex, colorPalette.length - 1));
-            let particleColor = colorPalette[colorIndex];
-
-            const roundedOpacity = (Math.round(opacity * 20) / 20).toFixed(2);
-            const styleKey = `rgba(${particleColor}, ${roundedOpacity})`;
-
-            const length = 2.0;
-            const cosA = Math.cos(currentAngle) * length;
-            const sinA = Math.sin(currentAngle) * length;
-
-            if (!renderBuckets[styleKey]) renderBuckets[styleKey] = [];
-            renderBuckets[styleKey].push(particle.x - cosA, particle.y - sinA, particle.x + cosA, particle.y + sinA);
-          }
-        }
-      });
-
-      ctx.lineWidth = 2.0;
-      ctx.lineCap = 'round';
-
-      for (const style in renderBuckets) {
-        ctx.beginPath();
-        ctx.strokeStyle = style;
-        const lines = renderBuckets[style];
-        for (let i = 0; i < lines.length; i += 4) {
-          ctx.moveTo(lines[i], lines[i + 1]);
-          ctx.lineTo(lines[i + 2], lines[i + 3]);
-        }
-        ctx.stroke(); 
-      }
-
-      animationFrameId = requestAnimationFrame(render);
-    };
-
-    render();
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchmove', handleTouchMove);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []); 
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className={`absolute inset-0 pointer-events-none z-0 opacity-40 transition-colors duration-300 ${isDarkMode ? 'bg-[#0b0e14]' : 'bg-[#f4f5f7]'}`}
-    />
-  );
-};
+/**
+ * Ultra-Lightweight Modern Matte Background for Eye Comfort.
+ * Eliminates all particle canvas CPU/GPU rendering overhead for 100% smooth device performance.
+ */
+export const AntiGravityBackground = ({ isDarkMode }: { isDarkMode?: boolean }) => null;
 
 
 // ==========================================
@@ -4394,7 +4192,7 @@ const AI_PRESETS = [
 
   if (isCheckingSession) {
     return (
-      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#0b0f17] text-slate-50' : 'bg-[#f4f5f7] text-slate-900'}`}>
+      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#090d16] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
         <GoogleStyles />
         <AntiGravityBackground isDarkMode={isDarkMode} />
         <div className="relative z-10 flex flex-col items-center animate-pulse">
@@ -4416,7 +4214,7 @@ const AI_PRESETS = [
 
   if (!currentUser) {
     return (
-      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#0b0f17] text-slate-50' : 'bg-[#f4f5f7] text-slate-900'}`}>
+      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#090d16] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
         <GoogleStyles />
         <AntiGravityBackground isDarkMode={isDarkMode} />
 
@@ -4602,12 +4400,12 @@ const AI_PRESETS = [
   }
 
   return (
-    <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#0b0f17] text-slate-50' : 'bg-[#f4f5f7] text-slate-900'}`}>
+    <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#090d16] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
       <GoogleStyles />
       <AntiGravityBackground isDarkMode={isDarkMode} />
 
       {showLimitsPopup && (
-        <div className={`fixed inset-0 z-[100] flex overflow-y-auto chat-scroll p-4 sm:p-8 animate-overlay ${isDarkMode ? 'bg-[#0b0f17]/80 backdrop-blur-sm' : 'bg-slate-900/40 backdrop-blur-sm'}`}>
+        <div className={`fixed inset-0 z-[100] flex overflow-y-auto chat-scroll p-4 sm:p-8 animate-overlay ${isDarkMode ? 'bg-[#090d16]/80 backdrop-blur-sm' : 'bg-slate-900/40 backdrop-blur-sm'}`}>
           <div className={`m-auto relative w-full max-w-3xl p-5 sm:p-10 rounded-[2.5rem] shadow-2xl animate-float-up ${isDarkMode ? 'bg-[#0c1324] border border-slate-800' : 'bg-white border border-slate-200'}`}>
             
             <div className="flex flex-col items-center mb-6 mt-1">
@@ -4802,7 +4600,7 @@ const AI_PRESETS = [
         <div className="flex-1 h-full relative z-10 flex flex-col min-w-0 transition-all duration-300">
           
           {isVoiceModeActive && (
-            <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center animate-overlay ${isDarkMode ? 'bg-[#0b0f17]/95' : 'bg-[#f4f5f7]/95'}`}>
+            <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center animate-overlay ${isDarkMode ? 'bg-[#020617]/95' : 'bg-slate-50/95'}`}>
               <div className="mb-10 w-full flex justify-center">
                 <DeepgramOrb isDarkMode={isDarkMode} onClose={() => setIsVoiceModeActive(false)} />
               </div>
@@ -5217,7 +5015,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-[#0b0f17] text-white p-6 text-center">
+        <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-[#090d16] text-white p-6 text-center">
           <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl max-w-md w-full space-y-4 backdrop-blur-xl">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/20">
               <XareLogo className="w-8 h-8" scale={2.5} x="-8%" isDarkMode={true} />
