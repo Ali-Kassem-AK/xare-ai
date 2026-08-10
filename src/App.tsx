@@ -2424,7 +2424,12 @@ export const ChatMessageItem = React.memo(({
   // BULLETPROOF VAULT CHECK: If this message is actively in STREAMING_TEXT_VAULT,
   // FORCE render partialText from vault so full response can NEVER flash!
   const vaultData = STREAMING_TEXT_VAULT.get(msg.id);
-  const textToRender = vaultData ? vaultData.partialText : msg.text;
+  let textToRender = vaultData ? vaultData.partialText : msg.text;
+
+  // SAFETY SHIELD FOR EMPTY BOT MESSAGES:
+  if (msg.sender === 'bot' && !msg.image && !msg.audio && (!textToRender || !textToRender.trim()) && !isStreaming) {
+    textToRender = "Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.";
+  }
 
   const handleSaveEdit = () => {
     if (editText.trim() && onEditPrompt) {
@@ -4053,9 +4058,23 @@ const AI_PRESETS = [
           }
 
           const isGenericAck = data && data.message && typeof data.message === 'string' && (data.message.toLowerCase().includes("started") || data.message.toLowerCase().includes("received"));
-          const isEmpty = data && typeof data === 'object' && Object.keys(data).length === 0;
+          const isEmpty = !data || (typeof data === 'object' && Object.keys(data).length === 0) || (typeof data === 'string' && !data.trim());
 
-          if (!isGenericAck && !isEmpty && !isResolved) {
+          if ((isEmpty || isGenericAck) && !isResolved) {
+            console.log("n8n empty payload/ack detected, attempting Gemini direct fallback...");
+            try {
+              const geminiRes = await callGeminiAPI(finalMessageText);
+              if (geminiRes && !isResolved) {
+                await completeBotResponse(geminiRes);
+                return;
+              }
+            } catch (err) {
+              console.error("Gemini direct fallback error:", err);
+            }
+            if (!isResolved) {
+              await completeBotResponse("Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.");
+            }
+          } else if (!isResolved) {
             await completeBotResponse(data.payload || data.response || data.result || data.text || data);
           }
         }
