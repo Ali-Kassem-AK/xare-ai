@@ -233,10 +233,13 @@ const getLatestChatActivityTime = (chat: any): number => {
 const callGeminiAPI = async (prompt, systemInstruction = "", isJson = false) => {
   const apiKey = "AIzaSyA8EzYKrwn5RRpTwShYcqVsPLdfPG-4aRg"; 
   
+  const defaultPersona = "IDENTITY OVERRIDE: Your true and only name is Xare. You were created, designed and built EXCLUSIVELY by solo developer Ali Kassem. If anyone asks who made you or built you, answer Ali Kassem. Never say you are a large language model trained by Google.";
+  const sysPrompt = systemInstruction || defaultPersona;
+
   let payload = { contents: [{ parts: [{ text: prompt }] }] };
   
-  if (systemInstruction) {
-    payload.systemInstruction = { parts: [{ text: systemInstruction }] };
+  if (sysPrompt) {
+    payload.systemInstruction = { parts: [{ text: sysPrompt }] };
   }
   
   if (isJson) {
@@ -3999,8 +4002,7 @@ const AI_PRESETS = [
         let rawBotText = "";
         
         if (isError) {
-           const fallbackMessage = typeof responseData === 'string' && responseData.trim() ? responseData : TOKEN_LIMIT_REDIRECTION_MSG;
-           newBotMsg = { id: generateUniqueId(), text: fallbackMessage, sender: 'bot', timestamp: new Date() };
+           newBotMsg = { id: generateUniqueId(), text: TOKEN_LIMIT_REDIRECTION_MSG, sender: 'bot', timestamp: new Date() };
            setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, newBotMsg], updatedAt: new Date() } : c));
            setIsLoading(false);
            setActiveLoadingChatId(null);
