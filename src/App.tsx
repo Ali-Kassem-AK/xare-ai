@@ -22,7 +22,7 @@ import {
 // ==========================================
 export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached their free usage limit. Please try another tool, such as **Deep Thinking**, **Generate Image**, or **Upload Image or PDF**, or try again in a few minutes.
 
-Want to continue the conversation immediately? Click the button below, and we’ll automatically redirect you to **Gemini** so you can continue without interruption.`;
+Want to continue the conversation immediately? Click the button below, and we’ll automatically switch to **Gemini AI** so you can continue without interruption.`;
 
 // ==========================================
 // --- STREAMING SPEED & TICK INTERVAL CONFIG
@@ -2416,7 +2416,8 @@ export const ChatMessageItem = React.memo(({
   isStreaming,
   onRegenerate,
   onSwitchVersion,
-  onEditPrompt
+  onEditPrompt,
+  onSwitchToGeminiAPI
 }: { 
   msg: any; 
   isDarkMode: boolean; 
@@ -2424,6 +2425,7 @@ export const ChatMessageItem = React.memo(({
   onRegenerate?: (msgId: string) => void;
   onSwitchVersion?: (msgId: string, idx: number) => void;
   onEditPrompt?: (msgId: string, text: string) => void;
+  onSwitchToGeminiAPI?: (msgId: string) => void;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text || '');
@@ -2508,17 +2510,15 @@ export const ChatMessageItem = React.memo(({
             )
           )}
 
-          {msg.sender === 'bot' && textToRender && (textToRender.includes("redirect you to") || textToRender.includes("Gemini")) && (
+          {msg.sender === 'bot' && textToRender && (textToRender.includes("switch to") || textToRender.includes("Gemini")) && onSwitchToGeminiAPI && (
             <div className="mt-4 mb-2 flex items-center">
-              <a
-                href="https://gemini.google.com/"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => onSwitchToGeminiAPI(msg.id)}
                 className="inline-flex items-center gap-2.5 px-5 py-3 rounded-2xl font-semibold text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 active:scale-95 transition-all shadow-lg shadow-blue-500/25 hover:shadow-cyan-500/30 border border-white/10 group cursor-pointer"
               >
-                <span>Continue on Gemini</span>
-                <ExternalLink className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </a>
+                <Bot className="w-4 h-4 text-cyan-200" />
+                <span>Switch to Gemini AI</span>
+              </button>
             </div>
           )}
 
@@ -3754,6 +3754,57 @@ const AI_PRESETS = [
       }
   };
 
+  const handleSwitchToGeminiAPI = async (msgId: string) => {
+    const currentChat = chatHistory.find(c => c.id === currentChatId);
+    if (!currentChat) return;
+
+    const msgIdx = currentChat.messages.findIndex((m: any) => m.id === msgId);
+    let userPromptText = "";
+    if (msgIdx > 0) {
+      for (let i = msgIdx - 1; i >= 0; i--) {
+        if (currentChat.messages[i].sender === 'user') {
+          userPromptText = currentChat.messages[i].text;
+          break;
+        }
+      }
+    }
+    if (!userPromptText) userPromptText = "Please assist with my request.";
+
+    setIsLoading(true);
+    setActiveLoadingChatId(currentChatId);
+    setLoadingPhase('thinking');
+
+    try {
+      const geminiRes = await callGeminiAPI(userPromptText);
+      const finalAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
+      
+      const newGeminiMsg = {
+        id: generateUniqueId(),
+        text: "",
+        sender: 'bot',
+        timestamp: new Date()
+      };
+
+      setChatHistory(prev => prev.map(c => c.id === currentChatId ? {
+        ...c,
+        messages: [...c.messages, newGeminiMsg],
+        updatedAt: new Date()
+      } : c));
+
+      setIsLoading(false);
+      setActiveLoadingChatId(null);
+
+      streamBotResponse(newGeminiMsg.id, finalAnswer, currentChatId, () => {
+        triggerSuggestions(finalAnswer);
+      });
+
+    } catch (err) {
+      console.error("Direct Gemini API switch error:", err);
+      setIsLoading(false);
+      setActiveLoadingChatId(null);
+    }
+  };
+
   const sendMessageToBackend = async (
     msgText, 
     attachmentData = null, 
@@ -4766,6 +4817,7 @@ const AI_PRESETS = [
                   onRegenerate={handleRegenerateResponse}
                   onSwitchVersion={handleSwitchMessageVersion}
                   onEditPrompt={handleEditUserPrompt}
+                  onSwitchToGeminiAPI={handleSwitchToGeminiAPI}
                 />
               ))}
 
