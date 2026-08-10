@@ -18,16 +18,31 @@ import {
 } from 'firebase/firestore';
 
 // ==========================================
-// --- GLOBAL STREAMING SPEED CONFIGURATION
+// --- STREAMING SPEED & TICK INTERVAL CONFIG
 // ==========================================
 /**
- * STREAMING_SPEED_CHARS_PER_SEC: Controls how fast characters stream out on screen.
- * - 25 - 35 : Extra slow & calm reading pace
- * - 48      : Standard comfortable reading pace (Default)
- * - 75 - 100: Fast reading pace
- * - 150+    : Ultra high-speed streaming
+ * STREAMING_CONFIG: Control streaming word/character typing speed and update tick interval.
+ * 
+ * - charsPerSecond : Base typing speed in characters per second.
+ *                    - 25 - 35 : Extra calm & slow reading pace
+ *                    - 55      : Natural comfortable reading pace (Default)
+ *                    - 75 - 100: Fast reading pace
+ *                    - 150+    : High-speed typing
+ * 
+ * - tickIntervalMs : Render update throttle tick interval in milliseconds (ms).
+ *                    - 16ms : 60fps ultra-fluid tick
+ *                    - 30ms : 33fps smooth liquid tick (Default - optimal performance)
+ *                    - 50ms : 20fps relaxed tick
+ * 
+ * - enableAdaptiveSpeed : Auto-scales typing speed for long responses (>500 chars).
+ * - maxAdaptiveSpeed    : Max speed cap for long responses (chars/sec).
  */
-export const STREAMING_SPEED_CHARS_PER_SEC = 55;
+export const STREAMING_CONFIG = {
+  charsPerSecond: 55,         // Base typing speed (chars/sec)
+  tickIntervalMs: 30,         // Render update tick interval in ms (16ms = 60fps, 30ms = 33fps)
+  enableAdaptiveSpeed: true,  // Auto-scale speed for long text
+  maxAdaptiveSpeed: 120,      // Max speed cap for long text (chars/sec)
+};
 
 // ==========================================
 // --- TOOL & ANIMATION PHASE DURATIONS (MS)
@@ -2422,14 +2437,11 @@ export default function App() {
     let lastTime = performance.now();
     let lastRenderTime = 0;
     
-    // Throttle React state re-renders to ~30fps (every 35ms) so main thread stays 100% free for scrolling
-    const RENDER_THROTTLE_MS = 35;
-    
-    // Adaptive Streaming Speed Algorithm (ChatGPT/Gemini style):
-    // Dynamically scales character rate for long responses (>500 chars, e.g. code blocks) up to 120 chars/sec max
-    const baseSpeed = STREAMING_SPEED_CHARS_PER_SEC;
-    const charsPerSecond = totalLength > 500 
-      ? Math.min(120, Math.max(baseSpeed, Math.ceil(totalLength / 6))) 
+    // Streaming speed & render throttle config from STREAMING_CONFIG
+    const RENDER_THROTTLE_MS = STREAMING_CONFIG.tickIntervalMs;
+    const baseSpeed = STREAMING_CONFIG.charsPerSecond;
+    const charsPerSecond = (STREAMING_CONFIG.enableAdaptiveSpeed && totalLength > 500) 
+      ? Math.min(STREAMING_CONFIG.maxAdaptiveSpeed, Math.max(baseSpeed, Math.ceil(totalLength / 6))) 
       : baseSpeed;
 
     const step = (now: number) => {
