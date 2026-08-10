@@ -3027,9 +3027,7 @@ const AI_PRESETS = [
     };
   }, [isLoading, loadingType]);
 
-  useEffect(() => {
-    if (window.innerWidth >= 1024) setIsSidebarOpen(true);
-  }, []);
+
 
   // ==========================================
   // --- VERSION SWITCHING & PROMPT EDITING
