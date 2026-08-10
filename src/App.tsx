@@ -3200,7 +3200,7 @@ const AI_PRESETS = [
     return html;
   };
 
-  const exportChatToPDF = () => {
+  const exportChatToPDF = async () => {
     const activeChat = chatHistory.find(c => c.id === currentChatId);
     if (!activeChat) return;
 
@@ -3208,24 +3208,48 @@ const AI_PRESETS = [
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const userName = currentUser?.username || 'User';
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    // Resolve image attachments for all messages in parallel (from IndexedDB or direct URLs)
+    const resolvedMessages = await Promise.all(
+      (activeChat.messages || []).map(async (m: any) => {
+        let imageUrl: string | null = null;
+        if (m.image) {
+          if (typeof m.image === 'string' && m.image.startsWith('localdb_')) {
+            try {
+              imageUrl = await getFromLocalDB(m.image);
+            } catch (e) {
+              console.warn("Failed to load local DB image for PDF export", e);
+            }
+          } else {
+            imageUrl = m.image;
+          }
+        }
+        return { ...m, resolvedImageUrl: imageUrl };
+      })
+    );
 
-    const messagesHTML = (activeChat.messages || []).map((m: any) => {
+    const messagesHTML = resolvedMessages.map((m: any) => {
       const renderedContent = renderMarkdownToHTMLForPDF(m.text || '');
       const isUser = m.sender === 'user';
+      const imageHTML = m.resolvedImageUrl 
+        ? `<div style="margin-bottom: 14px; margin-top: 6px;"><img src="${m.resolvedImageUrl}" style="max-width: 100%; max-height: 480px; border-radius: 16px; border: 1px solid #cbd5e1; object-fit: contain; display: block; box-shadow: 0 2px 10px rgba(0,0,0,0.06);" /></div>` 
+        : '';
+
       return `
         <div class="${isUser ? 'msg-card-user' : 'msg-card-bot'}">
           <div class="sender-header ${isUser ? 'sender-user' : 'sender-bot'}">
             <span>${isUser ? '👤' : '🤖'}</span>
             <span>${isUser ? userName : 'Xare AI'}</span>
           </div>
+          ${imageHTML}
           <div class="msg-content">
             ${renderedContent}
           </div>
         </div>
       `;
     }).join('');
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -3336,9 +3360,28 @@ const AI_PRESETS = [
             Generated with Xare AI • Ultra-Modern AI Platform • https://github.com/Ali-Kassem-AK/xare-ai
           </div>
           <script>
-            window.onload = function() {
-              window.print();
+            const images = document.querySelectorAll('img');
+            let loaded = 0;
+            const triggerPrint = () => {
+              setTimeout(() => {
+                window.print();
+              }, 300);
             };
+            if (images.length === 0) {
+              triggerPrint();
+            } else {
+              images.forEach(img => {
+                if (img.complete) {
+                  loaded++;
+                  if (loaded === images.length) triggerPrint();
+                } else {
+                  img.onload = img.onerror = () => {
+                    loaded++;
+                    if (loaded === images.length) triggerPrint();
+                  };
+                }
+              });
+            }
           </script>
         </body>
       </html>
