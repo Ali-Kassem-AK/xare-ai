@@ -4677,6 +4677,18 @@ const AI_PRESETS = [
           >
             <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2">
 
+              {messages.length === 0 && (
+                <div className="flex flex-col items-center justify-center min-h-[50vh] text-center my-auto px-4 animate-float-up select-none">
+                  <XareLogo className="w-16 h-16 sm:w-20 sm:h-20 mb-6 drop-shadow-2xl" scale={3.4} x="-8%" isDarkMode={isDarkMode} />
+                  <h1 className={`text-2xl sm:text-4xl font-bold tracking-tight mb-3 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                    What can I help with today?
+                  </h1>
+                  <p className={`text-sm sm:text-base max-w-md ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Ask questions, write code, analyze data, or generate images effortlessly.
+                  </p>
+                </div>
+              )}
+
               {messages.map((msg) => (
                 <ChatMessageItem
                   key={msg.id}
@@ -4743,7 +4755,7 @@ const AI_PRESETS = [
             </div>
           </div>
 
-          <div className={`absolute bottom-0 w-full p-3 sm:p-6 z-20 pointer-events-none pb-4 sm:pb-8 ${isDarkMode ? 'bg-gradient-to-t from-[#020617] via-[#020617]/95 to-transparent' : 'bg-gradient-to-t from-white via-white/95 to-transparent'}`}>
+          <div className={`absolute bottom-0 w-full p-3 sm:p-6 z-20 pointer-events-none pb-4 sm:pb-8 ${isDarkMode ? 'bg-gradient-to-t from-[#090d16] via-[#090d16]/95 to-transparent' : 'bg-gradient-to-t from-white via-white/95 to-transparent'}`}>
             
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
                 <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
