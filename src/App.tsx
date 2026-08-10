@@ -4543,9 +4543,9 @@ const AI_PRESETS = [
         )}
 
         <aside
-          className={`fixed lg:relative z-50 h-full flex flex-col backdrop-blur-xl border-r transition-all duration-300 ease-in-out ${
+          className={`fixed lg:relative z-50 h-full flex flex-col backdrop-blur-2xl border-r transition-all duration-300 ease-in-out shadow-2xl ${
             isSidebarOpen ? 'w-[280px] translate-x-0' : 'w-[280px] -translate-x-full lg:w-0 lg:translate-x-0 lg:border-none'
-          } ${isDarkMode ? 'bg-[#060c1c]/95 border-slate-800/50' : 'bg-white/95 border-slate-200/50'}`}
+          } ${isDarkMode ? 'bg-[#070d1a]/70 border-slate-800/40 text-slate-200' : 'bg-white/70 border-slate-200/60 text-slate-800'}`}
         >
           <div className={`w-[280px] h-full flex flex-col transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
             <div className="p-3">
