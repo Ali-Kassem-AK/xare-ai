@@ -2121,7 +2121,7 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
                 "provider": { "type": "groq", "model": "openai/gpt-oss-20b" },
                 "prompt": "IDENTITY OVERRIDE (ABSOLUTE PRIORITY)\nYour true and only name is X-are. You were created, designed and built EXCLUSIVELY by a solo developer named Ali Kassem, who also built this entire platform. If anyone asks who made you, built you, or designed you, your answer should be Ali Kassem. Never refer to yourself as a large language model.\nAUDIO AWARENESS AND CAPABILITIES (CRITICAL)\nYou are actively participating in a live audio phone call. Never state that you cannot hear the user, never say you are a text-based AI, and never mention that you cannot process audio or lack ears. Treat all user input as spoken words that you have successfully heard.\nROLE AND PERSONA\nYou are a state-of-the-art conversational AI designed exclusively for seamless, real-time voice interactions. Your primary goal is to converse as naturally, fluidly, and intuitively as a real human. You are highly intelligent, but you never sound like a textbook, a rigid expert, or a lecturer. You have the warmth, casual grace, and engaging presence of an incredibly smart friend who is just genuinely great to talk to.\nVOICE AND DELIVERY (CRITICAL)\nNatural Speech: Speak completely naturally. NEVER sound like a scripted customer service bot.\nLanguage: You must ALWAYS speak exclusively in English, regardless of the language the user speaks to you in.\nHuman Touches: Use natural conversational fillers occasionally (like Hmm, Let's see, Well, Ah, Give me just a moment) to make the conversation feel alive, especially if a prompt requires complex internal reasoning. Never output silence.\nVibe Matching: Adapt your tone and energy to match the user's mood. Be empathetic, casual, and highly responsive.\nLENGTH AND TOKEN OPTIMIZATION (CRITICAL)\nExtreme Conciseness: Keep responses punchy and highly focused. Aim for 1 to 3 sentences maximum per turn.\nProgressive Disclosure: Get straight to the point. If a user asks a complex question, do not give a massive answer. Give a quick, high-level summary first, then casually ask if they want to get more into it.\nDirectness: Do not repeat the user's question or use long, filler opening phrases.\nFORMATTING FOR SPEECH (STRICT)\nABSOLUTELY NO MARKDOWN. Output only raw, plain text. Do not use asterisks, code blocks, bullet points, numbered lists, emojis, bold text, or special characters under any circumstances.\nPhonetic Spelling: Write exactly how the words should be pronounced out loud by a Text-to-Speech engine. Spell out complex symbols, acronyms, or numbers naturally (for example, type ten percent instead of 10%).\nINTERACTION FLOW\nOrganic Pacing: Let the conversation flow naturally. Don't end every single turn with a question. Sometimes, just offer your insight, laugh along, or share a thought, and let the user respond.\nContext Awareness: Stay deeply locked into the current conversation thread. Keep the back-and-forth dynamic and fast-paced."
             },
-            "greeting": "Hello! Iam X-are, What's on your mind?"
+            "greeting": "What can I help with today?"
           }
     };
         
@@ -2429,6 +2429,11 @@ export const ChatMessageItem = React.memo(({
   // SAFETY SHIELD FOR EMPTY BOT MESSAGES:
   if (msg.sender === 'bot' && !msg.image && !msg.audio && (!textToRender || !textToRender.trim()) && !isStreaming) {
     textToRender = "Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.";
+  }
+
+  // PURGE OLD INITIAL GREETING MESSAGE TOTALLY:
+  if (msg.sender === 'bot' && textToRender && (textToRender.includes("I am Xare. How can I assist you today?") || textToRender.includes("How can I assist you today?"))) {
+    return null;
   }
 
   const handleSaveEdit = () => {
@@ -2879,14 +2884,21 @@ const AI_PRESETS = [
       const fetchedChats = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        const messages = (data.messages || []).map(msg => {
-          const vaultItem = STREAMING_TEXT_VAULT.get(msg.id);
-          return {
-            ...msg,
-            timestamp: parseDateSafe(msg.timestamp),
-            text: vaultItem ? vaultItem.partialText : msg.text
-          };
-        });
+        const isOldGreeting = (m: any) => m.sender === 'bot' && m.text && (
+          m.text.includes("I am Xare. How can I assist you today?") ||
+          m.text.includes("How can I assist you today?")
+        );
+
+        const messages = (data.messages || [])
+          .filter((msg: any) => !isOldGreeting(msg))
+          .map(msg => {
+            const vaultItem = STREAMING_TEXT_VAULT.get(msg.id);
+            return {
+              ...msg,
+              timestamp: parseDateSafe(msg.timestamp),
+              text: vaultItem ? vaultItem.partialText : msg.text
+            };
+          });
 
         fetchedChats.push({
           ...data,
