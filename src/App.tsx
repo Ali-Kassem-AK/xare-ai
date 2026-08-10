@@ -451,17 +451,6 @@ export const MessageActions = ({
           {isCopied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
           <span>{isCopied ? 'Copied' : 'Copy'}</span>
         </button>
-
-        {onRegenerate && (
-          <button 
-            onClick={onRegenerate} 
-            title="Regenerate response" 
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'text-slate-400 hover:text-cyan-400 hover:bg-slate-800' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-100'}`}
-          >
-            <RotateCw className="w-3.5 h-3.5" />
-            <span>Regenerate</span>
-          </button>
-        )}
       </div>
 
       {/* Version Switcher Controls (< 1 / 2 >) */}
