@@ -5,7 +5,7 @@ import {
   FileText, Menu, Plus, MessageSquare, Settings, Play, Pause, X, 
   LogOut, Lock, Mail, AlignLeft, CheckCircle, Code, Languages, 
   Globe, ChevronLeft, ChevronRight, ChevronDown, AudioLines, Copy, Brain, Download,
-  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, ExternalLink
+  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, ExternalLink, Sparkles
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
