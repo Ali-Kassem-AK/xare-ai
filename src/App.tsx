@@ -2443,6 +2443,52 @@ export const LocalAudioRenderer = ({ src, sender, isDarkMode, isVoiceMessage }) 
 
 
 /**
+ * Action buttons row (Copy & Edit Pencil) rendered directly UNDER user prompt bubbles (ChatGPT style).
+ */
+const UserMessageActions = ({ 
+  text, 
+  isDarkMode, 
+  onEdit 
+}: { 
+  text: string; 
+  isDarkMode: boolean; 
+  onEdit?: () => void; 
+}) => {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await copyToClipboard(text);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex items-center justify-end gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button
+        onClick={handleCopy}
+        className={`p-1.5 rounded-lg transition-colors ${
+          isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-700'
+        }`}
+        title="Copy prompt"
+      >
+        {isCopied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+      </button>
+      {onEdit && (
+        <button
+          onClick={onEdit}
+          className={`p-1.5 rounded-lg transition-colors ${
+            isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-700'
+          }`}
+          title="Edit prompt"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  );
+};
+
+/**
  * Bulletproof Streaming Vault (ChatGPT/Gemini Style Zero-Flash Architecture)
  * Guarantees that full responses NEVER leak or flash on screen, forcing 100% partial text rendering.
  */
@@ -2497,70 +2543,71 @@ export const ChatMessageItem = React.memo(({
         </div>
       )}
 
-      <div
-        className={`${msg.sender === 'user' ? 'max-w-[85%] md:max-w-[75%]' : 'max-w-[96%] md:max-w-[94%]'} ${
-          msg.sender === 'user'
-          ? (isDarkMode ? 'bg-[#080c14] text-slate-100 border border-slate-800/50' : 'bg-[#f0f4f9] text-slate-900') + ' rounded-[24px] px-5 py-3 shadow-sm relative'
-          : (isDarkMode ? 'bg-[#0f1523] text-slate-100 border-slate-800/50' : 'bg-white text-slate-900 border-slate-200/50 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)]') + ' border rounded-[24px] px-5 py-4 sm:px-6 sm:py-5 overflow-hidden'
-        } ${isStreaming ? (isDarkMode ? 'ring-1 ring-cyan-500/30 shadow-[0_0_20px_-3px_rgba(56,189,248,0.15)]' : 'ring-1 ring-blue-400/40 shadow-[0_0_20px_-3px_rgba(59,130,246,0.12)]') : ''} transition-all duration-300`}
-      >
-        {msg.image && <LocalImageRenderer src={msg.image} isDarkMode={isDarkMode} />}
+      <div className={`flex flex-col ${msg.sender === 'user' ? 'items-end max-w-[85%] md:max-w-[75%]' : 'items-start max-w-[96%] md:max-w-[94%]'}`}>
+        <div
+          className={`${
+            msg.sender === 'user'
+            ? (isDarkMode ? 'bg-[#080c14] text-slate-100 border border-slate-800/50' : 'bg-[#f0f4f9] text-slate-900') + ' rounded-[24px] px-5 py-3 shadow-sm'
+            : (isDarkMode ? 'bg-[#0f1523] text-slate-100 border-slate-800/50' : 'bg-white text-slate-900 border-slate-200/50 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)]') + ' border rounded-[24px] px-5 py-4 sm:px-6 sm:py-5 overflow-hidden w-full'
+          } ${isStreaming ? (isDarkMode ? 'ring-1 ring-cyan-500/30 shadow-[0_0_20px_-3px_rgba(56,189,248,0.15)]' : 'ring-1 ring-blue-400/40 shadow-[0_0_20px_-3px_rgba(59,130,246,0.12)]') : ''} transition-all duration-300`}
+        >
+          {msg.image && <LocalImageRenderer src={msg.image} isDarkMode={isDarkMode} />}
 
-        {msg.document && <LocalDocumentRenderer src={msg.document} isDarkMode={isDarkMode} />}
+          {msg.document && <LocalDocumentRenderer src={msg.document} isDarkMode={isDarkMode} />}
 
-        {msg.sender === 'user' && isEditing ? (
-          <div className="space-y-2.5 min-w-[240px] sm:min-w-[320px]">
-            <textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              className={`w-full p-2.5 rounded-xl border text-sm outline-none resize-none ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
-              rows={3}
+          {msg.sender === 'user' && isEditing ? (
+            <div className="space-y-2.5 min-w-[240px] sm:min-w-[320px]">
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className={`w-full p-2.5 rounded-xl border text-sm outline-none resize-none ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                rows={3}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                >
+                  Save & Submit
+                </button>
+              </div>
+            </div>
+          ) : (
+            !(msg.audio && textToRender === "🎤 Voice Message") && (
+              <div dir="auto" className={`font-normal w-full ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ wordBreak: 'break-word' }}>
+                {formatMessageText(textToRender, isDarkMode, isStreaming)}
+              </div>
+            )
+          )}
+
+          {msg.sender === 'bot' && textToRender && !isStreaming && !(msg.audio && textToRender === "🎤 Voice Message") && (
+            <MessageActions 
+              text={textToRender} 
+              isDarkMode={isDarkMode} 
+              msg={msg} 
+              onRegenerate={onRegenerate ? () => onRegenerate(msg.id) : undefined}
+              onSwitchVersion={onSwitchVersion ? (idx) => onSwitchVersion(msg.id, idx) : undefined}
             />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setIsEditing(false)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                className="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-              >
-                Save & Submit
-              </button>
-            </div>
-          </div>
-        ) : (
-          !(msg.audio && textToRender === "🎤 Voice Message") && (
-            <div dir="auto" className={`font-normal w-full ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ wordBreak: 'break-word' }}>
-              {formatMessageText(textToRender, isDarkMode, isStreaming)}
-            </div>
-          )
-        )}
+          )}
 
-        {msg.sender === 'user' && !isEditing && onEditPrompt && (
-          <button
-            onClick={() => { setEditText(msg.text); setIsEditing(true); }}
-            className={`absolute top-2.5 right-2.5 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
-            title="Edit prompt"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-        )}
+          {msg.audio && (
+            <LocalAudioRenderer src={msg.audio} sender={msg.sender} isDarkMode={isDarkMode} isVoiceMessage={textToRender === "🎤 Voice Message"} />
+          )}
+        </div>
 
-        {msg.sender === 'bot' && textToRender && !isStreaming && !(msg.audio && textToRender === "🎤 Voice Message") && (
-          <MessageActions 
-            text={textToRender} 
+        {/* User Prompt Action Row (Copy & Pencil Edit) Underneath Prompt Bubble */}
+        {msg.sender === 'user' && !isEditing && (
+          <UserMessageActions 
+            text={msg.text} 
             isDarkMode={isDarkMode} 
-            msg={msg} 
-            onRegenerate={onRegenerate ? () => onRegenerate(msg.id) : undefined}
-            onSwitchVersion={onSwitchVersion ? (idx) => onSwitchVersion(msg.id, idx) : undefined}
+            onEdit={onEditPrompt ? () => { setEditText(msg.text); setIsEditing(true); } : undefined} 
           />
-        )}
-
-        {msg.audio && (
-          <LocalAudioRenderer src={msg.audio} sender={msg.sender} isDarkMode={isDarkMode} isVoiceMessage={textToRender === "🎤 Voice Message"} />
         )}
       </div>
     </div>
