@@ -5,7 +5,7 @@ import {
   FileText, Menu, Plus, MessageSquare, Settings, Play, Pause, X, 
   LogOut, Lock, Mail, AlignLeft, CheckCircle, Code, Languages, 
   Globe, ChevronLeft, ChevronRight, ChevronDown, AudioLines, Copy, Brain, Download,
-  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2
+  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, ExternalLink
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -16,6 +16,13 @@ import {
 import { 
   getFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment 
 } from 'firebase/firestore';
+
+// ==========================================
+// --- TOKEN LIMIT & REDIRECTION CONFIG
+// ==========================================
+export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached their free usage limit. Please try another tool, such as **Deep Thinking**, **Generate Image**, or **Upload Image or PDF**, or try again in a few minutes.
+
+Want to continue the conversation immediately? Click the button below, and we’ll automatically redirect you to **Gemini** so you can continue without interruption.`;
 
 // ==========================================
 // --- STREAMING SPEED & TICK INTERVAL CONFIG
@@ -2428,7 +2435,7 @@ export const ChatMessageItem = React.memo(({
 
   // SAFETY SHIELD FOR EMPTY BOT MESSAGES:
   if (msg.sender === 'bot' && !msg.image && !msg.audio && (!textToRender || !textToRender.trim()) && !isStreaming) {
-    textToRender = "Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.";
+    textToRender = TOKEN_LIMIT_REDIRECTION_MSG;
   }
 
   // PURGE OLD INITIAL GREETING MESSAGE TOTALLY:
@@ -2499,6 +2506,20 @@ export const ChatMessageItem = React.memo(({
                 {formatMessageText(textToRender, isDarkMode, isStreaming)}
               </div>
             )
+          )}
+
+          {msg.sender === 'bot' && textToRender && (textToRender.includes("redirect you to") || textToRender.includes("Gemini")) && (
+            <div className="mt-4 mb-2 flex items-center">
+              <a
+                href="https://gemini.google.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2.5 px-5 py-3 rounded-2xl font-semibold text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 active:scale-95 transition-all shadow-lg shadow-blue-500/25 hover:shadow-cyan-500/30 border border-white/10 group cursor-pointer"
+              >
+                <span>Continue on Gemini</span>
+                <ExternalLink className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </a>
+            </div>
           )}
 
           {msg.sender === 'bot' && textToRender && !isStreaming && !(msg.audio && textToRender === "🎤 Voice Message") && (
@@ -3927,7 +3948,7 @@ const AI_PRESETS = [
         let rawBotText = "";
         
         if (isError) {
-           const fallbackMessage = typeof responseData === 'string' && responseData.trim() ? responseData : "Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.";
+           const fallbackMessage = typeof responseData === 'string' && responseData.trim() ? responseData : TOKEN_LIMIT_REDIRECTION_MSG;
            newBotMsg = { id: generateUniqueId(), text: fallbackMessage, sender: 'bot', timestamp: new Date() };
            setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, newBotMsg], updatedAt: new Date() } : c));
            setIsLoading(false);
@@ -3943,7 +3964,7 @@ const AI_PRESETS = [
 
            // Fallback for empty text responses or rate limits
            if ((!rawBotText || !rawBotText.trim()) && !botImage && !botAudio) {
-               rawBotText = "Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.";
+               rawBotText = TOKEN_LIMIT_REDIRECTION_MSG;
            }
 
            if (botImage && botImage.length > 5000) { 
@@ -4064,54 +4085,22 @@ const AI_PRESETS = [
           const isEmpty = !data || (typeof data === 'object' && Object.keys(data).length === 0) || (typeof data === 'string' && !data.trim());
 
           if ((isEmpty || isGenericAck) && !isResolved) {
-            console.log("n8n empty payload/ack detected, attempting Gemini direct fallback...");
-            try {
-              const geminiRes = await callGeminiAPI(finalMessageText);
-              if (geminiRes && !isResolved) {
-                await completeBotResponse(geminiRes);
-                return;
-              }
-            } catch (err) {
-              console.error("Gemini direct fallback error:", err);
-            }
-            if (!isResolved) {
-              await completeBotResponse("Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.");
-            }
+            await completeBotResponse(TOKEN_LIMIT_REDIRECTION_MSG);
           } else if (!isResolved) {
             await completeBotResponse(data.payload || data.response || data.result || data.text || data);
           }
         }
       } catch (err: any) {
         clearTimeout(fetchTimeout);
-        console.log("Fetch dropped or HTTP 500 error, checking automatic fallback...", err);
-        
-        if (err.name === 'AbortError') {
-             if (!isResolved) completeBotResponse("Request timed out. The server took too long to respond.", true);
-        } else {
-             // AUTO-HEALING FALLBACK: If n8n webhook returns 500 or fails, call Gemini API directly!
-             if (!isResolved && (finalAction === 'chat' || !finalAction || finalAction === 'text')) {
-               try {
-                 const geminiRes = await callGeminiAPI(finalMessageText);
-                 if (geminiRes && !isResolved) {
-                   await completeBotResponse(geminiRes);
-                   return;
-                 }
-               } catch (fallbackErr) {
-                 console.error("Gemini direct fallback failed:", fallbackErr);
-               }
-             }
-
-             setTimeout(() => {
-                 if (!isResolved) {
-                     completeBotResponse("Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.", true);
-                 }
-             }, 1000);
+        console.log("Fetch dropped or HTTP error:", err);
+        if (!isResolved) {
+          completeBotResponse(TOKEN_LIMIT_REDIRECTION_MSG, true);
         }
       }
 
     } catch (error) {
       console.error("[ERROR]:", error);
-      const errorMsg = { id: generateUniqueId(), text: "Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.", sender: 'bot', timestamp: new Date() };
+      const errorMsg = { id: generateUniqueId(), text: TOKEN_LIMIT_REDIRECTION_MSG, sender: 'bot', timestamp: new Date() };
       setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, errorMsg], updatedAt: new Date() } : c));
       setIsLoading(false);
       setActiveLoadingChatId(null);
