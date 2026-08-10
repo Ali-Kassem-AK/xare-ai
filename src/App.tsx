@@ -38,7 +38,7 @@ import {
  * - maxAdaptiveSpeed    : Max speed cap for long responses (chars/sec).
  */
 export const STREAMING_CONFIG = {
-  charsPerSecond: 55,         // Base typing speed (chars/sec)
+  charsPerSecond: 65,         // Base typing speed (chars/sec)
   tickIntervalMs: 30,         // Render update tick interval in ms (16ms = 60fps, 30ms = 33fps)
   enableAdaptiveSpeed: true,  // Auto-scale speed for long text
   maxAdaptiveSpeed: 120,      // Max speed cap for long text (chars/sec)
@@ -1764,7 +1764,7 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
 // --- WEBHOOK CONFIGURATION
 // ==========================================
 
-const N8N_WEBHOOK_URL = "https://aliiis-24-7-n8n.hf.space/webhook-test/9373cba5-102c-4b45-9dbf-5248fd3c40af";
+const N8N_WEBHOOK_URL = "https://aliiis-24-7-n8n.hf.space/webhook/9373cba5-102c-4b45-9dbf-5248fd3c40af";
 
 // ==========================================
 // --- UTILITY FUNCTIONS
