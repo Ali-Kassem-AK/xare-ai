@@ -3852,44 +3852,6 @@ const AI_PRESETS = [
       finalMessageText = msgText.substring(9).trim();
     }
 
-    const activeMode = chatModelModes[targetChatId] || 'xare';
-
-    // DIRECT GEMINI MODE ROUTER (If user previously clicked 'Switch to Gemini AI')
-    if (activeMode === 'gemini' && (finalAction === 'chat' || !finalAction || finalAction === 'text')) {
-      setIsLoading(true);
-      setActiveLoadingChatId(targetChatId);
-      setLoadingPhase('thinking');
-
-      try {
-        const geminiRes = await callGeminiAPI(finalMessageText);
-        const finalAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
-        
-        const newGeminiMsg = {
-          id: generateUniqueId(),
-          text: "",
-          sender: 'bot',
-          modelEngine: 'gemini',
-          timestamp: new Date()
-        };
-
-        setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
-          ...c,
-          messages: [...c.messages, newGeminiMsg],
-          updatedAt: new Date()
-        } : c));
-
-        setIsLoading(false);
-        setActiveLoadingChatId(null);
-
-        streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
-          triggerSuggestions(finalAnswer);
-        });
-        return;
-      } catch (err) {
-        console.error("Gemini API mode execution error:", err);
-      }
-    }
-
     if (/\b(code|python|script|pygame|game|function|program|build|write|create|cpp|java|html|js|javascript|sql)\b/i.test(msgText)) {
       finalMessageText += "\n\n[FORMAT DIRECTIVE: If your response includes code or scripts, you MUST wrap all code inside a standard markdown triple-backtick block, e.g. ```python\n# code\n```. Do NOT output code as plain text or inline backticks.]";
     }
@@ -3989,14 +3951,10 @@ const AI_PRESETS = [
         }
       }
 
-      const messagesToUse = isEditMode 
-        ? (activeChat.messages || []) 
-        : [...(activeChat.messages || []), newUserMsg];
-
       const chatToUpdate = {
         ...activeChat,
         title: updatedTitle,
-        messages: messagesToUse,
+        messages: [...(activeChat.messages || []), newUserMsg],
         updatedAt: new Date()
       };
 
@@ -4011,6 +3969,43 @@ const AI_PRESETS = [
     setSuggestions([]);
     setIsLoading(true);
     setActiveLoadingChatId(targetChatId);
+
+    const activeMode = chatModelModes[targetChatId] || 'xare';
+
+    // DIRECT GEMINI MODE ROUTER (If user previously clicked 'Switch to Gemini AI')
+    if (activeMode === 'gemini' && (finalAction === 'chat' || !finalAction || finalAction === 'text')) {
+      setLoadingPhase('thinking');
+
+      try {
+        const geminiRes = await callGeminiAPI(finalMessageText);
+        const finalAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
+        
+        const newGeminiMsg = {
+          id: generateUniqueId(),
+          text: "",
+          sender: 'bot',
+          modelEngine: 'gemini',
+          timestamp: new Date()
+        };
+
+        setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+          ...c,
+          messages: [...c.messages, newGeminiMsg],
+          updatedAt: new Date()
+        } : c));
+
+        setIsLoading(false);
+        setActiveLoadingChatId(null);
+
+        streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
+          triggerSuggestions(finalAnswer);
+        });
+        return;
+      } catch (err) {
+        console.error("Gemini API mode execution error:", err);
+      }
+    }
+
     let uiLoadingType = attachmentType || 'text';
     
     if (toolLabel) {
