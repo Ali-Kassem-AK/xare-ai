@@ -2863,7 +2863,7 @@ const AI_PRESETS = [
         const initChat = {
           id: initChatId,
           title: 'New Chat',
-          messages: [{ id: generateUniqueId(), text: `Hello ${currentUser.username}! I am Xare. How can I assist you today?`, sender: 'bot', timestamp: new Date() }],
+          messages: [],
           updatedAt: new Date()
         };
         setChatHistory([initChat]);
@@ -2899,16 +2899,14 @@ const AI_PRESETS = [
 
       if (!hasInitializedRef.current) {
           const topChat = fetchedChats[0];
-          const isTopChatEmpty = topChat && topChat.messages.length === 1 && topChat.messages[0].sender === 'bot';
-
-          if (isTopChatEmpty) {
+          if (topChat) {
               setCurrentChatId(topChat.id);
           } else {
               const initChatId = generateUniqueId();
               const initChat = {
                 id: initChatId,
                 title: 'New Chat',
-                messages: [{ id: generateUniqueId(), text: `Hello ${currentUser.username}! I am Xare. How can I assist you today?`, sender: 'bot', timestamp: new Date() }],
+                messages: [],
                 updatedAt: new Date()
               };
               fetchedChats.unshift(initChat);
@@ -3674,14 +3672,7 @@ const AI_PRESETS = [
     const newChat = {
       id: newChatId,
       title: 'New Chat',
-      messages: [
-        {
-          id: generateUniqueId(),
-          text: `Hello ${currentUser.username}! I am Xare. How can I assist you today?`,
-          sender: 'bot',
-          timestamp: new Date()
-        }
-      ],
+      messages: [],
       updatedAt: new Date()
     };
     setCurrentChatId(newChatId);
