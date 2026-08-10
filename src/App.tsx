@@ -2524,18 +2524,6 @@ export const ChatMessageItem = React.memo(({
             </div>
           )}
 
-          {msg.sender === 'bot' && textToRender && (msg.modelEngine === 'gemini' || msg.isGeminiResponse) && !isStreaming && onSwitchToXareAPI && (
-            <div className="mt-4 mb-2 flex items-center">
-              <button
-                onClick={() => onSwitchToXareAPI(msg.id)}
-                className="inline-flex items-center gap-2.5 px-5 py-3 rounded-2xl font-semibold text-sm text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 active:scale-95 transition-all shadow-lg shadow-purple-500/25 hover:shadow-indigo-500/30 border border-white/10 group cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4 text-purple-200" />
-                <span>Switch to Xare AI</span>
-              </button>
-            </div>
-          )}
-
           {msg.sender === 'bot' && textToRender && !isStreaming && !(msg.audio && textToRender === "🎤 Voice Message") && (
             <MessageActions 
               text={textToRender} 
