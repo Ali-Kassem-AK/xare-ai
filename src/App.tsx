@@ -4649,6 +4649,24 @@ const AI_PRESETS = [
               ))}
             </div>
 
+            {/* Export PDF Drawer Action */}
+            <div className="px-3 py-2">
+              <button
+                onClick={() => {
+                  exportChatToPDF();
+                  if (window.innerWidth < 768) setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all text-sm font-semibold border ${
+                  isDarkMode 
+                    ? 'bg-slate-800/60 border-slate-700/80 text-cyan-400 hover:bg-slate-700/80' 
+                    : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+                }`}
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Chat PDF</span>
+              </button>
+            </div>
+
             {/* Developer Social Links */}
             <div className={`px-4 py-3.5 border-t mt-auto flex items-center justify-between ${isDarkMode ? 'border-slate-800/60 bg-slate-900/10' : 'border-slate-200/80 bg-slate-50/50'}`}>
                <span className={`text-[11px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>By Ali Kassem</span>
@@ -4725,11 +4743,11 @@ const AI_PRESETS = [
                 <h1 className={`text-xl font-bold tracking-tight leading-tight ${isDarkMode ? 'text-blue-400' : 'text-blue-900'}`}>
                   Xare
                 </h1>
-                <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Always here to help</p>
+                <p className={`hidden sm:block text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Always here to help</p>
               </div>
             </div>
 
-            <div className="hidden sm:flex flex-1 justify-center pointer-events-none mx-1 sm:mx-2 mt-1 lg:absolute lg:inset-x-0 lg:mx-auto lg:w-fit">
+            <div className="hidden lg:flex flex-1 justify-center pointer-events-none mx-1 sm:mx-2 mt-1 lg:absolute lg:inset-x-0 lg:mx-auto lg:w-fit">
               <span
                 className={`text-[20px] sm:text-[34px] font-bold tracking-wide whitespace-nowrap drop-shadow-md ${isDarkMode ? 'text-white' : 'text-slate-950'}`}
                 style={{ fontFamily: "'Aref Ruqaa', serif" }}
@@ -4738,21 +4756,21 @@ const AI_PRESETS = [
               </span>
             </div>
 
-            <div className="flex z-10 flex-shrink-0 items-center gap-1 sm:gap-2">
+            <div className="flex z-10 flex-shrink-0 items-center gap-1.5 sm:gap-2">
               <button
                 onClick={exportChatToPDF}
-                className={`p-1.5 sm:p-2 rounded-full transition-all hover:scale-105 flex items-center gap-1.5 text-xs font-semibold px-2.5 sm:px-3 mr-1 ${
+                className={`p-2 rounded-xl transition-all hover:scale-105 flex items-center gap-1.5 text-xs font-semibold px-2.5 sm:px-3 ${
                   isDarkMode 
                     ? 'bg-slate-800/80 text-cyan-400 hover:bg-slate-700 border border-slate-700/60 shadow-cyan-950/20' 
                     : 'bg-white text-blue-600 hover:bg-slate-50 border border-slate-200 shadow-sm'
                 }`}
                 title="Export Chat as PDF"
               >
-                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Download className="w-4 h-4" />
                 <span className="hidden md:inline">Export PDF</span>
               </button>
 
-              <div className={`flex items-center mr-1 sm:mr-2 pr-2 sm:pr-3 border-r ${isDarkMode ? 'border-slate-700/60' : 'border-slate-300/60'}`}>
+              <div className={`hidden md:flex items-center mr-1 sm:mr-2 pr-2 sm:pr-3 border-r ${isDarkMode ? 'border-slate-700/60' : 'border-slate-300/60'}`}>
                 <a href="https://ali-kassem-portfolio-io.vercel.app/" target="_blank" rel="noopener noreferrer" className={`p-1.5 sm:p-2 rounded-full transition-all hover:scale-110 ${isDarkMode ? 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/30' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`} title="Ali's Portfolio">
                   <Globe className="w-[16px] h-[16px] sm:w-[18px] sm:h-[18px]" />
                 </a>
