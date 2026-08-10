@@ -1639,12 +1639,17 @@ export const AntiGravityBackground = ({ isDarkMode }) => {
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
 
-    const colorPalette = [
-      '0, 0, 139', '0, 0, 128', '25, 25, 112', '75, 0, 130', '138, 43, 226',
-      '84, 13, 110', '65, 105, 225', '0, 127, 255', '135, 206, 235', '0, 255, 255',
-      '64, 224, 208', '0, 128, 128', '80, 200, 120', '34, 139, 34', '50, 205, 50',
-      '154, 205, 50', '255, 255, 0', '218, 165, 32', '255, 191, 0', '255, 165, 0',
-      '255, 127, 80', '255, 99, 71', '220, 20, 60', '128, 0, 0', '128, 0, 32'
+    const colorPalette = isDarkMode ? [
+      '56, 189, 248',  // Soft Matte Cyan
+      '129, 140, 248', // Soft Matte Indigo
+      '148, 163, 184', // Soft Matte Slate
+      '99, 102, 241',  // Soft Muted Violet
+      '56, 189, 248'
+    ] : [
+      '148, 163, 184', // Soft Slate
+      '100, 116, 139', // Muted Gray
+      '71, 85, 105',   // Deep Slate
+      '148, 163, 184'
     ];
 
     const render = () => {
@@ -1762,7 +1767,7 @@ export const AntiGravityBackground = ({ isDarkMode }) => {
   return (
     <canvas
       ref={canvasRef}
-      className={`absolute inset-0 pointer-events-none z-0 opacity-80 transition-colors duration-300 ${isDarkMode ? 'bg-[#020617]' : 'bg-slate-50'}`}
+      className={`absolute inset-0 pointer-events-none z-0 opacity-40 transition-colors duration-300 ${isDarkMode ? 'bg-[#0b0e14]' : 'bg-[#f4f5f7]'}`}
     />
   );
 };
@@ -4389,7 +4394,7 @@ const AI_PRESETS = [
 
   if (isCheckingSession) {
     return (
-      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#020617] text-slate-50' : 'bg-slate-50 text-slate-900'}`}>
+      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#0b0f17] text-slate-50' : 'bg-[#f4f5f7] text-slate-900'}`}>
         <GoogleStyles />
         <AntiGravityBackground isDarkMode={isDarkMode} />
         <div className="relative z-10 flex flex-col items-center animate-pulse">
@@ -4411,7 +4416,7 @@ const AI_PRESETS = [
 
   if (!currentUser) {
     return (
-      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#020617] text-slate-50' : 'bg-slate-50 text-slate-900'}`}>
+      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#0b0f17] text-slate-50' : 'bg-[#f4f5f7] text-slate-900'}`}>
         <GoogleStyles />
         <AntiGravityBackground isDarkMode={isDarkMode} />
 
@@ -4597,12 +4602,12 @@ const AI_PRESETS = [
   }
 
   return (
-    <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#020617] text-slate-50' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#0b0f17] text-slate-50' : 'bg-[#f4f5f7] text-slate-900'}`}>
       <GoogleStyles />
       <AntiGravityBackground isDarkMode={isDarkMode} />
 
       {showLimitsPopup && (
-        <div className={`fixed inset-0 z-[100] flex overflow-y-auto chat-scroll p-4 sm:p-8 animate-overlay ${isDarkMode ? 'bg-[#020617]/80 backdrop-blur-sm' : 'bg-slate-900/40 backdrop-blur-sm'}`}>
+        <div className={`fixed inset-0 z-[100] flex overflow-y-auto chat-scroll p-4 sm:p-8 animate-overlay ${isDarkMode ? 'bg-[#0b0f17]/80 backdrop-blur-sm' : 'bg-slate-900/40 backdrop-blur-sm'}`}>
           <div className={`m-auto relative w-full max-w-3xl p-5 sm:p-10 rounded-[2.5rem] shadow-2xl animate-float-up ${isDarkMode ? 'bg-[#0c1324] border border-slate-800' : 'bg-white border border-slate-200'}`}>
             
             <div className="flex flex-col items-center mb-6 mt-1">
@@ -4797,7 +4802,7 @@ const AI_PRESETS = [
         <div className="flex-1 h-full relative z-10 flex flex-col min-w-0 transition-all duration-300">
           
           {isVoiceModeActive && (
-            <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center animate-overlay ${isDarkMode ? 'bg-[#020617]/95' : 'bg-slate-50/95'}`}>
+            <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center animate-overlay ${isDarkMode ? 'bg-[#0b0f17]/95' : 'bg-[#f4f5f7]/95'}`}>
               <div className="mb-10 w-full flex justify-center">
                 <DeepgramOrb isDarkMode={isDarkMode} onClose={() => setIsVoiceModeActive(false)} />
               </div>
@@ -5212,7 +5217,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-[#020617] text-white p-6 text-center">
+        <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-[#0b0f17] text-white p-6 text-center">
           <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl max-w-md w-full space-y-4 backdrop-blur-xl">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/20">
               <XareLogo className="w-8 h-8" scale={2.5} x="-8%" isDarkMode={true} />
