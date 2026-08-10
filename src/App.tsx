@@ -4792,10 +4792,10 @@ const AI_PRESETS = [
 
             <div className="hidden sm:flex flex-1 justify-center pointer-events-none mx-1 sm:mx-2 mt-1 lg:absolute lg:inset-x-0 lg:mx-auto lg:w-fit">
               <span
-                className={`text-[20px] sm:text-[34px] font-bold tracking-wide whitespace-nowrap drop-shadow-md ${isDarkMode ? 'text-white' : 'text-slate-950'}`}
-                style={{ fontFamily: "'Aref Ruqaa', serif" }}
+                className={`text-[26px] sm:text-[42px] font-normal tracking-wide whitespace-nowrap drop-shadow-md ${isDarkMode ? 'text-white' : 'text-slate-950'}`}
+                style={{ fontFamily: "'Great Vibes', 'Allura', 'Alex Brush', cursive" }}
               >
-                 Absolute Zero Cost  <span className="text-emerald-500 ml-0.5 sm:ml-1 text-[16px] sm:text-2xl drop-shadow-none opacity-80" style={{fontFamily: "system-ui"}}></span>
+                 Absolute Zero Cost
               </span>
             </div>
 
