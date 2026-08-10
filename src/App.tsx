@@ -38,10 +38,10 @@ import {
  * - maxAdaptiveSpeed    : Max speed cap for long responses (chars/sec).
  */
 export const STREAMING_CONFIG = {
-  charsPerSecond: 65,         // Base typing speed (chars/sec)
-  tickIntervalMs: 30,         // Render update tick interval in ms (16ms = 60fps, 30ms = 33fps)
-  enableAdaptiveSpeed: true,  // Auto-scale speed for long text
-  maxAdaptiveSpeed: 120,      // Max speed cap for long text (chars/sec)
+  wordsPerSecond: 14,         // Typing speed directly in Words Per Second (WPS)
+  tickIntervalMs: 30,         // Render update throttle tick interval in ms (16ms = 60fps, 30ms = 33fps)
+  enableAdaptiveSpeed: true,  // Auto-scale speed for long text/code (>500 chars)
+  maxAdaptiveWPS: 28,         // Max Words Per Second cap for long text
 };
 
 // ==========================================
@@ -2558,9 +2558,11 @@ export function App() {
     
     // Streaming speed & render throttle config from STREAMING_CONFIG
     const RENDER_THROTTLE_MS = STREAMING_CONFIG.tickIntervalMs;
-    const baseSpeed = STREAMING_CONFIG.charsPerSecond;
+    const AVERAGE_CHARS_PER_WORD = 5.5;
+    const baseSpeed = STREAMING_CONFIG.wordsPerSecond * AVERAGE_CHARS_PER_WORD;
+    const maxAdaptiveSpeed = STREAMING_CONFIG.maxAdaptiveWPS * AVERAGE_CHARS_PER_WORD;
     const charsPerSecond = (STREAMING_CONFIG.enableAdaptiveSpeed && totalLength > 500) 
-      ? Math.min(STREAMING_CONFIG.maxAdaptiveSpeed, Math.max(baseSpeed, Math.ceil(totalLength / 6))) 
+      ? Math.min(maxAdaptiveSpeed, Math.max(baseSpeed, Math.ceil(totalLength / 6))) 
       : baseSpeed;
 
     const step = (now: number) => {
