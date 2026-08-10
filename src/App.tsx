@@ -361,21 +361,23 @@ const highlightSyntax = (code: string, lang: string, isDarkMode: boolean) => {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  const keywords = /\b(const|let|var|function|return|if|else|for|while|import|export|from|default|class|extends|async|await|try|catch|new|type|interface|public|private|protected|def|self|print|struct|enum|void|int|float|double|bool|string)\b/g;
-  const strings = /(".*?"|'.*?'|`.*?`)/g;
-  const numbers = /\b(\d+(\.\d+)?)\b/g;
-  const comments = /(\/\/.*|\/\*[\s\S]*?\*\/|#.*)/g;
+  const kwStyle = isDarkMode ? 'color: #c084fc; font-weight: 600;' : 'color: #9333ea; font-weight: 600;';
+  const strStyle = isDarkMode ? 'color: #34d399;' : 'color: #059669;';
+  const numStyle = isDarkMode ? 'color: #fbbf24;' : 'color: #d97706;';
+  const cmStyle = isDarkMode ? 'color: #64748b; font-style: italic;' : 'color: #94a3b8; font-style: italic;';
+  const fnStyle = isDarkMode ? 'color: #38bdf8;' : 'color: #0284c7;';
 
-  const kwClass = isDarkMode ? 'text-purple-400 font-semibold' : 'text-purple-600 font-semibold';
-  const strClass = isDarkMode ? 'text-emerald-400' : 'text-emerald-600';
-  const numClass = isDarkMode ? 'text-amber-400' : 'text-amber-600';
-  const cmClass = isDarkMode ? 'text-slate-500 italic' : 'text-slate-400 italic';
+  // Single-pass tokenizer to prevent sub-string replacements inside generated HTML tags
+  const tokenRegex = /(\/\/.*|\/\*[\s\S]*?\*\/|#.*)|(".*?"|'.*?'|`.*?`)|(\b(?:const|let|var|function|return|if|else|for|while|import|export|from|default|class|extends|async|await|try|catch|new|type|interface|public|private|protected|def|self|print|struct|enum|void|int|float|double|bool|string)\b)|(\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_]\w*(?=\s*\())/g;
 
-  return escaped
-    .replace(comments, `<span class="${cmClass}">$1</span>`)
-    .replace(strings, `<span class="${strClass}">$1</span>`)
-    .replace(keywords, `<span class="${kwClass}">$1</span>`)
-    .replace(numbers, `<span class="${numClass}">$1</span>`);
+  return escaped.replace(tokenRegex, (match, comment, str, kw, num, fn) => {
+    if (comment) return `<span style="${cmStyle}">${comment}</span>`;
+    if (str) return `<span style="${strStyle}">${str}</span>`;
+    if (kw) return `<span style="${kwStyle}">${kw}</span>`;
+    if (num) return `<span style="${numStyle}">${num}</span>`;
+    if (fn) return `<span style="${fnStyle}">${fn}</span>`;
+    return match;
+  });
 };
 
 /**
