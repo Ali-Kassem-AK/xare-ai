@@ -5,7 +5,7 @@ import {
   FileText, Menu, Plus, MessageSquare, Settings, Play, Pause, X, 
   LogOut, Lock, Mail, AlignLeft, CheckCircle, Code, Languages, 
   Globe, ChevronLeft, ChevronRight, ChevronDown, AudioLines, Copy, Brain, Download,
-  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, ExternalLink, Sparkles
+  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, ExternalLink, Sparkles, ArrowUp
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -5126,9 +5126,9 @@ const AI_PRESETS = [
                     type="submit"
                     disabled={isLoading}
                     title="Send Message"
-                    className="group rounded-full bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 hover:from-indigo-500 hover:via-blue-500 hover:to-cyan-400 text-white border border-indigo-300/40 shadow-[0_0_20px_rgba(79,70,229,0.45)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 cursor-pointer"
+                    className="group rounded-full bg-[#1d4ed8]/90 hover:bg-[#2563eb] backdrop-blur-md text-white border border-blue-400/40 shadow-lg shadow-blue-950/60 hover:shadow-blue-600/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 cursor-pointer"
                   >
-                    <Send className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
+                    <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:-translate-y-0.5 transition-transform duration-200" />
                   </button>
                 ) : (
                   <button
@@ -5137,11 +5137,11 @@ const AI_PRESETS = [
                     title={isRecording ? "Send Voice Note" : "Record Voice Note"}
                     className={`group rounded-full backdrop-blur-md transition-all border shadow-sm flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 ${
                       isRecording
-                      ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 text-white border-indigo-300/40 shadow-[0_0_20px_rgba(79,70,229,0.45)]'
+                      ? 'bg-[#1d4ed8]/90 hover:bg-[#2563eb] text-white border-blue-400/40 shadow-lg shadow-blue-950/60'
                       : (isDarkMode ? 'bg-[#0c1324]/80 text-slate-300 hover:bg-slate-800 border-slate-800/50' : 'bg-white/80 text-slate-600 hover:bg-white border-slate-200/50')
                     }`}
                   >
-                    {isRecording ? <Send className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" /> : <Mic className="w-5 h-5" />}
+                    {isRecording ? <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:-translate-y-0.5 transition-transform duration-200" /> : <Mic className="w-5 h-5" />}
                   </button>
                 )}
               </div>
