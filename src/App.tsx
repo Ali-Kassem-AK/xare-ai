@@ -3091,7 +3091,16 @@ const AI_PRESETS = [
 
     setChatHistory(prev => prev.map(c => c.id === currentChatId ? updatedChat : c));
 
-    sendMessageToBackend(newPromptText, updatedMessages[userIdx].image || updatedMessages[userIdx].document || null, updatedChat);
+    sendMessageToBackend(
+      newPromptText, 
+      updatedMessages[userIdx].image || updatedMessages[userIdx].document || null, 
+      updatedMessages[userIdx].image ? 'image' : (updatedMessages[userIdx].document ? 'document' : null), 
+      "", 
+      null, 
+      null, 
+      null, 
+      true // isEditMode = true (prevents duplicate user message bubble)
+    );
   };
 
   // ==========================================
@@ -3566,7 +3575,16 @@ const AI_PRESETS = [
       }
   };
 
-  const sendMessageToBackend = async (msgText, attachmentData = null, attachmentType = null, hiddenPrefix = "", toolAction = null, toolLabel = null) => {
+  const sendMessageToBackend = async (
+    msgText, 
+    attachmentData = null, 
+    attachmentType = null, 
+    hiddenPrefix = "", 
+    toolAction = null, 
+    toolLabel = null,
+    targetBotMsgId = null,
+    isEditMode = false
+  ) => {
     if (!currentUser) return;
 
     let finalAction = toolAction || "chat";
@@ -3675,10 +3693,14 @@ const AI_PRESETS = [
         }
       }
 
+      const messagesToUse = isEditMode 
+        ? (activeChat.messages || []) 
+        : [...(activeChat.messages || []), newUserMsg];
+
       const chatToUpdate = {
         ...activeChat,
         title: updatedTitle,
-        messages: [...(activeChat.messages || []), newUserMsg],
+        messages: messagesToUse,
         updatedAt: new Date()
       };
 
