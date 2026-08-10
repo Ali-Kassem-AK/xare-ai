@@ -4537,19 +4537,19 @@ const AI_PRESETS = [
         
         {isSidebarOpen && (
           <div
-            className={`fixed inset-0 z-40 lg:hidden backdrop-blur-sm transition-opacity ${isDarkMode ? 'bg-black/40' : 'bg-slate-900/20'}`}
+            className="fixed inset-0 z-40 lg:hidden transition-opacity bg-black/20"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
 
         <aside
-          className={`fixed lg:relative z-50 h-full flex flex-col backdrop-blur-2xl border-r transition-all duration-300 ease-in-out shadow-2xl ${
+          className={`fixed lg:relative z-50 h-full flex flex-col backdrop-blur-2xl border-r transition-all duration-300 ease-in-out shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] ${
             isSidebarOpen ? 'w-[280px] translate-x-0' : 'w-[280px] -translate-x-full lg:w-0 lg:translate-x-0 lg:border-none'
-          } ${isDarkMode ? 'bg-[#070d1a]/70 border-slate-800/40 text-slate-200' : 'bg-white/70 border-slate-200/60 text-slate-800'}`}
+          } ${isDarkMode ? 'bg-[#0a1224]/75 border-blue-500/20 text-slate-100' : 'bg-white/75 border-slate-200/60 text-slate-800'}`}
         >
           <div className={`w-[280px] h-full flex flex-col transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
             <div className="p-3">
-              <button onClick={() => setIsSidebarOpen(false)} className={`p-2.5 rounded-full transition-colors ${isDarkMode ? 'hover:bg-slate-800/50 text-slate-400' : 'hover:bg-slate-200/50 text-slate-600'}`} title="Close menu">
+              <button onClick={() => setIsSidebarOpen(false)} className={`p-2.5 rounded-full transition-colors ${isDarkMode ? 'hover:bg-blue-900/30 text-slate-400' : 'hover:bg-slate-200/50 text-slate-600'}`} title="Close menu">
                 <Menu className="w-5 h-5" />
               </button>
             </div>
@@ -4557,7 +4557,7 @@ const AI_PRESETS = [
             <div className="px-3 pb-2 pt-2 space-y-2">
               <button
                 onClick={createNewChat}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors font-medium border ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700/50' : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-100'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-medium border ${isDarkMode ? 'bg-[#132240]/70 hover:bg-[#1a2d54]/90 text-blue-100 border-blue-500/30 backdrop-blur-md shadow-sm' : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-100'}`}
               >
                 <Plus className="w-5 h-5" />
                 New chat
@@ -4568,9 +4568,9 @@ const AI_PRESETS = [
                   exportChatToPDF();
                   setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-colors font-semibold text-sm border ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all font-semibold text-sm border ${
                   isDarkMode 
-                    ? 'bg-slate-900/80 hover:bg-slate-800 text-cyan-400 border-cyan-800/40 shadow-sm' 
+                    ? 'bg-[#0f2847]/70 hover:bg-[#173a66]/90 text-cyan-300 border-cyan-500/30 backdrop-blur-md shadow-sm' 
                     : 'bg-white hover:bg-slate-50 text-blue-600 border-slate-200 shadow-sm'
                 }`}
               >
