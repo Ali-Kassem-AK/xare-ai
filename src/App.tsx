@@ -330,19 +330,32 @@ const generateUniqueId = () => {
 /**
  * Universal clipboard copy utility with fallback for older browsers/iFrames.
  */
-const copyToClipboard = async (text) => {
-  return new Promise((resolve, reject) => {
+const copyToClipboard = async (text: string) => {
+  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
     try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (e) {
+      console.warn("navigator.clipboard.writeText failed, falling back to textarea:", e);
+    }
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    try {
+      const activeEl = document.activeElement as HTMLElement;
       const textArea = document.createElement("textarea");
       textArea.value = text;
       textArea.style.position = "fixed";
       textArea.style.left = "-999999px";
       textArea.style.top = "-999999px";
+      textArea.setAttribute("readonly", "");
       document.body.appendChild(textArea);
-      textArea.focus();
       textArea.select();
       document.execCommand("copy");
       textArea.remove();
+      if (activeEl && typeof activeEl.focus === 'function') {
+        activeEl.focus();
+      }
       resolve();
     } catch (err) {
       console.error('Failed to copy text: ', err);
