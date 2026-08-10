@@ -2417,7 +2417,8 @@ export const ChatMessageItem = React.memo(({
   onRegenerate,
   onSwitchVersion,
   onEditPrompt,
-  onSwitchToGeminiAPI
+  onSwitchToGeminiAPI,
+  onSwitchToXareAPI
 }: { 
   msg: any; 
   isDarkMode: boolean; 
@@ -2426,6 +2427,7 @@ export const ChatMessageItem = React.memo(({
   onSwitchVersion?: (msgId: string, idx: number) => void;
   onEditPrompt?: (msgId: string, text: string) => void;
   onSwitchToGeminiAPI?: (msgId: string) => void;
+  onSwitchToXareAPI?: (msgId: string) => void;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text || '');
@@ -2522,6 +2524,18 @@ export const ChatMessageItem = React.memo(({
             </div>
           )}
 
+          {msg.sender === 'bot' && textToRender && (msg.modelEngine === 'gemini' || msg.isGeminiResponse) && !isStreaming && onSwitchToXareAPI && (
+            <div className="mt-4 mb-2 flex items-center">
+              <button
+                onClick={() => onSwitchToXareAPI(msg.id)}
+                className="inline-flex items-center gap-2.5 px-5 py-3 rounded-2xl font-semibold text-sm text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 active:scale-95 transition-all shadow-lg shadow-purple-500/25 hover:shadow-indigo-500/30 border border-white/10 group cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-purple-200" />
+                <span>Switch to Xare AI</span>
+              </button>
+            </div>
+          )}
+
           {msg.sender === 'bot' && textToRender && !isStreaming && !(msg.audio && textToRender === "🎤 Voice Message") && (
             <MessageActions 
               text={textToRender} 
@@ -2580,6 +2594,7 @@ export function App() {
   // --- Chat & Database State ---
   const [chatHistory, setChatHistory] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
+  const [chatModelModes, setChatModelModes] = useState<Record<string, 'xare' | 'gemini'>>({});
   
   // --- Usage Tracking State ---
   const [dailyUsage, setDailyUsage] = useState({
@@ -3758,6 +3773,9 @@ const AI_PRESETS = [
     const currentChat = chatHistory.find(c => c.id === currentChatId);
     if (!currentChat) return;
 
+    // Enable Gemini mode for this chat thread so follow-up prompts auto-route to Gemini
+    setChatModelModes(prev => ({ ...prev, [currentChatId]: 'gemini' }));
+
     const msgIdx = currentChat.messages.findIndex((m: any) => m.id === msgId);
     let userPromptText = "";
     if (msgIdx > 0) {
@@ -3782,6 +3800,7 @@ const AI_PRESETS = [
         id: generateUniqueId(),
         text: "",
         sender: 'bot',
+        modelEngine: 'gemini',
         timestamp: new Date()
       };
 
@@ -3805,6 +3824,11 @@ const AI_PRESETS = [
     }
   };
 
+  const handleSwitchToXareAPI = (msgId: string) => {
+    setChatModelModes(prev => ({ ...prev, [currentChatId]: 'xare' }));
+    showLocalBotMessage("Switched back to primary Xare AI model engine.");
+  };
+
   const sendMessageToBackend = async (
     msgText, 
     attachmentData = null, 
@@ -3826,6 +3850,44 @@ const AI_PRESETS = [
     } else if (msgText.toLowerCase().startsWith('/imagine ')) {
       finalAction = 'generate_image';
       finalMessageText = msgText.substring(9).trim();
+    }
+
+    const activeMode = chatModelModes[targetChatId] || 'xare';
+
+    // DIRECT GEMINI MODE ROUTER (If user previously clicked 'Switch to Gemini AI')
+    if (activeMode === 'gemini' && (finalAction === 'chat' || !finalAction || finalAction === 'text')) {
+      setIsLoading(true);
+      setActiveLoadingChatId(targetChatId);
+      setLoadingPhase('thinking');
+
+      try {
+        const geminiRes = await callGeminiAPI(finalMessageText);
+        const finalAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
+        
+        const newGeminiMsg = {
+          id: generateUniqueId(),
+          text: "",
+          sender: 'bot',
+          modelEngine: 'gemini',
+          timestamp: new Date()
+        };
+
+        setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+          ...c,
+          messages: [...c.messages, newGeminiMsg],
+          updatedAt: new Date()
+        } : c));
+
+        setIsLoading(false);
+        setActiveLoadingChatId(null);
+
+        streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
+          triggerSuggestions(finalAnswer);
+        });
+        return;
+      } catch (err) {
+        console.error("Gemini API mode execution error:", err);
+      }
     }
 
     if (/\b(code|python|script|pygame|game|function|program|build|write|create|cpp|java|html|js|javascript|sql)\b/i.test(msgText)) {
@@ -4817,6 +4879,7 @@ const AI_PRESETS = [
                   onSwitchVersion={handleSwitchMessageVersion}
                   onEditPrompt={handleEditUserPrompt}
                   onSwitchToGeminiAPI={handleSwitchToGeminiAPI}
+                  onSwitchToXareAPI={handleSwitchToXareAPI}
                 />
               ))}
 
