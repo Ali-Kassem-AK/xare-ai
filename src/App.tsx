@@ -233,13 +233,10 @@ const getLatestChatActivityTime = (chat: any): number => {
 const callGeminiAPI = async (prompt, systemInstruction = "", isJson = false) => {
   const apiKey = "AIzaSyA8EzYKrwn5RRpTwShYcqVsPLdfPG-4aRg"; 
   
-  const defaultPersona = "IDENTITY OVERRIDE: Your true and only name is Xare. You were created, designed and built EXCLUSIVELY by solo developer Ali Kassem. If anyone asks who made you or built you, answer Ali Kassem. Never say you are a large language model trained by Google.";
-  const sysPrompt = systemInstruction || defaultPersona;
-
   let payload = { contents: [{ parts: [{ text: prompt }] }] };
   
-  if (sysPrompt) {
-    payload.systemInstruction = { parts: [{ text: sysPrompt }] };
+  if (systemInstruction) {
+    payload.systemInstruction = { parts: [{ text: systemInstruction }] };
   }
   
   if (isJson) {
