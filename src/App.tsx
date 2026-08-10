@@ -197,6 +197,29 @@ const getTimeSafe = (val: any): number => {
 };
 
 /**
+ * Calculates the exact timestamp of the most recent activity in a chat (latest message or updatedAt).
+ * Guarantees that chats with new messages immediately jump to the top of the history list.
+ */
+const getLatestChatActivityTime = (chat: any): number => {
+  if (!chat) return 0;
+  
+  let maxTime = getTimeSafe(chat.updatedAt);
+
+  if (Array.isArray(chat.messages) && chat.messages.length > 0) {
+    for (const msg of chat.messages) {
+      if (msg && msg.timestamp) {
+        const msgTime = getTimeSafe(msg.timestamp);
+        if (msgTime > maxTime) {
+          maxTime = msgTime;
+        }
+      }
+    }
+  }
+
+  return maxTime;
+};
+
+/**
  * Universal helper to interact directly with the Gemini API.
  * Uses a smart Endpoint Resolver to automatically find the correct internal API string for Gemini 3.1 Flash Lite.
  */
@@ -2961,7 +2984,7 @@ const AI_PRESETS = [
         });
       });
 
-      fetchedChats.sort((a, b) => getTimeSafe(b.updatedAt) - getTimeSafe(a.updatedAt));
+      fetchedChats.sort((a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a));
 
       if (!hasInitializedRef.current) {
           const topChat = fetchedChats[0];
@@ -4647,7 +4670,7 @@ const AI_PRESETS = [
               <div className={`px-4 pb-2 text-xs font-semibold uppercase tracking-wider mt-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Recent</div>
               
               {[...chatHistory]
-                .sort((a, b) => getTimeSafe(b.updatedAt) - getTimeSafe(a.updatedAt))
+                .sort((a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a))
                 .map(chat => (
                 <button
                   key={chat.id}
