@@ -886,6 +886,17 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         const trimmedLine = line.trim();
         if (!trimmedLine) return;
 
+        // 1. Horizontal Divider (--- or *** or ___)
+        const hrMatch = trimmedLine.match(/^(\-{3,}|\*{3,}|_{3,})$/);
+        if (hrMatch) {
+          flushTable();
+          elements.push(
+            <hr key={`hr-${lIdx}`} className={`my-5 border-t ${isDarkMode ? 'border-slate-800/80' : 'border-slate-200/80'}`} />
+          );
+          return;
+        }
+
+        // 2. Data Tables (Pipe-separated)
         if (trimmedLine.includes('|') && trimmedLine.split('|').length > 2) {
           tableRows.push(trimmedLine);
           return;
@@ -893,6 +904,18 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           flushTable();
         }
 
+        // 3. Section & Block Sub-Headers (Block 1 –, Step 1, Integrated Narrative, etc.)
+        const blockHeaderMatch = trimmedLine.match(/^(Block\s+\d+.*?|Step\s+\d+.*?|Section\s+\d+.*?|Integrated Narrative|Step-by-Step Execution)$/i);
+        if (blockHeaderMatch) {
+          elements.push(
+            <div key={`bh-${lIdx}`} className={`text-base sm:text-lg font-bold mt-5 mb-2 tracking-tight ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+              {renderInline(blockHeaderMatch[1], isDarkMode)}
+            </div>
+          );
+          return;
+        }
+
+        // 4. Markdown Headers (#, ##, ###, ####)
         const headerMatch = trimmedLine.match(/^(#{1,4})\s+(.*)/);
         if (headerMatch) {
           const level = headerMatch[1].length;
@@ -907,6 +930,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
+        // 5. Unordered Bullet Lists (- or *)
         const listMatch = trimmedLine.match(/^[-*]\s+(.*)/);
         if (listMatch) {
           elements.push(
@@ -918,6 +942,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
+        // 6. Numbered Lists (1., 2., etc.)
         const numListMatch = trimmedLine.match(/^(\d+\.)\s+(.*)/);
         if (numListMatch) {
           elements.push(
@@ -929,6 +954,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
+        // 7. Blockquotes (> text)
         const quoteMatch = trimmedLine.match(/^>\s+(.*)/);
         if (quoteMatch) {
           elements.push(
@@ -939,8 +965,27 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
+        // 8. Key - Value / Definition Pair Lines (Key: Value or Key  Value)
+        const keyValueMatch = trimmedLine.match(/^([A-Z0-9][a-zA-Z0-9\s_\-\.]{1,25})\s*(?:\t|\s{2,}|\s*[:–]\s*)(.*)$/);
+        if (keyValueMatch && keyValueMatch[2] && !trimmedLine.startsWith('http') && keyValueMatch[1].trim().length > 1) {
+          const key = keyValueMatch[1].trim();
+          const val = keyValueMatch[2].trim();
+          elements.push(
+            <div key={`kv-${lIdx}`} className="flex flex-col sm:flex-row gap-1 sm:gap-4 my-2 text-[14.5px] leading-relaxed">
+              <span className={`font-semibold min-w-[130px] sm:max-w-[180px] flex-shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                {key}
+              </span>
+              <span className={`flex-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                {renderInline(val, isDarkMode)}
+              </span>
+            </div>
+          );
+          return;
+        }
+
+        // 9. Standard Paragraphs
         elements.push(
-          <div key={`p-${lIdx}`} className={`min-h-[1.5rem] mt-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+          <div key={`p-${lIdx}`} className={`min-h-[1.5rem] mt-1.5 leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
             {renderInline(line, isDarkMode)}
           </div>
         );
