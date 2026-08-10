@@ -38,10 +38,10 @@ import {
  * - maxAdaptiveSpeed    : Max speed cap for long responses (chars/sec).
  */
 export const STREAMING_CONFIG = {
-  wordsPerSecond: 14,         // Typing speed directly in Words Per Second (WPS)
-  tickIntervalMs: 30,         // Render update throttle tick interval in ms (16ms = 60fps, 30ms = 33fps)
+  wordsPerSecond: 30,         // Typing speed directly in Words Per Second (WPS)
+  tickIntervalMs: 16,         // Render update throttle tick interval in ms (16ms = 60fps, 30ms = 33fps)
   enableAdaptiveSpeed: true,  // Auto-scale speed for long text/code (>500 chars)
-  maxAdaptiveWPS: 28,         // Max Words Per Second cap for long text
+  maxAdaptiveWPS: 45,         // Max Words Per Second cap for long text
 };
 
 // ==========================================
