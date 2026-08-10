@@ -2510,7 +2510,7 @@ export const ChatMessageItem = React.memo(({
             )
           )}
 
-          {msg.sender === 'bot' && textToRender && (textToRender.includes("switch to") || textToRender.includes("Gemini")) && onSwitchToGeminiAPI && (
+          {msg.sender === 'bot' && textToRender && textToRender.includes("models have reached their free usage limit") && onSwitchToGeminiAPI && (
             <div className="mt-4 mb-2 flex items-center">
               <button
                 onClick={() => onSwitchToGeminiAPI(msg.id)}
