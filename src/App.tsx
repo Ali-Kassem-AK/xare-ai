@@ -182,6 +182,9 @@ const parseDateSafe = (val: any): Date => {
   if (typeof val.toDate === 'function') {
     try { return val.toDate(); } catch(e) { return new Date(); }
   }
+  if (typeof val === 'object' && typeof val.seconds === 'number') {
+    return new Date(val.seconds * 1000);
+  }
   if (val instanceof Date) {
     return isNaN(val.getTime()) ? new Date() : val;
   }
@@ -4862,19 +4865,34 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
     if (this.state.hasError) {
       return (
         <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-[#020617] text-white p-6 text-center">
-          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl max-w-md w-full space-y-4">
-            <h2 className="text-xl font-bold text-blue-400">Xare Session Recovery</h2>
-            <p className="text-sm text-slate-300">
-              A session sync update occurred. Click below to refresh and return to your chat.
+          <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl max-w-md w-full space-y-4 backdrop-blur-xl">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/20">
+              <XareLogo className="w-8 h-8" scale={2.5} x="-8%" isDarkMode={true} />
+            </div>
+            <h2 className="text-xl font-bold text-slate-100">Session Sync Recovery</h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              {this.state.error?.message || 'Session updating. Click below to return to your chats.'}
             </p>
-            <button
-              onClick={() => {
-                window.location.reload();
-              }}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-md shadow-blue-500/25 active:scale-[0.98]"
-            >
-              Refresh Xare
-            </button>
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  window.location.reload();
+                }}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/25 active:scale-[0.98] text-sm"
+              >
+                Return to Chat
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.clear();
+                  sessionStorage.clear();
+                  window.location.reload();
+                }}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-medium rounded-xl transition-all text-xs"
+              >
+                Reset Session Cache
+              </button>
+            </div>
           </div>
         </div>
       );
