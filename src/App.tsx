@@ -38,16 +38,16 @@ export const STREAMING_SPEED_CHARS_PER_SEC = 55;
  */
 export const TOOL_PHASE_DURATIONS = {
   think: {
-    analyzingPossibilities: 7000, // Time before switching from 'Thinking deeply' to 'Analyzing possibilities'
+    analyzingPossibilities: 8000, // Time before switching from 'Thinking deeply' to 'Analyzing possibilities'
   },
   audio: {
     processingAudio: 6000,        // Time before switching from 'Listening' to 'Processing audio'
   },
   image: {
-    thinking: 6000,               // Time before switching from 'Analyzing image' to 'Thinking'
+    thinking: 8000,               // Time before switching from 'Analyzing image' to 'Thinking'
   },
   document: {
-    thinking: 6000,               // Time before switching from 'Analyzing document' to 'Thinking'
+    thinking: 9000,               // Time before switching from 'Analyzing document' to 'Thinking'
   },
   summarize: {
     thinking: 5000,               // Time before switching from 'Summarizing' to 'Thinking'
