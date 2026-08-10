@@ -4779,14 +4779,14 @@ const AI_PRESETS = [
                 />
               </div>
               <div className="flex-shrink-0">
-                <h1 className={`text-xl font-bold tracking-tight leading-tight ${isDarkMode ? 'text-blue-400' : 'text-blue-900'}`}>
+                <h1 className={`text-lg sm:text-xl font-bold tracking-tight leading-tight ${isDarkMode ? 'text-blue-400' : 'text-blue-900'}`}>
                   Xare
                 </h1>
-                <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Always here to help</p>
+                <p className={`text-xs font-medium hidden sm:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Always here to help</p>
               </div>
             </div>
 
-            <div className="hidden sm:flex flex-1 justify-center pointer-events-none mx-1 sm:mx-2 mt-1 lg:absolute lg:inset-x-0 lg:mx-auto lg:w-fit">
+            <div className="hidden md:flex flex-1 justify-center pointer-events-none mx-1 sm:mx-2 mt-1 lg:absolute lg:inset-x-0 lg:mx-auto lg:w-fit">
               <span
                 className={`text-[26px] sm:text-[42px] font-normal tracking-wide whitespace-nowrap drop-shadow-md ${isDarkMode ? 'text-white' : 'text-slate-950'}`}
                 style={{ fontFamily: "'Great Vibes', 'Allura', 'Alex Brush', cursive" }}
@@ -4795,7 +4795,7 @@ const AI_PRESETS = [
               </span>
             </div>
 
-            <div className="flex z-10 flex-shrink-0 items-center gap-1 sm:gap-2">
+            <div className="flex z-10 flex-shrink-0 items-center gap-1.5 sm:gap-2">
               <button
                 onClick={exportChatToPDF}
                 className={`hidden lg:flex items-center gap-1.5 p-2 rounded-full transition-all hover:scale-105 text-xs font-semibold px-3 mr-1 ${
@@ -4809,7 +4809,7 @@ const AI_PRESETS = [
                 <span>Export PDF</span>
               </button>
 
-              <div className={`flex items-center mr-1 sm:mr-2 pr-2 sm:pr-3 border-r ${isDarkMode ? 'border-slate-700/60' : 'border-slate-300/60'}`}>
+              <div className={`hidden md:flex items-center mr-1 sm:mr-2 pr-2 sm:pr-3 border-r ${isDarkMode ? 'border-slate-700/60' : 'border-slate-300/60'}`}>
                 <a href="https://ali-kassem-portfolio-io.vercel.app/" target="_blank" rel="noopener noreferrer" className={`p-1.5 sm:p-2 rounded-full transition-all hover:scale-110 ${isDarkMode ? 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/30' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`} title="Ali's Portfolio">
                   <Globe className="w-[16px] h-[16px] sm:w-[18px] sm:h-[18px]" />
                 </a>
