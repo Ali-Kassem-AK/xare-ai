@@ -2934,21 +2934,15 @@ const AI_PRESETS = [
       fetchedChats.sort((a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a));
 
       if (!hasInitializedRef.current) {
-          const topChat = fetchedChats[0];
-          if (topChat) {
-              setCurrentChatId(topChat.id);
-          } else {
-              const initChatId = generateUniqueId();
-              const initChat = {
-                id: initChatId,
-                title: 'New Chat',
-                messages: [],
-                updatedAt: new Date()
-              };
-              fetchedChats.unshift(initChat);
-              setCurrentChatId(initChatId);
-              setDoc(doc(db, 'users', currentUser.id, 'chats', initChatId), initChat).catch(console.error);
-          }
+          const initChatId = generateUniqueId();
+          const initChat = {
+            id: initChatId,
+            title: 'New Chat',
+            messages: [],
+            updatedAt: new Date()
+          };
+          fetchedChats.unshift(initChat);
+          setCurrentChatId(initChatId);
           hasInitializedRef.current = true;
       }
 
@@ -4771,7 +4765,11 @@ const AI_PRESETS = [
                   <Menu className="w-5 h-5" />
                 </button>
               )}
-              <div className="flex items-center justify-center ml-1 lg:ml-0 flex-shrink-0 mr-1.5">
+              <div 
+                onClick={createNewChat}
+                className="flex items-center justify-center ml-1 lg:ml-0 flex-shrink-0 mr-1.5 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                title="Create New Chat"
+              >
                 {/* ========================================== */}
                 {/* 5. LOGO INSTANCE: Top Header Bar */}
                 {/* ========================================== */}
@@ -4842,7 +4840,13 @@ const AI_PRESETS = [
 
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center min-h-[50vh] text-center my-auto px-4 animate-float-up select-none">
-                  <XareLogo className="w-16 h-16 sm:w-20 sm:h-20 mb-6 drop-shadow-2xl" scale={3.4} x="-8%" isDarkMode={isDarkMode} />
+                  <div 
+                    onClick={createNewChat} 
+                    className="cursor-pointer hover:scale-105 active:scale-95 transition-transform" 
+                    title="Create New Chat"
+                  >
+                    <XareLogo className="w-16 h-16 sm:w-20 sm:h-20 mb-6 drop-shadow-2xl" scale={3.4} x="-8%" isDarkMode={isDarkMode} />
+                  </div>
                   <h1 className={`text-2xl sm:text-4xl font-bold tracking-tight mb-3 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                     What can I help with today?
                   </h1>
