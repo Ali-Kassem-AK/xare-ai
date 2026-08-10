@@ -1561,14 +1561,7 @@ export const ThemeToggleSwitch = ({ isDarkMode, toggleDarkMode }) => {
 };
 
 // ==========================================
-// --- ANTI-GRAVITY BACKGROUND COMPONENT
-// ==========================================
 
-/**
- * Ultra-Lightweight Modern Matte Background for Eye Comfort.
- * Eliminates all particle canvas CPU/GPU rendering overhead for 100% smooth device performance.
- */
-export const AntiGravityBackground = ({ isDarkMode }: { isDarkMode?: boolean }) => null;
 
 
 // ==========================================
@@ -4194,7 +4187,6 @@ const AI_PRESETS = [
     return (
       <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#090d16] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
         <GoogleStyles />
-        <AntiGravityBackground isDarkMode={isDarkMode} />
         <div className="relative z-10 flex flex-col items-center animate-pulse">
           {/* ========================================== */}
           {/* 2. LOGO INSTANCE: Initial App Loading Screen */}
@@ -4216,7 +4208,6 @@ const AI_PRESETS = [
     return (
       <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#090d16] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
         <GoogleStyles />
-        <AntiGravityBackground isDarkMode={isDarkMode} />
 
         <div className="absolute top-6 right-6 z-50">
           <ThemeToggleSwitch isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
@@ -4402,7 +4393,6 @@ const AI_PRESETS = [
   return (
     <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#090d16] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
       <GoogleStyles />
-      <AntiGravityBackground isDarkMode={isDarkMode} />
 
       {showLimitsPopup && (
         <div className={`fixed inset-0 z-[100] flex overflow-y-auto chat-scroll p-4 sm:p-8 animate-overlay ${isDarkMode ? 'bg-[#090d16]/80 backdrop-blur-sm' : 'bg-slate-900/40 backdrop-blur-sm'}`}>
