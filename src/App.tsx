@@ -3919,7 +3919,7 @@ const AI_PRESETS = [
         let rawBotText = "";
         
         if (isError) {
-           const fallbackMessage = typeof responseData === 'string' && responseData.trim() ? responseData : 'Sorry, but the models have reached their free token usage limit. Please try another tool, such as **"Deep Thinking"** or **"Generate Image,"** or try again in 5 minutes.';
+           const fallbackMessage = typeof responseData === 'string' && responseData.trim() ? responseData : "Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.";
            newBotMsg = { id: generateUniqueId(), text: fallbackMessage, sender: 'bot', timestamp: new Date() };
            setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, newBotMsg], updatedAt: new Date() } : c));
            setIsLoading(false);
@@ -3935,7 +3935,7 @@ const AI_PRESETS = [
 
            // Fallback for empty text responses or rate limits
            if ((!rawBotText || !rawBotText.trim()) && !botImage && !botAudio) {
-               rawBotText = 'Sorry, but the models have reached their free token usage limit. Please try another tool, such as **"Deep Thinking"** or **"Generate Image,"** or try again in 5 minutes.';
+               rawBotText = "Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.";
            }
 
            if (botImage && botImage.length > 5000) { 
@@ -4081,7 +4081,7 @@ const AI_PRESETS = [
 
              setTimeout(() => {
                  if (!isResolved) {
-                     completeBotResponse('Sorry, but the models have reached their free token usage limit. Please try another tool, such as **"Deep Thinking"** or **"Generate Image,"** or try again in 5 minutes.', true);
+                     completeBotResponse("Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.", true);
                  }
              }, 1000);
         }
@@ -4089,7 +4089,7 @@ const AI_PRESETS = [
 
     } catch (error) {
       console.error("[ERROR]:", error);
-      const errorMsg = { id: generateUniqueId(), text: 'Sorry, but the models have reached their free token usage limit. Please try another tool, such as **"Deep Thinking"** or **"Generate Image,"** or try again in 5 minutes.', sender: 'bot', timestamp: new Date() };
+      const errorMsg = { id: generateUniqueId(), text: "Sorry, but the models have reached their free token usage limit. Please try another tool, such as **Deep Thinking** or **Generate Image,** or try again in 5 minutes.", sender: 'bot', timestamp: new Date() };
       setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, errorMsg], updatedAt: new Date() } : c));
       setIsLoading(false);
       setActiveLoadingChatId(null);
