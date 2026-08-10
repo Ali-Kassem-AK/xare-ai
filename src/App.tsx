@@ -2438,7 +2438,7 @@ export const ChatMessageItem = React.memo(({
   let textToRender = vaultData ? vaultData.partialText : msg.text;
 
   // SAFETY SHIELD FOR EMPTY BOT MESSAGES:
-  if (msg.sender === 'bot' && !msg.image && !msg.audio && (!textToRender || !textToRender.trim()) && !isStreaming) {
+  if (msg.sender === 'bot' && !msg.image && !msg.audio && (!textToRender || !textToRender.trim()) && !isStreaming && !vaultData) {
     textToRender = TOKEN_LIMIT_REDIRECTION_MSG;
   }
 
@@ -3957,6 +3957,9 @@ const AI_PRESETS = [
           timestamp: new Date()
         };
 
+        STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
+        setStreamingMessageId(newGeminiMsg.id);
+
         setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
           ...c,
           messages: [...c.messages, newGeminiMsg],
@@ -4056,6 +4059,11 @@ const AI_PRESETS = [
 
            const shouldStream = Boolean(rawBotText && finalAction !== 'generate_image');
            
+           if (shouldStream) {
+             STREAMING_TEXT_VAULT.set(taskId, { fullText: rawBotText, partialText: "" });
+             setStreamingMessageId(taskId);
+           }
+
            newBotMsg = { 
              id: taskId, 
              text: shouldStream ? "" : rawBotText, 
