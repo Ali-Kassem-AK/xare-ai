@@ -45,6 +45,22 @@ export const STREAMING_CONFIG = {
 };
 
 // ==========================================
+// --- GLOWING LIGHT ANIMATION SPEED CONFIG
+// ==========================================
+/**
+ * GLOW_ANIMATION_CONFIG: Controls the speed of the glowing light sweep animation
+ * across loading phase text like 'Searching web', 'Thinking', 'Analyzing document', etc.
+ * 
+ * - textGlowSweepSpeedSec : Duration of the glowing light sweep animation in seconds.
+ *                           - 1.2s - 1.8s : Fast, energetic modern glow sweep (Default)
+ *                           - 2.5s - 3.5s : Medium pace
+ *                           - 4.5s+       : Slow pace
+ */
+export const GLOW_ANIMATION_CONFIG = {
+  textGlowSweepSpeedSec: 1.8, // Glowing light sweep duration in seconds (Default: 1.8s)
+};
+
+// ==========================================
 // --- TOOL & ANIMATION PHASE DURATIONS (MS)
 // ==========================================
 /**
@@ -1218,34 +1234,36 @@ export const GoogleStyles = () => (
 
     .dark .animate-modern-glow {
       background: linear-gradient(
-        100deg,
-        rgba(148, 163, 184, 0.3) 0%,
-        rgba(148, 163, 184, 0.3) 35%,
-        rgba(248, 250, 252, 0.95) 50%,
-        rgba(148, 163, 184, 0.3) 65%,
-        rgba(148, 163, 184, 0.3) 100%
+        110deg,
+        rgba(148, 163, 184, 0.35) 0%,
+        rgba(148, 163, 184, 0.45) 30%,
+        rgba(56, 189, 248, 1) 48%,
+        rgba(255, 255, 255, 1) 52%,
+        rgba(148, 163, 184, 0.45) 70%,
+        rgba(148, 163, 184, 0.35) 100%
       );
-      background-size: 300% auto;
+      background-size: 250% auto;
       color: transparent;
       -webkit-background-clip: text;
       background-clip: text;
-      animation: textSweepGlow 4.5s linear infinite;
+      animation: textSweepGlow var(--glow-sweep-speed, 1.8s) linear infinite;
     }
 
     html:not(.dark) .animate-modern-glow {
       background: linear-gradient(
-        100deg,
-        rgba(71, 85, 105, 0.3) 0%,
-        rgba(71, 85, 105, 0.3) 35%,
-        rgba(15, 23, 42, 0.85) 50%,
-        rgba(71, 85, 105, 0.3) 65%,
-        rgba(71, 85, 105, 0.3) 100%
+        110deg,
+        rgba(71, 85, 105, 0.4) 0%,
+        rgba(71, 85, 105, 0.5) 30%,
+        rgba(37, 99, 235, 1) 48%,
+        rgba(15, 23, 42, 1) 52%,
+        rgba(71, 85, 105, 0.5) 70%,
+        rgba(71, 85, 105, 0.4) 100%
       );
-      background-size: 300% auto;
+      background-size: 250% auto;
       color: transparent;
       -webkit-background-clip: text;
       background-clip: text;
-      animation: textSweepGlow 4.5s linear infinite;
+      animation: textSweepGlow var(--glow-sweep-speed, 1.8s) linear infinite;
     }
 
     /* AI Typing Indicator Bouncing Animation */
@@ -4225,8 +4243,16 @@ const AI_PRESETS = [
                       </div>
                     </div>
                   ) : (
-                    <div className={`px-6 py-3.5 rounded-[24px] flex items-center justify-center min-w-[100px] border shadow-sm ${isDarkMode ? 'bg-[#0f1523] border-slate-800/50 text-slate-200' : 'bg-white border-slate-200/50 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)] text-slate-700'}`}>
-                      <span className="text-[14.5px] font-bold tracking-wide animate-modern-glow">
+                    <div 
+                      style={{ '--glow-sweep-speed': `${GLOW_ANIMATION_CONFIG.textGlowSweepSpeedSec}s` } as React.CSSProperties}
+                      className={`px-6 py-3.5 rounded-[24px] flex items-center justify-center min-w-[120px] border shadow-md relative overflow-hidden ${
+                        isDarkMode 
+                          ? 'bg-[#0f1523] border-slate-800/80 text-slate-200 ring-1 ring-cyan-500/20 shadow-cyan-950/30' 
+                          : 'bg-white border-slate-200/80 shadow-[0_4px_20px_-3px_rgba(0,0,0,0.08)] text-slate-700 ring-1 ring-blue-500/20'
+                      }`}
+                    >
+                      <div className="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse opacity-80" />
+                      <span className="text-[14.5px] font-bold tracking-wide animate-modern-glow relative z-10">
                         {loadingPhase}
                       </span>
                     </div>
