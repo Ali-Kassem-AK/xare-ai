@@ -3142,56 +3142,198 @@ const AI_PRESETS = [
   // ==========================================
   // --- SMART CHAT EXPORT (PDF)
   // ==========================================
+  /**
+   * Compiles raw Markdown text into rich, beautifully formatted HTML for PDF export.
+   */
+  const renderMarkdownToHTMLForPDF = (text: string): string => {
+    if (!text) return '';
+
+    let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+    // Escape HTML special characters
+    let html = cleaned
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Code Blocks ```lang ... ```
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+      const lines = code.trim().split('\n');
+      const lineNumbersHTML = lines.map((_, i) => `<div>${i + 1}</div>`).join('');
+      const codeLinesHTML = lines.map(line => `<div>${line || '&nbsp;'}</div>`).join('');
+      
+      return `<div style="margin: 16px 0; background: #090d16; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; color: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">
+        <div style="background: #0f172a; padding: 8px 16px; font-size: 11px; text-transform: uppercase; color: #38bdf8; font-weight: 700; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center;">
+          <span>${lang || 'CODE'}</span>
+          <span style="opacity: 0.6;">${lines.length} lines</span>
+        </div>
+        <div style="padding: 14px 16px; display: flex; overflow-x: auto; line-height: 1.6;">
+          <div style="color: #475569; text-align: right; padding-right: 14px; margin-right: 14px; border-right: 1px solid #1e293b; user-select: none;">${lineNumbersHTML}</div>
+          <div style="color: #e2e8f0; white-space: pre;">${codeLinesHTML}</div>
+        </div>
+      </div>`;
+    });
+
+    // Headings
+    html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 20px 0 8px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 19px; font-weight: 800; color: #0284c7; margin: 24px 0 10px 0; border-bottom: 2px solid #bae6fd; padding-bottom: 6px;">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 22px; font-weight: 800; color: #0369a1; margin: 28px 0 12px 0;">$1</h1>');
+
+    // Bold & Italic
+    html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 700; color: #0f172a;">$1</strong>');
+    html = html.replace(/\*(.*?)\*/g, '<em style="font-style: italic; color: #334155;">$1</em>');
+
+    // Inline Code `code`
+    html = html.replace(/`([^`]+)`/g, '<code style="background: #f1f5f9; color: #2563eb; padding: 2px 6px; border-radius: 6px; font-family: \'JetBrains Mono\', monospace; font-size: 12.5px; border: 1px solid #cbd5e1;">$1</code>');
+
+    // List bullets (* or -)
+    html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li style="margin-bottom: 4px; color: #334155;">$1</li>');
+
+    // Numbered lists (1. 2.)
+    html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li style="margin-bottom: 6px; color: #1e293b; font-weight: 500;">$2</li>');
+
+    // Paragraph spacing & line breaks
+    html = html.replace(/\n\n/g, '<div style="height: 10px;"></div>');
+    html = html.replace(/\n/g, '<br/>');
+
+    return html;
+  };
+
   const exportChatToPDF = () => {
     const activeChat = chatHistory.find(c => c.id === currentChatId);
     if (!activeChat) return;
 
     const chatTitle = activeChat.title || 'Xare Chat';
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const userName = currentUser?.username || 'User';
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const messagesHTML = (activeChat.messages || []).map((m: any) => `
-      <div style="margin-bottom: 20px; padding: 18px 24px; border-radius: 16px; background: ${m.sender === 'user' ? '#f0f4f9' : '#ffffff'}; border: 1px solid ${m.sender === 'user' ? '#dbe2ef' : '#e2e8f0'}; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-        <div style="font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: ${m.sender === 'user' ? '#2563eb' : '#059669'}; margin-bottom: 8px;">
-          ${m.sender === 'user' ? '👤 User' : '🤖 Xare AI'}
+    const messagesHTML = (activeChat.messages || []).map((m: any) => {
+      const renderedContent = renderMarkdownToHTMLForPDF(m.text || '');
+      const isUser = m.sender === 'user';
+      return `
+        <div class="${isUser ? 'msg-card-user' : 'msg-card-bot'}">
+          <div class="sender-header ${isUser ? 'sender-user' : 'sender-bot'}">
+            <span>${isUser ? '👤' : '🤖'}</span>
+            <span>${isUser ? userName : 'Xare AI'}</span>
+          </div>
+          <div class="msg-content">
+            ${renderedContent}
+          </div>
         </div>
-        <div style="font-size: 14.5px; line-height: 1.65; color: #1e293b; white-space: pre-wrap; word-break: break-word;">
-          ${(m.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${chatTitle} - Xare AI PDF</title>
+          <title>${chatTitle} - Xare AI Document</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-            body { font-family: 'Inter', sans-serif; padding: 40px; color: #0f172a; max-width: 900px; margin: 0 auto; background: #f8fafc; }
-            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
-            .logo { font-size: 24px; font-weight: 800; color: #1e3a8a; }
-            .meta { font-size: 12px; color: #64748b; text-align: right; }
-            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8; }
-            @media print { body { background: #ffffff; padding: 20px; } }
+            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+            
+            * { box-sizing: border-box; }
+            body { 
+              font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+              padding: 40px; 
+              color: #0f172a; 
+              max-width: 920px; 
+              margin: 0 auto; 
+              background: #f8fafc;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            
+            .header-card {
+              background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+              border-radius: 24px;
+              padding: 28px 32px;
+              color: #ffffff;
+              margin-bottom: 36px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.3);
+            }
+            
+            .brand-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(90deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+            .chat-subtitle { font-size: 15px; color: #94a3b8; font-weight: 500; margin-top: 4px; }
+            .meta-badge { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 14px; font-size: 12px; color: #cbd5e1; text-align: right; }
+            
+            .msg-card-user {
+              margin-bottom: 24px;
+              padding: 20px 24px;
+              border-radius: 20px;
+              background: #f0f4f9;
+              border: 1px solid #dbe2ef;
+              box-shadow: 0 2px 8px -2px rgba(0,0,0,0.03);
+            }
+            
+            .msg-card-bot {
+              margin-bottom: 24px;
+              padding: 24px 28px;
+              border-radius: 20px;
+              background: #ffffff;
+              border: 1px solid #e2e8f0;
+              box-shadow: 0 4px 20px -3px rgba(0,0,0,0.05);
+            }
+
+            .sender-header {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-weight: 700;
+              font-size: 13px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 12px;
+            }
+            
+            .sender-user { color: #2563eb; }
+            .sender-bot { color: #0284c7; }
+            
+            .msg-content {
+              font-size: 14.5px;
+              line-height: 1.7;
+              color: #1e293b;
+              word-break: break-word;
+            }
+            
+            .footer {
+              margin-top: 50px;
+              padding-top: 24px;
+              border-top: 1px solid #e2e8f0;
+              text-align: center;
+              font-size: 12px;
+              color: #64748b;
+              font-weight: 500;
+            }
+            
+            @media print { 
+              body { background: #ffffff; padding: 20px; }
+              .msg-card-user, .msg-card-bot { page-break-inside: avoid; }
+            }
           </style>
         </head>
         <body>
-          <div class="header">
+          <div class="header-card">
             <div>
-              <div class="logo">Xare AI</div>
-              <h2 style="margin: 6px 0 0 0; font-size: 18px; font-weight: 600; color: #334155;">${chatTitle}</h2>
+              <div class="brand-title">Xare AI</div>
+              <div class="chat-subtitle">${chatTitle}</div>
             </div>
-            <div class="meta">
-              <div>Date: ${dateStr}</div>
-              <div>Generated by Xare AI</div>
+            <div class="meta-badge">
+              <div style="font-weight: 700; color: #ffffff;">${dateStr}</div>
+              <div style="margin-top: 2px;">Exported for ${userName}</div>
             </div>
           </div>
+
           <div>${messagesHTML}</div>
+
           <div class="footer">
-            Xare AI - Absolute Zero Cost Assistant • https://github.com/Ali-Kassem-AK/xare-ai
+            Generated with Xare AI • Ultra-Modern AI Platform • https://github.com/Ali-Kassem-AK/xare-ai
           </div>
           <script>
             window.onload = function() {
