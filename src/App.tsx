@@ -2403,13 +2403,13 @@ export const ChatMessageItem = React.memo(({
         </div>
       )}
 
-      <div className={`flex flex-col ${msg.sender === 'user' ? 'items-end max-w-[85%] md:max-w-[75%]' : 'items-start max-w-[96%] md:max-w-[94%]'}`}>
+      <div className={`flex flex-col ${msg.sender === 'user' ? 'items-end max-w-[85%] md:max-w-[75%]' : 'items-start w-full'}`}>
         <div
           className={`${
             msg.sender === 'user'
-            ? (isDarkMode ? 'bg-[#080c14] text-slate-100 border border-slate-800/50' : 'bg-[#f0f4f9] text-slate-900') + ' rounded-[24px] px-5 py-3 shadow-sm'
-            : (isDarkMode ? 'bg-[#0f1523] text-slate-100 border-slate-800/50' : 'bg-white text-slate-900 border-slate-200/50 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)]') + ' border rounded-[24px] px-5 py-4 sm:px-6 sm:py-5 overflow-hidden w-full'
-          } ${isStreaming ? (isDarkMode ? 'ring-1 ring-cyan-500/30 shadow-[0_0_20px_-3px_rgba(56,189,248,0.15)]' : 'ring-1 ring-blue-400/40 shadow-[0_0_20px_-3px_rgba(59,130,246,0.12)]') : ''} transition-all duration-300`}
+            ? (isDarkMode ? 'bg-[#0e1626] text-slate-100 border border-slate-800/60 shadow-sm' : 'bg-[#f0f4f9] text-slate-900 shadow-sm') + ' rounded-[24px] px-5 py-3'
+            : (isDarkMode ? 'text-slate-100' : 'text-slate-900') + ' w-full py-1 px-0 overflow-hidden'
+          } ${isStreaming ? (isDarkMode ? 'soft-stream-text' : '') : ''} transition-all duration-300`}
         >
           {msg.image && <LocalImageRenderer src={msg.image} isDarkMode={isDarkMode} />}
 
@@ -2440,7 +2440,7 @@ export const ChatMessageItem = React.memo(({
             </div>
           ) : (
             !(msg.audio && textToRender === "🎤 Voice Message") && (
-              <div dir="auto" className={`font-normal w-full ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ wordBreak: 'break-word' }}>
+              <div dir="auto" className={`font-normal w-full ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} style={{ wordBreak: 'break-word' }}>
                 {formatMessageText(textToRender, isDarkMode, isStreaming)}
               </div>
             )
