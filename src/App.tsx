@@ -915,7 +915,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         const blockHeaderMatch = trimmedLine.match(/^(Block\s+\d+.*?|Step\s+\d+.*?|Section\s+\d+.*?|Integrated Narrative|Step-by-Step Execution)$/i);
         if (blockHeaderMatch) {
           elements.push(
-            <div key={`bh-${lIdx}`} className={`text-base sm:text-lg font-bold mt-5 mb-2 tracking-tight ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+            <div key={`bh-${lIdx}`} className={`text-base sm:text-lg font-bold mt-5 mb-2 tracking-tight ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-300' : 'text-blue-700'}`}>
               {renderInline(blockHeaderMatch[1], isDarkMode)}
             </div>
           );
@@ -928,10 +928,10 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           const level = headerMatch[1].length;
           const content = headerMatch[2];
           const sizeClasses = [
-            `text-2xl font-bold mt-6 mb-3 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`, 
-            `text-xl font-bold mt-5 mb-2 tracking-tight ${isDarkMode ? 'text-slate-50' : 'text-slate-900'}`, 
-            `text-lg font-semibold mt-4 mb-2 ${isDarkMode ? 'text-slate-100' : 'text-slate-800'}`, 
-            `text-base font-semibold mt-3 mb-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`
+            `text-2xl font-extrabold mt-6 mb-3 tracking-tight ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-indigo-200 to-cyan-300' : 'text-blue-950'}`, 
+            `text-xl font-bold mt-5 mb-2.5 tracking-tight ${isDarkMode ? 'text-cyan-300' : 'text-blue-900'}`, 
+            `text-lg font-semibold mt-4 mb-2 ${isDarkMode ? 'text-indigo-200' : 'text-slate-900'}`, 
+            `text-base font-semibold mt-3 mb-1.5 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`
           ];
           elements.push(<div key={`h-${lIdx}`} className={sizeClasses[level-1]}>{renderInline(content, isDarkMode)}</div>);
           return;
@@ -941,8 +941,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         const listMatch = trimmedLine.match(/^[-*]\s+(.*)/);
         if (listMatch) {
           elements.push(
-            <div key={`ul-${lIdx}`} className="flex gap-3 ml-2 mt-1.5 items-baseline">
-              <span className={`select-none text-lg leading-none ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>•</span>
+            <div key={`ul-${lIdx}`} className="flex gap-3 ml-2 mt-2 items-baseline">
+              <span className={`select-none text-base font-bold leading-none ${isDarkMode ? 'text-cyan-400' : 'text-blue-600'}`}>•</span>
               <span className="flex-1">{renderInline(listMatch[1], isDarkMode)}</span>
             </div>
           );
@@ -953,8 +953,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         const numListMatch = trimmedLine.match(/^(\d+\.)\s+(.*)/);
         if (numListMatch) {
           elements.push(
-            <div key={`ol-${lIdx}`} className="flex gap-2 ml-2 mt-1.5 items-baseline">
-              <span className={`font-semibold min-w-[24px] select-none ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{numListMatch[1]}</span>
+            <div key={`ol-${lIdx}`} className="flex gap-2.5 ml-2 mt-2 items-baseline">
+              <span className={`font-bold text-xs px-2 py-0.5 rounded-md min-w-[24px] text-center select-none ${isDarkMode ? 'bg-blue-950/80 text-cyan-300 border border-cyan-800/40 shadow-sm' : 'bg-blue-100 text-blue-800'}`}>{numListMatch[1]}</span>
               <span className="flex-1">{renderInline(numListMatch[2], isDarkMode)}</span>
             </div>
           );
@@ -965,7 +965,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         const quoteMatch = trimmedLine.match(/^>\s+(.*)/);
         if (quoteMatch) {
           elements.push(
-            <blockquote key={`bq-${lIdx}`} className={`border-l-[3px] px-4 py-2.5 my-3 italic rounded-r-xl ${isDarkMode ? 'border-slate-500 bg-slate-800/30 text-slate-300' : 'border-slate-400 bg-slate-50 text-slate-700'}`}>
+            <blockquote key={`bq-${lIdx}`} className={`border-l-4 px-4.5 py-3 my-3.5 rounded-r-2xl text-sm font-medium ${isDarkMode ? 'border-cyan-500 bg-[#0c182e]/80 text-cyan-100 shadow-sm' : 'border-blue-500 bg-blue-50/70 text-blue-950 shadow-sm'}`}>
               {renderInline(quoteMatch[1], isDarkMode)}
             </blockquote>
           );
@@ -2458,17 +2458,6 @@ export const ChatMessageItem = React.memo(({
     <div
       className={`flex gap-4 items-start chat-message-card group ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
     >
-      {msg.sender === 'bot' && (
-        <div className="hidden sm:flex items-center justify-center flex-shrink-0 mt-1 mr-2">
-          <XareLogo 
-            className="w-8 h-8 sm:w-9 sm:h-9" 
-            scale={3.4} 
-            x="-8%" 
-            isDarkMode={isDarkMode} 
-          />
-        </div>
-      )}
-
       <div className={`flex flex-col ${msg.sender === 'user' ? 'items-end max-w-[85%] md:max-w-[75%]' : 'items-start w-full'}`}>
         <div
           className={`${
