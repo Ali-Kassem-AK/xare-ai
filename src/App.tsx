@@ -5125,22 +5125,23 @@ const AI_PRESETS = [
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95"
+                    title="Send Message"
+                    className="group rounded-full bg-gradient-to-br from-[#1e3a8a] via-[#1d4ed8] to-[#0f172a] hover:from-[#2563eb] hover:via-[#1d4ed8] hover:to-[#1e293b] text-white shadow-lg shadow-blue-950/50 hover:shadow-blue-600/40 border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 cursor-pointer"
                   >
-                    <Send className="w-4 h-4 sm:w-5 sm:h-5 ml-1" />
+                    <Send className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => isRecording ? stopRecordingAndSend() : startRecording()}
                     title={isRecording ? "Send Voice Note" : "Record Voice Note"}
-                    className={`rounded-full backdrop-blur-md transition-all border shadow-sm flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 ${
+                    className={`group rounded-full backdrop-blur-md transition-all border shadow-sm flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 ${
                       isRecording
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-lg shadow-blue-500/30'
+                      ? 'bg-gradient-to-br from-[#1e3a8a] via-[#1d4ed8] to-[#0f172a] hover:from-[#2563eb] hover:to-[#1e293b] text-white border-blue-400/30 shadow-lg shadow-blue-950/50'
                       : (isDarkMode ? 'bg-[#0c1324]/80 text-slate-300 hover:bg-slate-800 border-slate-800/50' : 'bg-white/80 text-slate-600 hover:bg-white border-slate-200/50')
                     }`}
                   >
-                    {isRecording ? <Send className="w-4 h-4 sm:w-5 sm:h-5 ml-1" /> : <Mic className="w-5 h-5" />}
+                    {isRecording ? <Send className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" /> : <Mic className="w-5 h-5" />}
                   </button>
                 )}
               </div>
