@@ -4238,7 +4238,7 @@ const AI_PRESETS = [
 
   if (isCheckingSession) {
     return (
-      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#090d16] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
+      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#05070e] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
         <GoogleStyles />
         <div className="relative z-10 flex flex-col items-center animate-pulse">
           {/* ========================================== */}
@@ -4259,7 +4259,7 @@ const AI_PRESETS = [
 
   if (!currentUser) {
     return (
-      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#090d16] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
+      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#05070e] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
         <GoogleStyles />
 
         <div className="absolute top-6 right-6 z-50">
@@ -4444,11 +4444,11 @@ const AI_PRESETS = [
   }
 
   return (
-    <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#090d16] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
+    <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#05070e] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
       <GoogleStyles />
 
       {showLimitsPopup && (
-        <div className={`fixed inset-0 z-[100] flex overflow-y-auto chat-scroll p-4 sm:p-8 animate-overlay ${isDarkMode ? 'bg-[#090d16]/80 backdrop-blur-sm' : 'bg-slate-900/40 backdrop-blur-sm'}`}>
+        <div className={`fixed inset-0 z-[100] flex overflow-y-auto chat-scroll p-4 sm:p-8 animate-overlay ${isDarkMode ? 'bg-[#05070e]/80 backdrop-blur-sm' : 'bg-slate-900/40 backdrop-blur-sm'}`}>
           <div className={`m-auto relative w-full max-w-3xl p-5 sm:p-10 rounded-[2.5rem] shadow-2xl animate-float-up ${isDarkMode ? 'bg-[#0c1324] border border-slate-800' : 'bg-white border border-slate-200'}`}>
             
             <div className="flex flex-col items-center mb-6 mt-1">
@@ -4808,7 +4808,7 @@ const AI_PRESETS = [
             </div>
           </div>
 
-          <div className={`absolute bottom-0 w-full p-3 sm:p-6 z-20 pointer-events-none pb-4 sm:pb-8 ${isDarkMode ? 'bg-gradient-to-t from-[#090d16] via-[#090d16]/95 to-transparent' : 'bg-gradient-to-t from-white via-white/95 to-transparent'}`}>
+          <div className={`absolute bottom-0 w-full p-3 sm:p-6 z-20 pointer-events-none pb-4 sm:pb-8 ${isDarkMode ? 'bg-gradient-to-t from-[#05070e] via-[#05070e]/95 to-transparent' : 'bg-gradient-to-t from-white via-white/95 to-transparent'}`}>
             
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
                 <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
@@ -5070,7 +5070,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-[#090d16] text-white p-6 text-center">
+        <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-[#05070e] text-white p-6 text-center">
           <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl max-w-md w-full space-y-4 backdrop-blur-xl">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/20">
               <XareLogo className="w-8 h-8" scale={2.5} x="-8%" isDarkMode={true} />
