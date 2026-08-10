@@ -2583,7 +2583,7 @@ export const ChatMessageItem = React.memo(({
   // BULLETPROOF VAULT CHECK: If this message is actively in STREAMING_TEXT_VAULT,
   // FORCE render partialText from vault so full response can NEVER flash!
   const vaultData = STREAMING_TEXT_VAULT.get(msg.id);
-  const textToRender = (isStreaming && vaultData) ? vaultData.partialText : msg.text;
+  const textToRender = vaultData ? vaultData.partialText : msg.text;
 
   const handleSaveEdit = () => {
     if (editText.trim() && onEditPrompt) {
@@ -2776,7 +2776,9 @@ export function App() {
       if (charIndex >= totalLength) {
         charIndex = totalLength;
         streamingAnimFrameRef.current = null;
-        STREAMING_TEXT_VAULT.delete(msgId);
+        
+        // Lock vault partialText to fullText until React commits final state update
+        STREAMING_TEXT_VAULT.set(msgId, { fullText, partialText: fullText });
 
         setChatHistory(prev => prev.map(c => {
           if (c.id !== targetChatId) return c;
@@ -2788,6 +2790,11 @@ export function App() {
         }));
 
         setStreamingMessageId(null);
+
+        setTimeout(() => {
+          STREAMING_TEXT_VAULT.delete(msgId);
+        }, 150);
+
         if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
@@ -3024,10 +3031,14 @@ const AI_PRESETS = [
       const fetchedChats = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        const messages = (data.messages || []).map(msg => ({
-          ...msg,
-          timestamp: parseDateSafe(msg.timestamp)
-        }));
+        const messages = (data.messages || []).map(msg => {
+          const vaultItem = STREAMING_TEXT_VAULT.get(msg.id);
+          return {
+            ...msg,
+            timestamp: parseDateSafe(msg.timestamp),
+            text: vaultItem ? vaultItem.partialText : msg.text
+          };
+        });
 
         fetchedChats.push({
           ...data,
