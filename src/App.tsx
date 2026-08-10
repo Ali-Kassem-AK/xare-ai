@@ -307,9 +307,36 @@ const copyToClipboard = async (text) => {
 };
 
 /**
- * Enhanced Code Block component with built-in copy functionality and stateful animations.
+ * Lightweight syntax highlighter for code blocks
  */
-export const CodeBlock = ({ code, lang, isDarkMode }) => {
+const highlightSyntax = (code: string, lang: string, isDarkMode: boolean) => {
+  if (!code) return '';
+  let escaped = code
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const keywords = /\b(const|let|var|function|return|if|else|for|while|import|export|from|default|class|extends|async|await|try|catch|new|type|interface|public|private|protected|def|self|print|struct|enum|void|int|float|double|bool|string)\b/g;
+  const strings = /(".*?"|'.*?'|`.*?`)/g;
+  const numbers = /\b(\d+(\.\d+)?)\b/g;
+  const comments = /(\/\/.*|\/\*[\s\S]*?\*\/|#.*)/g;
+
+  const kwClass = isDarkMode ? 'text-purple-400 font-semibold' : 'text-purple-600 font-semibold';
+  const strClass = isDarkMode ? 'text-emerald-400' : 'text-emerald-600';
+  const numClass = isDarkMode ? 'text-amber-400' : 'text-amber-600';
+  const cmClass = isDarkMode ? 'text-slate-500 italic' : 'text-slate-400 italic';
+
+  return escaped
+    .replace(comments, `<span class="${cmClass}">$1</span>`)
+    .replace(strings, `<span class="${strClass}">$1</span>`)
+    .replace(keywords, `<span class="${kwClass}">$1</span>`)
+    .replace(numbers, `<span class="${numClass}">$1</span>`);
+};
+
+/**
+ * Enhanced Code Block component with line numbers, syntax highlighting, copy feedback, and language badge.
+ */
+export const CodeBlock = ({ code, lang, isDarkMode }: { code: string; lang: string; isDarkMode: boolean }) => {
   const [isCopied, setIsCopied] = useState(false);
   
   const handleCopy = async () => {
@@ -318,34 +345,68 @@ export const CodeBlock = ({ code, lang, isDarkMode }) => {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const lines = (code || '').split('\n');
+
   return (
-    <div className={`my-4 rounded-xl overflow-hidden border shadow-sm ${isDarkMode ? 'border-slate-700/60 bg-[#0d1117]' : 'border-slate-200 bg-[#f8fafc]'}`}>
-      <div className={`flex items-center justify-between px-4 py-2 border-b ${isDarkMode ? 'bg-slate-800/80 border-slate-700/60' : 'bg-slate-200/50 border-slate-200'}`}>
-        <span className={`text-xs font-mono uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-          {lang || 'Code'}
-        </span>
+    <div className={`my-4 rounded-2xl overflow-hidden border shadow-md transition-all ${isDarkMode ? 'border-slate-800 bg-[#090d16]' : 'border-slate-200 bg-[#f8fafc]'}`}>
+      <div className={`flex items-center justify-between px-4 py-2.5 border-b select-none ${isDarkMode ? 'bg-[#0f172a]/90 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
+        <div className="flex items-center gap-2">
+          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold uppercase tracking-wider ${isDarkMode ? 'bg-cyan-950/60 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+            {lang || 'code'}
+          </span>
+          <span className="text-[11px] opacity-60 font-mono">{lines.length} lines</span>
+        </div>
+
         <button 
           onClick={handleCopy} 
-          className={`flex items-center gap-1.5 text-xs font-medium transition-colors focus:outline-none ${isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+            isDarkMode 
+              ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60' 
+              : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm'
+          }`}
           title="Copy code"
         >
           {isCopied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-          {isCopied ? 'Copied!' : 'Copy'}
+          {isCopied ? 'Copied!' : 'Copy Code'}
         </button>
       </div>
-      <div className="overflow-x-auto p-4 chat-scroll">
-        <code className={`text-[13.5px] leading-relaxed font-mono whitespace-pre ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-          {code}
-        </code>
+
+      <div className="overflow-x-auto p-4 chat-scroll flex items-start">
+        {/* Line Numbers Column */}
+        <div className={`select-none font-mono text-[12.5px] text-right pr-3.5 mr-3.5 border-r leading-relaxed ${isDarkMode ? 'text-slate-600 border-slate-800/80' : 'text-slate-400 border-slate-200'}`}>
+          {lines.map((_, idx) => (
+            <div key={idx}>{idx + 1}</div>
+          ))}
+        </div>
+
+        {/* Code Content */}
+        <pre className="flex-1 font-mono text-[13.5px] leading-relaxed whitespace-pre overflow-x-auto">
+          <code 
+            className={isDarkMode ? 'text-slate-200' : 'text-slate-800'}
+            dangerouslySetInnerHTML={{ __html: highlightSyntax(code, lang, isDarkMode) }}
+          />
+        </pre>
       </div>
     </div>
   );
 };
 
 /**
- * Message action row attached to the bottom of AI messages.
+ * Message action row attached to the bottom of AI messages (Copy, Regenerate, & Version Switcher controls).
  */
-export const MessageActions = ({ text, isDarkMode }) => {
+export const MessageActions = ({ 
+  text, 
+  isDarkMode, 
+  msg, 
+  onRegenerate, 
+  onSwitchVersion 
+}: { 
+  text: string; 
+  isDarkMode: boolean; 
+  msg?: any; 
+  onRegenerate?: () => void; 
+  onSwitchVersion?: (idx: number) => void; 
+}) => {
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -354,15 +415,55 @@ export const MessageActions = ({ text, isDarkMode }) => {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const versions = msg?.versions || [];
+  const activeIdx = msg?.activeVersionIndex ?? (versions.length > 0 ? versions.length - 1 : 0);
+
   return (
-    <div className="flex items-center gap-2 mt-3 -mb-1 opacity-80 hover:opacity-100 transition-opacity">
-      <button 
-        onClick={handleCopy} 
-        title="Copy message" 
-        className={`p-1.5 rounded-full transition-all focus:outline-none ${isDarkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
-      >
-        {isCopied ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-      </button>
+    <div className="flex items-center justify-between gap-3 mt-3 -mb-1 pt-1 opacity-80 hover:opacity-100 transition-opacity border-t border-slate-500/10">
+      <div className="flex items-center gap-1.5">
+        <button 
+          onClick={handleCopy} 
+          title="Copy message" 
+          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+        >
+          {isCopied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+          <span>{isCopied ? 'Copied' : 'Copy'}</span>
+        </button>
+
+        {onRegenerate && (
+          <button 
+            onClick={onRegenerate} 
+            title="Regenerate response" 
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'text-slate-400 hover:text-cyan-400 hover:bg-slate-800' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-100'}`}
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+            <span>Regenerate</span>
+          </button>
+        )}
+      </div>
+
+      {/* Version Switcher Controls (< 1 / 2 >) */}
+      {versions.length > 1 && onSwitchVersion && (
+        <div className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${isDarkMode ? 'bg-slate-800/80 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
+          <button 
+            disabled={activeIdx === 0}
+            onClick={() => onSwitchVersion(activeIdx - 1)}
+            className="p-0.5 rounded hover:bg-slate-700/50 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Previous version"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <span className="px-1 text-[11px] font-mono">{activeIdx + 1} / {versions.length}</span>
+          <button 
+            disabled={activeIdx === versions.length - 1}
+            onClick={() => onSwitchVersion(activeIdx + 1)}
+            className="p-0.5 rounded hover:bg-slate-700/50 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Next version"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -2332,20 +2433,36 @@ const STREAMING_TEXT_VAULT = new Map<string, { fullText: string; partialText: st
 export const ChatMessageItem = React.memo(({ 
   msg, 
   isDarkMode, 
-  isStreaming 
+  isStreaming,
+  onRegenerate,
+  onSwitchVersion,
+  onEditPrompt
 }: { 
   msg: any; 
   isDarkMode: boolean; 
-  isStreaming: boolean; 
+  isStreaming: boolean;
+  onRegenerate?: (msgId: string) => void;
+  onSwitchVersion?: (msgId: string, idx: number) => void;
+  onEditPrompt?: (msgId: string, text: string) => void;
 }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(msg.text || '');
+
   // BULLETPROOF VAULT CHECK: If this message is actively in STREAMING_TEXT_VAULT,
   // FORCE render partialText from vault so full response can NEVER flash!
   const vaultData = STREAMING_TEXT_VAULT.get(msg.id);
   const textToRender = (isStreaming && vaultData) ? vaultData.partialText : msg.text;
 
+  const handleSaveEdit = () => {
+    if (editText.trim() && onEditPrompt) {
+      onEditPrompt(msg.id, editText.trim());
+      setIsEditing(false);
+    }
+  };
+
   return (
     <div
-      className={`flex gap-4 items-start chat-message-card ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+      className={`flex gap-4 items-start chat-message-card group ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
     >
       {msg.sender === 'bot' && (
         <div className="hidden sm:flex items-center justify-center flex-shrink-0 mt-1 mr-2">
@@ -2361,7 +2478,7 @@ export const ChatMessageItem = React.memo(({
       <div
         className={`${msg.sender === 'user' ? 'max-w-[85%] md:max-w-[75%]' : 'max-w-[96%] md:max-w-[94%]'} ${
           msg.sender === 'user'
-          ? (isDarkMode ? 'bg-[#080c14] text-slate-100 border border-slate-800/50' : 'bg-[#f0f4f9] text-slate-900') + ' rounded-[24px] px-5 py-3 shadow-sm'
+          ? (isDarkMode ? 'bg-[#080c14] text-slate-100 border border-slate-800/50' : 'bg-[#f0f4f9] text-slate-900') + ' rounded-[24px] px-5 py-3 shadow-sm relative'
           : (isDarkMode ? 'bg-[#0f1523] text-slate-100 border-slate-800/50' : 'bg-white text-slate-900 border-slate-200/50 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)]') + ' border rounded-[24px] px-5 py-4 sm:px-6 sm:py-5 overflow-hidden'
         } ${isStreaming ? (isDarkMode ? 'ring-1 ring-cyan-500/30 shadow-[0_0_20px_-3px_rgba(56,189,248,0.15)]' : 'ring-1 ring-blue-400/40 shadow-[0_0_20px_-3px_rgba(59,130,246,0.12)]') : ''} transition-all duration-300`}
       >
@@ -2369,14 +2486,55 @@ export const ChatMessageItem = React.memo(({
 
         {msg.document && <LocalDocumentRenderer src={msg.document} isDarkMode={isDarkMode} />}
 
-        {!(msg.audio && textToRender === "🎤 Voice Message") && (
-          <div dir="auto" className={`font-normal w-full ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ wordBreak: 'break-word' }}>
-            {formatMessageText(textToRender, isDarkMode, isStreaming)}
+        {msg.sender === 'user' && isEditing ? (
+          <div className="space-y-2.5 min-w-[240px] sm:min-w-[320px]">
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              className={`w-full p-2.5 rounded-xl border text-sm outline-none resize-none ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+              rows={3}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsEditing(false)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+              >
+                Save & Submit
+              </button>
+            </div>
           </div>
+        ) : (
+          !(msg.audio && textToRender === "🎤 Voice Message") && (
+            <div dir="auto" className={`font-normal w-full ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ wordBreak: 'break-word' }}>
+              {formatMessageText(textToRender, isDarkMode, isStreaming)}
+            </div>
+          )
+        )}
+
+        {msg.sender === 'user' && !isEditing && onEditPrompt && (
+          <button
+            onClick={() => { setEditText(msg.text); setIsEditing(true); }}
+            className={`absolute top-2.5 right-2.5 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
+            title="Edit prompt"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
         )}
 
         {msg.sender === 'bot' && textToRender && !isStreaming && !(msg.audio && textToRender === "🎤 Voice Message") && (
-          <MessageActions text={textToRender} isDarkMode={isDarkMode} />
+          <MessageActions 
+            text={textToRender} 
+            isDarkMode={isDarkMode} 
+            msg={msg} 
+            onRegenerate={onRegenerate ? () => onRegenerate(msg.id) : undefined}
+            onSwitchVersion={onSwitchVersion ? (idx) => onSwitchVersion(msg.id, idx) : undefined}
+          />
         )}
 
         {msg.audio && (
@@ -2389,6 +2547,8 @@ export const ChatMessageItem = React.memo(({
   return (
     prevProps.msg.id === nextProps.msg.id &&
     prevProps.msg.text === nextProps.msg.text &&
+    prevProps.msg.activeVersionIndex === nextProps.msg.activeVersionIndex &&
+    prevProps.msg.versions?.length === nextProps.msg.versions?.length &&
     prevProps.isDarkMode === nextProps.isDarkMode &&
     prevProps.isStreaming === nextProps.isStreaming
   );
@@ -2850,6 +3010,132 @@ const AI_PRESETS = [
   useEffect(() => {
     if (window.innerWidth >= 1024) setIsSidebarOpen(true);
   }, []);
+
+  // ==========================================
+  // --- VERSION SWITCHING & PROMPT EDITING
+  // ==========================================
+  const handleSwitchMessageVersion = (msgId: string, targetIdx: number) => {
+    setChatHistory(prev => prev.map(c => {
+      if (c.id !== currentChatId) return c;
+      return {
+        ...c,
+        messages: (c.messages || []).map(m => {
+          if (m.id !== msgId || !m.versions || !m.versions[targetIdx]) return m;
+          return {
+            ...m,
+            text: m.versions[targetIdx],
+            activeVersionIndex: targetIdx
+          };
+        })
+      };
+    }));
+  };
+
+  const handleRegenerateResponse = (botMsgId: string) => {
+    const activeChat = chatHistory.find(c => c.id === currentChatId);
+    if (!activeChat) return;
+
+    const msgs = activeChat.messages || [];
+    const botIdx = msgs.findIndex(m => m.id === botMsgId);
+    if (botIdx === -1) return;
+
+    let userMsg = null;
+    for (let i = botIdx - 1; i >= 0; i--) {
+      if (msgs[i].sender === 'user') {
+        userMsg = msgs[i];
+        break;
+      }
+    }
+    if (!userMsg) return;
+
+    sendMessageToBackend(userMsg.text, userMsg.image || userMsg.document || null, activeChat, botMsgId);
+  };
+
+  const handleEditUserPrompt = (userMsgId: string, newPromptText: string) => {
+    const activeChat = chatHistory.find(c => c.id === currentChatId);
+    if (!activeChat) return;
+
+    const msgs = activeChat.messages || [];
+    const userIdx = msgs.findIndex(m => m.id === userMsgId);
+    if (userIdx === -1) return;
+
+    const updatedMessages = msgs.slice(0, userIdx + 1).map(m => m.id === userMsgId ? { ...m, text: newPromptText } : m);
+    
+    const updatedChat = {
+      ...activeChat,
+      messages: updatedMessages,
+      updatedAt: new Date()
+    };
+
+    setChatHistory(prev => prev.map(c => c.id === currentChatId ? updatedChat : c));
+
+    sendMessageToBackend(newPromptText, updatedMessages[userIdx].image || updatedMessages[userIdx].document || null, updatedChat);
+  };
+
+  // ==========================================
+  // --- SMART CHAT EXPORT (PDF)
+  // ==========================================
+  const exportChatToPDF = () => {
+    const activeChat = chatHistory.find(c => c.id === currentChatId);
+    if (!activeChat) return;
+
+    const chatTitle = activeChat.title || 'Xare Chat';
+    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const messagesHTML = (activeChat.messages || []).map((m: any) => `
+      <div style="margin-bottom: 20px; padding: 18px 24px; border-radius: 16px; background: ${m.sender === 'user' ? '#f0f4f9' : '#ffffff'}; border: 1px solid ${m.sender === 'user' ? '#dbe2ef' : '#e2e8f0'}; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: ${m.sender === 'user' ? '#2563eb' : '#059669'}; margin-bottom: 8px;">
+          ${m.sender === 'user' ? '👤 User' : '🤖 Xare AI'}
+        </div>
+        <div style="font-size: 14.5px; line-height: 1.65; color: #1e293b; white-space: pre-wrap; word-break: break-word;">
+          ${(m.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+        </div>
+      </div>
+    `).join('');
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${chatTitle} - Xare AI PDF</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+            body { font-family: 'Inter', sans-serif; padding: 40px; color: #0f172a; max-width: 900px; margin: 0 auto; background: #f8fafc; }
+            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+            .logo { font-size: 24px; font-weight: 800; color: #1e3a8a; }
+            .meta { font-size: 12px; color: #64748b; text-align: right; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8; }
+            @media print { body { background: #ffffff; padding: 20px; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="logo">Xare AI</div>
+              <h2 style="margin: 6px 0 0 0; font-size: 18px; font-weight: 600; color: #334155;">${chatTitle}</h2>
+            </div>
+            <div class="meta">
+              <div>Date: ${dateStr}</div>
+              <div>Generated by Xare AI</div>
+            </div>
+          </div>
+          <div>${messagesHTML}</div>
+          <div class="footer">
+            Xare AI - Absolute Zero Cost Assistant • https://github.com/Ali-Kassem-AK/xare-ai
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   // ==========================================
   // --- DIRECT CLIPBOARD PASTE (IMAGES & PDFS)
@@ -4188,6 +4474,19 @@ const AI_PRESETS = [
             </div>
 
             <div className="flex z-10 flex-shrink-0 items-center gap-1 sm:gap-2">
+              <button
+                onClick={exportChatToPDF}
+                className={`p-1.5 sm:p-2 rounded-full transition-all hover:scale-105 flex items-center gap-1.5 text-xs font-semibold px-2.5 sm:px-3 mr-1 ${
+                  isDarkMode 
+                    ? 'bg-slate-800/80 text-cyan-400 hover:bg-slate-700 border border-slate-700/60 shadow-cyan-950/20' 
+                    : 'bg-white text-blue-600 hover:bg-slate-50 border border-slate-200 shadow-sm'
+                }`}
+                title="Export Chat as PDF"
+              >
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden md:inline">Export PDF</span>
+              </button>
+
               <div className={`flex items-center mr-1 sm:mr-2 pr-2 sm:pr-3 border-r ${isDarkMode ? 'border-slate-700/60' : 'border-slate-300/60'}`}>
                 <a href="https://ali-kassem-portfolio-io.vercel.app/" target="_blank" rel="noopener noreferrer" className={`p-1.5 sm:p-2 rounded-full transition-all hover:scale-110 ${isDarkMode ? 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/30' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`} title="Ali's Portfolio">
                   <Globe className="w-[16px] h-[16px] sm:w-[18px] sm:h-[18px]" />
@@ -4221,6 +4520,9 @@ const AI_PRESETS = [
                   msg={msg}
                   isDarkMode={isDarkMode}
                   isStreaming={msg.id === streamingMessageId}
+                  onRegenerate={handleRegenerateResponse}
+                  onSwitchVersion={handleSwitchMessageVersion}
+                  onEditPrompt={handleEditUserPrompt}
                 />
               ))}
 
