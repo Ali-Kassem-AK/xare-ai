@@ -441,7 +441,7 @@ export const MessageActions = ({
   const activeIdx = msg?.activeVersionIndex ?? (versions.length > 0 ? versions.length - 1 : 0);
 
   return (
-    <div className="flex items-center justify-between gap-3 mt-3 -mb-1 pt-1 opacity-80 hover:opacity-100 transition-opacity border-t border-slate-500/10">
+    <div className="flex items-center justify-between gap-3 mt-2 -mb-1 opacity-80 hover:opacity-100 transition-opacity">
       <div className="flex items-center gap-1.5">
         <button 
           onClick={handleCopy} 
