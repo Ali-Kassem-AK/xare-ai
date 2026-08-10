@@ -2464,7 +2464,7 @@ export default function App() {
         }));
 
         setStreamingMessageId(null);
-        if (chatContainerRef.current && !isUserScrolledUpRef.current) {
+        if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
         if (onComplete) onComplete();
@@ -2487,7 +2487,7 @@ export default function App() {
             };
           }));
 
-          if (chatContainerRef.current && !isUserScrolledUpRef.current) {
+          if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
           }
         }
@@ -2895,6 +2895,7 @@ const AI_PRESETS = [
     return () => window.removeEventListener('paste', handleGlobalPaste);
   }, []);
 
+  const isTouchActiveRef = useRef(false);
   const touchStartYRef = useRef<number | null>(null);
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -2912,6 +2913,7 @@ const AI_PRESETS = [
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    isTouchActiveRef.current = true;
     touchStartYRef.current = e.touches[0].clientY;
   };
 
@@ -2919,7 +2921,18 @@ const AI_PRESETS = [
     if (touchStartYRef.current !== null) {
       const currentY = e.touches[0].clientY;
       const deltaY = currentY - touchStartYRef.current;
-      if (deltaY > 4) { // Pulling down -> content scrolling UP
+      if (deltaY > 2) { // Finger dragging down -> content scrolling UP
+        isUserScrolledUpRef.current = true;
+        setIsUserScrolledUp(true);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isTouchActiveRef.current = false;
+    if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      if (scrollHeight - scrollTop - clientHeight > 12) {
         isUserScrolledUpRef.current = true;
         setIsUserScrolledUp(true);
       }
@@ -2931,13 +2944,13 @@ const AI_PRESETS = [
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
     const distanceToBottom = scrollHeight - scrollTop - clientHeight;
     
-    if (distanceToBottom > 30) {
+    if (distanceToBottom > 12) {
       if (!isUserScrolledUpRef.current) {
         isUserScrolledUpRef.current = true;
         setIsUserScrolledUp(true);
       }
     } else {
-      if (isUserScrolledUpRef.current) {
+      if (isUserScrolledUpRef.current && !isTouchActiveRef.current) {
         isUserScrolledUpRef.current = false;
         setIsUserScrolledUp(false);
       }
@@ -4164,6 +4177,8 @@ const AI_PRESETS = [
             onWheel={handleWheel} 
             onTouchStart={handleTouchStart} 
             onTouchMove={handleTouchMove} 
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd} 
             className="flex-1 overflow-y-auto chat-scroll gpu-accelerated w-full relative z-10"
           >
             <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2">
