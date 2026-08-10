@@ -30,6 +30,44 @@ import {
 export const STREAMING_SPEED_CHARS_PER_SEC = 55;
 
 // ==========================================
+// --- TOOL & ANIMATION PHASE DURATIONS (MS)
+// ==========================================
+/**
+ * Control how long each loading animation/phase lasts before switching to the next step.
+ * All values are in milliseconds (e.g. 5000 = 5 seconds, 3000 = 3 seconds).
+ */
+export const TOOL_PHASE_DURATIONS = {
+  think: {
+    analyzingPossibilities: 7000, // Time before switching from 'Thinking deeply' to 'Analyzing possibilities'
+  },
+  audio: {
+    processingAudio: 6000,        // Time before switching from 'Listening' to 'Processing audio'
+  },
+  image: {
+    thinking: 6000,               // Time before switching from 'Analyzing image' to 'Thinking'
+  },
+  document: {
+    thinking: 6000,               // Time before switching from 'Analyzing document' to 'Thinking'
+  },
+  summarize: {
+    thinking: 5000,               // Time before switching from 'Summarizing' to 'Thinking'
+  },
+  search: {
+    readingSources: 7000,         // Time before switching from 'Searching web' to 'Reading sources'
+    thinking: 6000,               // Time before switching from 'Reading sources' to 'Thinking'
+  },
+  explain: {
+    thinking: 5000,               // Time before switching from 'Analyzing code' to 'Thinking'
+  },
+  translate: {
+    thinking: 5000,               // Time before switching from 'Translating' to 'Thinking'
+  },
+  fix: {
+    thinking: 5000,               // Time before switching from 'Analyzing grammar' to 'Thinking'
+  }
+};
+
+// ==========================================
 // --- FIREBASE CONFIGURATION & INITIALIZATION
 // ==========================================
 
@@ -2700,31 +2738,31 @@ const AI_PRESETS = [
           setLoadingPhase('Thinking deeply');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Analyzing possibilities');
-          }, 7000);
+          }, TOOL_PHASE_DURATIONS.think.analyzingPossibilities);
           break;
         case 'audio':
           setLoadingPhase('Listening');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Processing audio');
-          }, 6000); 
+          }, TOOL_PHASE_DURATIONS.audio.processingAudio); 
           break;
         case 'image':
           setLoadingPhase('Analyzing image');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Thinking');
-          }, 6000);
+          }, TOOL_PHASE_DURATIONS.image.thinking);
           break;
         case 'document':
           setLoadingPhase('Analyzing document');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Thinking');
-          }, 6000);
+          }, TOOL_PHASE_DURATIONS.document.thinking);
           break;
         case 'summarize':
           setLoadingPhase('Summarizing');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Thinking');
-          }, 5000);
+          }, TOOL_PHASE_DURATIONS.summarize.thinking);
           break;
         case 'search':
           setLoadingPhase('Searching web');
@@ -2732,26 +2770,26 @@ const AI_PRESETS = [
             setLoadingPhase('Reading sources');
             timeout2 = setTimeout(() => {
               setLoadingPhase('Thinking');
-            }, 6000);
-          }, 7000);
+            }, TOOL_PHASE_DURATIONS.search.thinking);
+          }, TOOL_PHASE_DURATIONS.search.readingSources);
           break;
         case 'explain':
           setLoadingPhase('Analyzing code');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Thinking');
-          }, 5000);
+          }, TOOL_PHASE_DURATIONS.explain.thinking);
           break;
         case 'translate':
           setLoadingPhase('Translating');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Thinking');
-          }, 5000);
+          }, TOOL_PHASE_DURATIONS.translate.thinking);
           break;
         case 'fix':
           setLoadingPhase('Analyzing grammar');
           timeout1 = setTimeout(() => {
             setLoadingPhase('Thinking');
-          }, 5000);
+          }, TOOL_PHASE_DURATIONS.fix.thinking);
           break;
         default:
           setLoadingPhase('Thinking');
