@@ -4543,9 +4543,13 @@ const AI_PRESETS = [
         )}
 
         <aside
-          className={`fixed lg:relative z-50 h-full flex flex-col backdrop-blur-2xl border-r transition-all duration-300 ease-in-out shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] ${
+          style={{
+            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+            backdropFilter: 'blur(24px) saturate(180%)',
+          }}
+          className={`fixed lg:relative z-50 h-full flex flex-col border-r transition-all duration-300 ease-in-out shadow-[0_8px_32px_0_rgba(0,10,30,0.6)] ${
             isSidebarOpen ? 'w-[280px] translate-x-0' : 'w-[280px] -translate-x-full lg:w-0 lg:translate-x-0 lg:border-none'
-          } ${isDarkMode ? 'bg-[#0a1224]/75 border-blue-500/20 text-slate-100' : 'bg-white/75 border-slate-200/60 text-slate-800'}`}
+          } ${isDarkMode ? 'bg-[#0a1835]/35 border-blue-400/25 text-slate-100' : 'bg-white/40 border-white/50 text-slate-800'}`}
         >
           <div className={`w-[280px] h-full flex flex-col transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
             <div className="p-3">
