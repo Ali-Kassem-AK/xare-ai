@@ -2320,6 +2320,12 @@ export const LocalAudioRenderer = ({ src, sender, isDarkMode, isVoiceMessage }) 
 
 
 /**
+ * Bulletproof Streaming Vault (ChatGPT/Gemini Style Zero-Flash Architecture)
+ * Guarantees that full responses NEVER leak or flash on screen, forcing 100% partial text rendering.
+ */
+const STREAMING_TEXT_VAULT = new Map<string, { fullText: string; partialText: string }>();
+
+/**
  * Ultra-Fast Memoized Chat Message Item (ChatGPT/Gemini Style Performance Optimization)
  * Prevents unnecessary re-rendering and re-parsing of past messages when typing or streaming.
  */
@@ -2332,6 +2338,11 @@ export const ChatMessageItem = React.memo(({
   isDarkMode: boolean; 
   isStreaming: boolean; 
 }) => {
+  // BULLETPROOF VAULT CHECK: If this message is actively in STREAMING_TEXT_VAULT,
+  // FORCE render partialText from vault so full response can NEVER flash!
+  const vaultData = STREAMING_TEXT_VAULT.get(msg.id);
+  const textToRender = (isStreaming && vaultData) ? vaultData.partialText : msg.text;
+
   return (
     <div
       className={`flex gap-4 items-start chat-message-card ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -2358,18 +2369,18 @@ export const ChatMessageItem = React.memo(({
 
         {msg.document && <LocalDocumentRenderer src={msg.document} isDarkMode={isDarkMode} />}
 
-        {!(msg.audio && msg.text === "🎤 Voice Message") && (
+        {!(msg.audio && textToRender === "🎤 Voice Message") && (
           <div dir="auto" className={`font-normal w-full ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ wordBreak: 'break-word' }}>
-            {formatMessageText(msg.text, isDarkMode, isStreaming)}
+            {formatMessageText(textToRender, isDarkMode, isStreaming)}
           </div>
         )}
 
-        {msg.sender === 'bot' && msg.text && !isStreaming && !(msg.audio && msg.text === "🎤 Voice Message") && (
-          <MessageActions text={msg.text} isDarkMode={isDarkMode} />
+        {msg.sender === 'bot' && textToRender && !isStreaming && !(msg.audio && textToRender === "🎤 Voice Message") && (
+          <MessageActions text={textToRender} isDarkMode={isDarkMode} />
         )}
 
         {msg.audio && (
-          <LocalAudioRenderer src={msg.audio} sender={msg.sender} isDarkMode={isDarkMode} isVoiceMessage={msg.text === "🎤 Voice Message"} />
+          <LocalAudioRenderer src={msg.audio} sender={msg.sender} isDarkMode={isDarkMode} isVoiceMessage={textToRender === "🎤 Voice Message"} />
         )}
       </div>
     </div>
@@ -2449,6 +2460,7 @@ export default function App() {
     }
 
     setStreamingMessageId(msgId);
+    STREAMING_TEXT_VAULT.set(msgId, { fullText, partialText: "" });
 
     const totalLength = fullText.length;
     let charIndex = 0;
@@ -2471,6 +2483,7 @@ export default function App() {
       if (charIndex >= totalLength) {
         charIndex = totalLength;
         streamingAnimFrameRef.current = null;
+        STREAMING_TEXT_VAULT.delete(msgId);
 
         setChatHistory(prev => prev.map(c => {
           if (c.id !== targetChatId) return c;
@@ -2492,6 +2505,7 @@ export default function App() {
 
           const nextCharCount = Math.floor(charIndex);
           const partialText = fullText.slice(0, nextCharCount);
+          STREAMING_TEXT_VAULT.set(msgId, { fullText, partialText });
 
           setChatHistory(prev => prev.map(c => {
             if (c.id !== targetChatId) return c;
