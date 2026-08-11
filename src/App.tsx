@@ -843,6 +843,22 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
       
       const elements: any[] = [];
       let tableRows: string[] = [];
+      let quoteRows: string[] = [];
+
+      const flushQuote = () => {
+        if (quoteRows.length > 0) {
+          elements.push(
+            <blockquote key={`bq-${elements.length}`} className={`border-l-3 pl-3.5 pr-3 py-2 my-2.5 rounded-r-xl text-[13.5px] leading-relaxed overflow-x-auto chat-scroll ${isDarkMode ? 'border-cyan-400/80 bg-cyan-950/20 text-slate-200' : 'border-blue-500 bg-blue-50/50 text-slate-800'}`}>
+              {quoteRows.map((qLine, qIdx) => (
+                <div key={qIdx} className="my-0.5 min-w-0 break-words">
+                  {renderInline(qLine, isDarkMode)}
+                </div>
+              ))}
+            </blockquote>
+          );
+          quoteRows = [];
+        }
+      };
 
       const flushTable = () => {
         if (tableRows.length > 0) {
@@ -915,6 +931,11 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         }
       };
 
+      const flushAll = () => {
+        flushTable();
+        flushQuote();
+      };
+
       lines.forEach((line, lIdx) => {
         const trimmedLine = line.trim();
         if (!trimmedLine) return;
@@ -922,7 +943,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         // 1. Horizontal Divider (--- or *** or ___)
         const hrMatch = trimmedLine.match(/^(\-{3,}|\*{3,}|_{3,})$/);
         if (hrMatch) {
-          flushTable();
+          flushAll();
           elements.push(
             <hr key={`hr-${lIdx}`} className={`my-5 border-t ${isDarkMode ? 'border-slate-800/80' : 'border-slate-200/80'}`} />
           );
@@ -931,15 +952,26 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
 
         // 2. Data Tables (Pipe-separated)
         if (trimmedLine.includes('|') && trimmedLine.split('|').length > 2) {
+          flushQuote();
           tableRows.push(trimmedLine);
           return;
         } else {
           flushTable();
         }
 
-        // 3. Section & Block Sub-Headers (Block 1 –, Step 1, Integrated Narrative, etc.)
+        // 3. Blockquotes (> text)
+        const quoteMatch = trimmedLine.match(/^>\s*(.*)/);
+        if (quoteMatch) {
+          quoteRows.push(quoteMatch[1]);
+          return;
+        } else {
+          flushQuote();
+        }
+
+        // 4. Section & Block Sub-Headers (Block 1 –, Step 1, Integrated Narrative, etc.)
         const blockHeaderMatch = trimmedLine.match(/^(Block\s+\d+.*?|Step\s+\d+.*?|Section\s+\d+.*?|Integrated Narrative|Step-by-Step Execution)$/i);
         if (blockHeaderMatch) {
+          flushAll();
           elements.push(
             <div key={`bh-${lIdx}`} className={`text-base sm:text-lg font-bold mt-5 mb-2 tracking-tight ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-300' : 'text-blue-700'}`}>
               {renderInline(blockHeaderMatch[1], isDarkMode)}
@@ -948,9 +980,10 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
-        // 4. Markdown Headers (#, ##, ###, ####)
+        // 5. Markdown Headers (#, ##, ###, ####)
         const headerMatch = trimmedLine.match(/^(#{1,4})\s+(.*)/);
         if (headerMatch) {
+          flushAll();
           const level = headerMatch[1].length;
           const content = headerMatch[2];
           const sizeClasses = [
@@ -963,7 +996,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
-        // 5. Unordered Bullet Lists (- or *)
+        // 6. Unordered Bullet Lists (- or *)
         const listMatch = trimmedLine.match(/^[-*]\s+(.*)/);
         if (listMatch) {
           elements.push(
@@ -975,7 +1008,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
-        // 6. Numbered Lists (1., 2., etc.)
+        // 7. Numbered Lists (1., 2., etc.)
         const numListMatch = trimmedLine.match(/^(\d+\.)\s+(.*)/);
         if (numListMatch) {
           elements.push(
@@ -983,17 +1016,6 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
               <span className={`font-bold text-xs px-2 py-0.5 rounded-md min-w-[24px] text-center select-none ${isDarkMode ? 'bg-blue-950/80 text-cyan-300 border border-cyan-800/40 shadow-sm' : 'bg-blue-100 text-blue-800'}`}>{numListMatch[1]}</span>
               <span className="flex-1">{renderInline(numListMatch[2], isDarkMode)}</span>
             </div>
-          );
-          return;
-        }
-
-        // 7. Blockquotes (> text)
-        const quoteMatch = trimmedLine.match(/^>\s+(.*)/);
-        if (quoteMatch) {
-          elements.push(
-            <blockquote key={`bq-${lIdx}`} className={`border-l-4 px-4.5 py-3 my-3.5 rounded-r-2xl text-sm font-medium ${isDarkMode ? 'border-cyan-500 bg-[#070d1a]/90 text-cyan-100 shadow-sm' : 'border-blue-500 bg-blue-50/70 text-blue-950 shadow-sm'}`}>
-              {renderInline(quoteMatch[1], isDarkMode)}
-            </blockquote>
           );
           return;
         }
@@ -1024,7 +1046,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         );
       });
       
-      flushTable(); 
+      flushAll(); 
 
       return (
         <div key={`${bIdx}-${pIdx}`} className="mb-4 last:mb-0 space-y-1 text-[15px] sm:text-[16px] leading-relaxed w-full">
