@@ -694,13 +694,11 @@ const renderInline = (text, isDarkMode) => {
       );
     }
 
-    // 5. Inline Code: `code` (Liquid Glass Design)
+    // 5. Inline Code: `code`
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       return (
-        <code key={i} className={`px-2 py-0.5 mx-0.5 rounded-lg text-[0.86em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-all duration-200 ${
-          isDarkMode 
-            ? 'bg-[#0e1a30]/65 text-cyan-200 border-cyan-400/25 shadow-[0_2px_10px_rgba(6,182,212,0.08)] backdrop-blur-md hover:border-cyan-400/50 hover:bg-[#122342]/80 hover:text-white' 
-            : 'bg-blue-50/80 text-blue-900 border-blue-200/80 shadow-sm backdrop-blur-md hover:bg-blue-100/90'
+        <code key={i} className={`px-1.5 py-0.5 mx-0.5 rounded-md text-[0.86em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
+          isDarkMode ? 'bg-slate-800/70 text-slate-200 border-slate-700/60' : 'bg-slate-200/80 text-slate-800 border-slate-300/70'
         }`}>
           {part.slice(1, -1)}
         </code>
@@ -4924,10 +4922,7 @@ const AI_PRESETS = [
                 </div>
             )}
 
-            <form
-              onSubmit={handleSendMessage}
-              className="relative flex items-end gap-1.5 sm:gap-3 max-w-5xl mx-auto pointer-events-auto"
-            >
+            <div className="relative max-w-5xl mx-auto pointer-events-auto">
               
               {isRecording && (
                 <div className={`absolute right-0 bottom-full mb-3 flex items-center gap-3 backdrop-blur-xl border px-5 py-2.5 rounded-full shadow-md animate-float-up cursor-pointer transition-colors group ${isDarkMode ? 'bg-[#0c1324]/90 border-slate-700/60 hover:bg-slate-800 text-slate-200' : 'bg-white/95 border-slate-200/60 hover:bg-slate-50 text-slate-700'}`}
@@ -4951,22 +4946,37 @@ const AI_PRESETS = [
               <input type="file" accept="image/*" className="hidden" ref={imageInputRef} onChange={handleImageSelect} />
               <input type="file" accept="application/pdf" className="hidden" ref={documentInputRef} onChange={handleDocumentSelect} />
 
+              <form 
+                onSubmit={handleSendMessage}
+                className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border shadow-2xl transition-all duration-300 backdrop-blur-2xl saturate-[200%] w-full ${
+                  isDarkMode 
+                    ? 'bg-[#070e1c]/80 border-blue-500/30 shadow-[0_8px_32px_0_rgba(2,10,35,0.75)] focus-within:border-cyan-400/60 focus-within:shadow-[0_0_25px_rgba(6,182,212,0.25)]' 
+                    : 'bg-white/85 border-blue-200 shadow-xl focus-within:border-blue-400'
+                }`}
+              >
+              {/* Integrated + Attachment Button */}
               <div className="relative flex-shrink-0" ref={attachMenuRef}>
                 {showAttachMenu && (
-                  <div className={`absolute bottom-full left-0 mb-3 flex flex-col p-1.5 backdrop-blur-2xl border rounded-2xl animate-float-up z-50 w-[220px] shadow-2xl ${isDarkMode ? 'bg-[#212121]/95 border-white/10 text-slate-200' : 'bg-white/95 border-slate-200 text-slate-700'}`}>
-                    
+                  <div 
+                    className={`absolute bottom-full left-0 mb-3 w-56 sm:w-64 p-2 rounded-2xl border shadow-2xl backdrop-blur-2xl z-50 animate-float-up ${
+                      isDarkMode 
+                      ? 'bg-[#0a1224]/95 border-blue-500/30 text-slate-100 shadow-blue-950/50' 
+                      : 'bg-white/95 border-slate-200 text-slate-900'
+                    }`}
+                  >
                     {activeSubMenu ? (
                       <>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.preventDefault(); setActiveSubMenu(null); }}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-colors text-left w-full text-[12px] font-semibold opacity-80 hover:opacity-100 ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
-                        >
-                          <ChevronLeft className="w-4 h-4" /> Back
-                        </button>
-                        <div className={`h-px my-1.5 mx-1 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
-                        <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider opacity-60">{activeSubMenu.label} to</div>
-                        {activeSubMenu.subOptions.map((sub, idx) => (
+                        <div className="flex items-center gap-2 pb-2 mb-2 border-b border-white/10 px-1">
+                          <button
+                            type="button"
+                            onClick={() => setActiveSubMenu(null)}
+                            className="p-1 rounded-lg hover:bg-white/10 transition-colors"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="text-xs font-semibold uppercase tracking-wider">{activeSubMenu.label}</span>
+                        </div>
+                        {activeSubMenu.subItems.map((sub, idx) => (
                           <button
                             key={idx}
                             type="button"
@@ -5028,125 +5038,125 @@ const AI_PRESETS = [
                     )}
                   </div>
                 )}
-
                 <button
-                  type="button"
-                  onClick={() => {
-                    setShowAttachMenu(!showAttachMenu);
-                    if (showAttachMenu) setActiveSubMenu(null);
-                  }}
-                  className={`p-2.5 sm:p-3.5 mb-0.5 sm:mb-0 rounded-full backdrop-blur-md transition-all border shadow-sm flex items-center justify-center ${
-                    showAttachMenu
-                    ? (isDarkMode ? 'bg-[#070b14]/90 text-slate-100 border-slate-700/50' : 'bg-slate-200/80 text-slate-800 border-slate-300/50')
-                    : (isDarkMode ? 'bg-[#070b14]/90 text-slate-300 hover:bg-slate-800 border-slate-800/50' : 'bg-white/80 text-slate-600 hover:bg-white border-slate-200/50')
-                  }`}
-                >
-                  <Plus className={`w-5 h-5 transition-transform duration-300 ${showAttachMenu ? 'rotate-45' : 'rotate-0'}`} />
-                </button>
-              </div>
-
-              <div className={`relative flex-1 backdrop-blur-xl border focus-within:border-blue-500/50 focus-within:ring-4 focus-within:ring-blue-500/10 rounded-[2rem] shadow-lg transition-all overflow-hidden flex flex-col justify-end ${isDarkMode ? 'bg-[#070b14]/90 border-slate-800/80' : 'bg-white/80 border-slate-200/50'}`}>
-                
-                {activeTool && (
-                  <div className="px-4 pt-3 pb-1 flex items-center animate-float-up">
-                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium border shadow-sm ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
-                      <activeTool.icon className="w-3.5 h-3.5" />
-                      {activeTool.label}
-                      <button
-                        type="button"
-                        onClick={() => setActiveTool(null)}
-                        className="ml-1 opacity-60 hover:opacity-100 transition-opacity flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                      type="button"
+                      onClick={() => {
+                        setShowAttachMenu(!showAttachMenu);
+                        if (showAttachMenu) setActiveSubMenu(null);
+                      }}
+                      className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
+                        showAttachMenu
+                        ? (isDarkMode ? 'bg-blue-500/20 text-cyan-300' : 'bg-blue-100 text-blue-700')
+                        : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')
+                      }`}
+                      title="Add attachment or preset tool"
+                    >
+                      <Plus className={`w-5 h-5 transition-transform duration-300 ${showAttachMenu ? 'rotate-45' : 'rotate-0'}`} />
+                    </button>
                   </div>
-                )}
 
-                {pendingAttachment && (
-                  <div className="px-4 pt-4 pb-1">
-                    <div className="relative inline-block group">
-                      {pendingAttachment.type === 'image' ? (
-                        <img src={pendingAttachment.data} alt="preview" className={`h-16 w-16 object-cover rounded-xl border shadow-sm ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} />
-                      ) : (
-                        <div className={`h-16 w-16 rounded-xl border flex flex-col items-center justify-center text-purple-500 overflow-hidden ${isDarkMode ? 'bg-purple-900/20 border-purple-800/50' : 'bg-purple-50 border-purple-100'}`}>
-                          <FileText className="w-6 h-6 mb-1" />
-                          <span className="text-[8px] truncate w-full px-1 text-center font-medium">{pendingAttachment.name}</span>
+                  <div className="relative flex-1 flex flex-col justify-end min-w-0">
+                    {activeTool && (
+                      <div className="px-2 pt-1 pb-1 flex items-center animate-float-up">
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border shadow-sm ${isDarkMode ? 'bg-blue-500/10 text-cyan-300 border-cyan-500/20' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                          <activeTool.icon className="w-3.5 h-3.5" />
+                          {activeTool.label}
+                          <button
+                            type="button"
+                            onClick={() => setActiveTool(null)}
+                            className="ml-1 opacity-60 hover:opacity-100 transition-opacity flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      )}
+                      </div>
+                    )}
+
+                    {pendingAttachment && (
+                      <div className="px-2 pt-2 pb-1">
+                        <div className="relative inline-block group">
+                          {pendingAttachment.type === 'image' ? (
+                            <img src={pendingAttachment.data} alt="preview" className={`h-14 w-14 object-cover rounded-xl border shadow-sm ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} />
+                          ) : (
+                            <div className={`h-14 w-14 rounded-xl border flex flex-col items-center justify-center text-purple-500 overflow-hidden ${isDarkMode ? 'bg-purple-900/20 border-purple-800/50' : 'bg-purple-50 border-purple-100'}`}>
+                              <FileText className="w-5 h-5 mb-1" />
+                              <span className="text-[8px] truncate w-full px-1 text-center font-medium">{pendingAttachment.name}</span>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setPendingAttachment(null)}
+                            className="absolute -top-2 -right-2 w-5 h-5 bg-slate-800 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-slate-700"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <textarea
+                      ref={textareaRef}
+                      value={inputValue}
+                      onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
+                      onPaste={handlePaste}
+                      dir="auto"
+                      placeholder={activeTool ? activeTool.placeholder : "Ask Xare anything..."}
+                      className={`w-full max-h-48 min-h-[38px] sm:min-h-[46px] px-2 sm:px-3 bg-transparent outline-none resize-none text-[15px] ${activeTool || pendingAttachment ? 'pt-1 pb-2' : 'py-2 sm:py-3'} ${isDarkMode ? 'text-slate-100 placeholder-slate-500' : 'text-slate-900 placeholder-slate-500'}`}
+                      rows={1}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 pr-1">
+                    {!inputValue.trim() && !pendingAttachment && !isRecording && (
                       <button
                         type="button"
-                        onClick={() => setPendingAttachment(null)}
-                        className="absolute -top-2 -right-2 w-5 h-5 bg-slate-800 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-slate-700"
+                        onClick={() => {
+                          if (dailyUsage.voiceCallSeconds >= 300) {
+                            showLocalBotMessage("⚠️ **Usage Limit Reached**\nYou have reached your daily limit of 5 minutes for live calls.");
+                          } else {
+                            setIsVoiceModeActive(true);
+                          }
+                        }}
+                        title="Start Live Voice Call"
+                        className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
+                          isDarkMode ? 'text-purple-400 hover:bg-purple-950/40 hover:text-purple-300' : 'text-purple-600 hover:bg-purple-50'
+                        }`}
                       >
-                        <X className="w-3 h-3" />
+                        <AudioLines className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.2} />
                       </button>
-                    </div>
+                    )}
+
+                    {inputValue.trim() || pendingAttachment ? (
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        title="Send Message"
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-950/50 active:scale-95 disabled:opacity-50 flex-shrink-0 cursor-pointer"
+                      >
+                        <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => isRecording ? stopRecordingAndSend() : startRecording()}
+                        title={isRecording ? "Send Voice Note" : "Record Voice Note"}
+                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all shadow-md active:scale-95 flex-shrink-0 ${
+                          isRecording
+                          ? 'bg-blue-600 text-white animate-pulse'
+                          : (isDarkMode ? 'bg-slate-800/80 text-slate-300 hover:bg-slate-700' : 'bg-slate-200/80 text-slate-700 hover:bg-slate-300')
+                        }`}
+                      >
+                        {isRecording ? <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" /> : <Mic className="w-5 h-5" />}
+                      </button>
+                    )}
                   </div>
-                )}
-                
-                <textarea
-                  ref={textareaRef}
-                  value={inputValue}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  onPaste={handlePaste}
-                  dir="auto"
-                  placeholder={activeTool ? activeTool.placeholder : "Ask Xare anything..."}
-                  className={`w-full max-h-48 min-h-[42px] sm:min-h-[56px] px-4 sm:px-6 bg-transparent outline-none resize-none text-[15px] ${activeTool || pendingAttachment ? 'pt-2 pb-3 sm:pb-4' : 'py-2.5 sm:py-4'} ${isDarkMode ? 'text-slate-100 placeholder-slate-500' : 'text-slate-900 placeholder-slate-500'}`}
-                  rows={1}
-                />
+                </form>
               </div>
 
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 mb-0.5 sm:mb-0">
-                {!inputValue.trim() && !pendingAttachment && !isRecording && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (dailyUsage.voiceCallSeconds >= 300) {
-                        showLocalBotMessage("⚠️ **Usage Limit Reached**\nYou have reached your daily limit of 5 minutes for live calls.");
-                      } else {
-                        setIsVoiceModeActive(true);
-                      }
-                    }}
-                    title="Start Live Voice Call"
-                    className={`rounded-full backdrop-blur-md transition-all border shadow-sm flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 ${
-                      isDarkMode ? 'bg-[#0c1324]/80 text-slate-300 hover:bg-slate-800 border-slate-800/50' : 'bg-white/80 text-slate-600 hover:bg-white border-slate-200/50'
-                    }`}
-                  >
-                    <AudioLines className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
-                  </button>
-                )}
-
-                {inputValue.trim() || pendingAttachment ? (
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    title="Send Message"
-                    className="group rounded-full bg-[#1d4ed8]/90 hover:bg-[#2563eb] backdrop-blur-md text-white border border-blue-400/40 shadow-lg shadow-blue-950/60 hover:shadow-blue-600/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 cursor-pointer"
-                  >
-                    <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:-translate-y-0.5 transition-transform duration-200" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => isRecording ? stopRecordingAndSend() : startRecording()}
-                    title={isRecording ? "Send Voice Note" : "Record Voice Note"}
-                    className={`group rounded-full backdrop-blur-md transition-all border shadow-sm flex items-center justify-center h-[42px] w-[42px] sm:h-[56px] sm:w-[56px] hover:scale-105 active:scale-95 ${
-                      isRecording
-                      ? 'bg-[#1d4ed8]/90 hover:bg-[#2563eb] text-white border-blue-400/40 shadow-lg shadow-blue-950/60'
-                      : (isDarkMode ? 'bg-[#0c1324]/80 text-slate-300 hover:bg-slate-800 border-slate-800/50' : 'bg-white/80 text-slate-600 hover:bg-white border-slate-200/50')
-                    }`}
-                  >
-                    {isRecording ? <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5] group-hover:-translate-y-0.5 transition-transform duration-200" /> : <Mic className="w-5 h-5" />}
-                  </button>
-                )}
+              <div className={`text-center mt-4 text-[11px] font-medium pointer-events-auto ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                Xare is AI and can make mistakes. Check important info.
               </div>
-            </form>
-
-            <div className={`text-center mt-4 text-[11px] font-medium pointer-events-auto ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-              Xare is AI and can make mistakes. Check important info.
-            </div>
           </div>
         </div>
       </div>
