@@ -4955,20 +4955,20 @@ const AI_PRESETS = [
 
               <form 
                 onSubmit={handleSendMessage}
-                className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 backdrop-blur-3xl w-full ${
+                className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 w-full ${
                   isDarkMode 
-                    ? 'bg-[#080d19]/80 border-slate-700/60 shadow-[0_8px_32px_rgba(0,0,0,0.55),inset_0_1px_1px_rgba(255,255,255,0.12)] focus-within:border-slate-500/70' 
-                    : 'bg-white/85 border-slate-300/80 shadow-[0_8px_25px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.8)] focus-within:border-blue-400'
+                    ? 'bg-[#070e1c] border-blue-500/30 shadow-[0_8px_32px_0_rgba(2,10,35,0.85)] focus-within:border-cyan-400/60' 
+                    : 'bg-white border-slate-200/90 shadow-xl focus-within:border-blue-400'
                 }`}
               >
               {/* Integrated + Attachment Button */}
               <div className="relative flex-shrink-0" ref={attachMenuRef}>
                 {showAttachMenu && (
                   <div 
-                    className={`absolute bottom-full left-0 mb-3 w-56 sm:w-64 p-2 rounded-2xl border shadow-2xl backdrop-blur-3xl z-50 animate-float-up ${
+                    className={`absolute bottom-full left-0 mb-3 w-56 sm:w-64 p-2 rounded-2xl border shadow-2xl z-50 animate-float-up ${
                       isDarkMode 
-                      ? 'bg-[#090e1a]/96 border-slate-700/60 text-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.75),inset_0_1px_1px_rgba(255,255,255,0.12)]' 
-                      : 'bg-white/98 border-slate-200 text-slate-900 shadow-xl'
+                      ? 'bg-[#0c1324] border-slate-700/80 text-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.95)]' 
+                      : 'bg-white border-slate-200 text-slate-900 shadow-2xl'
                     }`}
                   >
                     {activeSubMenu ? (
