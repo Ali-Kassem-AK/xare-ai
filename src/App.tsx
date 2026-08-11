@@ -1494,12 +1494,15 @@ export const GoogleStyles = () => (
         -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Reset core body margins and enforce full height */
+    /* Reset core body margins and enforce fixed 100dvh container */
     html, body {
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
+        height: 100dvh;
+        position: fixed;
+        inset: 0;
         background-color: transparent !important;
         overflow: hidden; 
     }
@@ -3568,6 +3571,16 @@ const AI_PRESETS = [
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const lockWindowScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+    window.addEventListener('scroll', lockWindowScroll, { passive: true });
+    return () => window.removeEventListener('scroll', lockWindowScroll);
+  }, []);
+
 
   // ==========================================
   // --- 4. ACTION HANDLERS
@@ -4797,7 +4810,7 @@ const AI_PRESETS = [
             </div>
           )}
 
-          <header className="flex-none px-4 sm:px-6 py-4 flex justify-between items-center z-20 bg-transparent transition-colors duration-300">
+          <header className={`sticky top-0 z-30 flex-none px-4 sm:px-6 py-2.5 sm:py-3.5 flex justify-between items-center transition-all duration-300 border-b ${isDarkMode ? 'bg-[#030407]/90 border-slate-800/40 backdrop-blur-md' : 'bg-[#f8fafc]/90 border-slate-200/60 backdrop-blur-md'}`}>
             <div className="flex items-center gap-2 sm:gap-3 z-10 relative">
               {!isSidebarOpen && (
                 <button
