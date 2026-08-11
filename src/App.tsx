@@ -2502,6 +2502,7 @@ const UserMessageActions = ({
 const STREAMING_TEXT_VAULT = new Map<string, { fullText: string; partialText: string }>();
 const ACTIVELY_STREAMING_IDS = new Set<string>();
 const STREAMING_SUBSCRIBERS = new Set<() => void>();
+let GLOBAL_IS_USER_SCROLLED_UP = false;
 
 export const notifyStreamingSubscribers = () => {
   STREAMING_SUBSCRIBERS.forEach(cb => cb());
@@ -2557,6 +2558,16 @@ export const ChatMessageItem = React.memo(({
   if (isCurrentlyStreaming) {
     textToRender = streamedTextSnapshot || (vaultData ? vaultData.partialText : "");
   }
+
+  // Isolated Streaming Auto-Scroll: Follows new tokens immediately after DOM paint if user hasn't scrolled up
+  useEffect(() => {
+    if (isCurrentlyStreaming && !GLOBAL_IS_USER_SCROLLED_UP) {
+      const container = document.querySelector('.chat-scroll.overflow-y-auto');
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  }, [textToRender, isCurrentlyStreaming]);
 
   // SAFETY SHIELD FOR EMPTY BOT MESSAGES:
   if (msg.sender === 'bot' && !msg.image && !msg.audio && (!textToRender || !textToRender.trim()) && !isCurrentlyStreaming) {
@@ -2842,9 +2853,11 @@ export function App() {
           // ISOLATED STREAMING UPDATE: Notify subscriber (active ChatMessageItem) without re-rendering App root!
           notifyStreamingSubscribers();
 
-          if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-          }
+          requestAnimationFrame(() => {
+            if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
+              chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+            }
+          });
         }
 
         streamingAnimFrameRef.current = requestAnimationFrame(step);
@@ -3579,16 +3592,20 @@ const AI_PRESETS = [
   const isTouchActiveRef = useRef(false);
   const touchStartYRef = useRef<number | null>(null);
 
+  const setScrolledUpLock = (val: boolean) => {
+    isUserScrolledUpRef.current = val;
+    GLOBAL_IS_USER_SCROLLED_UP = val;
+    setIsUserScrolledUp(val);
+  };
+
   const handleWheel = (e: React.WheelEvent) => {
     if (e.deltaY < 0) {
       // User is scrolling UP - instantly lock auto-scroll with zero delay
-      isUserScrolledUpRef.current = true;
-      setIsUserScrolledUp(true);
+      setScrolledUpLock(true);
     } else if (chatContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-      if (scrollHeight - scrollTop - clientHeight <= 20) {
-        isUserScrolledUpRef.current = false;
-        setIsUserScrolledUp(false);
+      if (scrollHeight - scrollTop - clientHeight <= 40) {
+        setScrolledUpLock(false);
       }
     }
   };
@@ -3603,8 +3620,7 @@ const AI_PRESETS = [
       const currentY = e.touches[0].clientY;
       const deltaY = currentY - touchStartYRef.current;
       if (deltaY > 2) { // Finger dragging down -> content scrolling UP
-        isUserScrolledUpRef.current = true;
-        setIsUserScrolledUp(true);
+        setScrolledUpLock(true);
       }
     }
   };
@@ -3613,9 +3629,10 @@ const AI_PRESETS = [
     isTouchActiveRef.current = false;
     if (chatContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-      if (scrollHeight - scrollTop - clientHeight > 12) {
-        isUserScrolledUpRef.current = true;
-        setIsUserScrolledUp(true);
+      if (scrollHeight - scrollTop - clientHeight > 40) {
+        setScrolledUpLock(true);
+      } else {
+        setScrolledUpLock(false);
       }
     }
   };
@@ -3625,15 +3642,13 @@ const AI_PRESETS = [
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
     const distanceToBottom = scrollHeight - scrollTop - clientHeight;
     
-    if (distanceToBottom > 12) {
-      if (!isUserScrolledUpRef.current) {
-        isUserScrolledUpRef.current = true;
-        setIsUserScrolledUp(true);
+    if (distanceToBottom > 80) {
+      if (!isUserScrolledUpRef.current && (isTouchActiveRef.current || touchStartYRef.current !== null)) {
+        setScrolledUpLock(true);
       }
     } else {
       if (isUserScrolledUpRef.current && !isTouchActiveRef.current) {
-        isUserScrolledUpRef.current = false;
-        setIsUserScrolledUp(false);
+        setScrolledUpLock(false);
       }
     }
   };
@@ -3975,6 +3990,7 @@ const AI_PRESETS = [
     isEditMode = false
   ) => {
     if (!currentUser) return;
+    setScrolledUpLock(false);
 
     let finalAction = toolAction || "chat";
     let finalMessageText = hiddenPrefix + msgText;
