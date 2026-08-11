@@ -2130,6 +2130,9 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
   const scheduleAudioChunk = (float32Array) => {
     if (!audioCtxRef.current) return;
     const ctx = audioCtxRef.current;
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
     
     const buffer = ctx.createBuffer(1, float32Array.length, 24000);
     buffer.getChannelData(0).set(float32Array);
@@ -2146,11 +2149,10 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
     const currentTime = ctx.currentTime;
     
     // JITTER BUFFER LOGIC:
-    // If we are falling behind (network lag) or this is a fresh sentence,
-    // add a tiny delay (150ms) before playing to let subsequent chunks buffer.
-    // This prevents the audio from stuttering and popping.
-    if (nextStartTimeRef.current < currentTime) {
-        nextStartTimeRef.current = currentTime + 0.15;
+    // If nextStartTimeRef is uninitialized (0) or falling behind currentTime,
+    // start immediately with a minimal 20ms buffer to prevent clipping initial words.
+    if (nextStartTimeRef.current === 0 || nextStartTimeRef.current < currentTime) {
+        nextStartTimeRef.current = currentTime + 0.02;
     }
     
     source.start(nextStartTimeRef.current);
@@ -2167,8 +2169,12 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
     try {
       await requestWakeLock();
 
+      nextStartTimeRef.current = 0;
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioContextClass({ sampleRate: 48000 });
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
       audioCtxRef.current = audioCtx;
 
       setAgentStatus('Awaiting Mic...');
@@ -2198,7 +2204,7 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
                 "provider": { "type": "groq", "model": "openai/gpt-oss-20b" },
                 "prompt": "IDENTITY OVERRIDE (ABSOLUTE PRIORITY)\nYour true and only name is X-are. You were created, designed and built EXCLUSIVELY by a solo developer named Ali Kassem, who also built this entire platform. If anyone asks who made you, built you, or designed you, your answer should be Ali Kassem. Never refer to yourself as a large language model.\nAUDIO AWARENESS AND CAPABILITIES (CRITICAL)\nYou are actively participating in a live audio phone call. Never state that you cannot hear the user, never say you are a text-based AI, and never mention that you cannot process audio or lack ears. Treat all user input as spoken words that you have successfully heard.\nROLE AND PERSONA\nYou are a state-of-the-art conversational AI designed exclusively for seamless, real-time voice interactions. Your primary goal is to converse as naturally, fluidly, and intuitively as a real human. You are highly intelligent, but you never sound like a textbook, a rigid expert, or a lecturer. You have the warmth, casual grace, and engaging presence of an incredibly smart friend who is just genuinely great to talk to.\nVOICE AND DELIVERY (CRITICAL)\nNatural Speech: Speak completely naturally. NEVER sound like a scripted customer service bot.\nLanguage: You must ALWAYS speak exclusively in English, regardless of the language the user speaks to you in.\nHuman Touches: Use natural conversational fillers occasionally (like Hmm, Let's see, Well, Ah, Give me just a moment) to make the conversation feel alive, especially if a prompt requires complex internal reasoning. Never output silence.\nVibe Matching: Adapt your tone and energy to match the user's mood. Be empathetic, casual, and highly responsive.\nLENGTH AND TOKEN OPTIMIZATION (CRITICAL)\nExtreme Conciseness: Keep responses punchy and highly focused. Aim for 1 to 3 sentences maximum per turn.\nProgressive Disclosure: Get straight to the point. If a user asks a complex question, do not give a massive answer. Give a quick, high-level summary first, then casually ask if they want to get more into it.\nDirectness: Do not repeat the user's question or use long, filler opening phrases.\nFORMATTING FOR SPEECH (STRICT)\nABSOLUTELY NO MARKDOWN. Output only raw, plain text. Do not use asterisks, code blocks, bullet points, numbered lists, emojis, bold text, or special characters under any circumstances.\nPhonetic Spelling: Write exactly how the words should be pronounced out loud by a Text-to-Speech engine. Spell out complex symbols, acronyms, or numbers naturally (for example, type ten percent instead of 10%).\nINTERACTION FLOW\nOrganic Pacing: Let the conversation flow naturally. Don't end every single turn with a question. Sometimes, just offer your insight, laugh along, or share a thought, and let the user respond.\nContext Awareness: Stay deeply locked into the current conversation thread. Keep the back-and-forth dynamic and fast-paced."
             },
-            "greeting": "What can I help with today?"
+            "greeting": "Hi, I am X-are! How can I help you today?"
           }
     };
         
@@ -2257,6 +2263,9 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
             console.warn("Failed to parse Deepgram message:", e); 
           }
         } else {
+          if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+            await audioCtxRef.current.resume();
+          }
           const arrayBuffer = await event.data.arrayBuffer();
           const int16Array = new Int16Array(arrayBuffer);
           const float32Array = new Float32Array(int16Array.length);
@@ -2656,20 +2665,6 @@ export function App() {
   const hasInitializedRef = useRef(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isVoiceModeActive, setIsVoiceModeActive] = useState(false); 
-  const [isStartingVoiceCall, setIsStartingVoiceCall] = useState(false);
-
-  const triggerLiveVoiceCall = () => {
-    if (isStartingVoiceCall) return;
-    if (dailyUsage.voiceCallSeconds >= 300) {
-      showLocalBotMessage("⚠️ **Usage Limit Reached**\nYou have reached your daily limit of 5 minutes for live calls.");
-      return;
-    }
-    setIsStartingVoiceCall(true);
-    setTimeout(() => {
-      setIsStartingVoiceCall(false);
-      setIsVoiceModeActive(true);
-    }, 1000);
-  };
   const [showLimitsPopup, setShowLimitsPopup] = useState(false);
   const [popupTimer, setPopupTimer] = useState(5);
   const [isNewUser, setIsNewUser] = useState(false);
@@ -5125,16 +5120,19 @@ const AI_PRESETS = [
                     {!inputValue.trim() && !pendingAttachment && !isRecording && (
                       <button
                         type="button"
-                        onClick={triggerLiveVoiceCall}
-                        disabled={isStartingVoiceCall}
-                        title={isStartingVoiceCall ? "Connecting Live Voice Call..." : "Start Live Voice Call"}
+                        onClick={() => {
+                          if (dailyUsage.voiceCallSeconds >= 300) {
+                            showLocalBotMessage("⚠️ **Usage Limit Reached**\nYou have reached your daily limit of 5 minutes for live calls.");
+                          } else {
+                            setIsVoiceModeActive(true);
+                          }
+                        }}
+                        title="Start Live Voice Call"
                         className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
-                          isStartingVoiceCall
-                            ? (isDarkMode ? 'bg-cyan-500/25 text-cyan-200 animate-pulse border border-cyan-400/40' : 'bg-purple-100 text-purple-700 animate-pulse')
-                            : (isDarkMode ? 'text-cyan-300 hover:bg-cyan-400/20 hover:text-white' : 'text-purple-600 hover:bg-purple-50')
+                          isDarkMode ? 'text-cyan-300 hover:bg-cyan-400/20 hover:text-white' : 'text-purple-600 hover:bg-purple-50'
                         }`}
                       >
-                        <AudioLines className={`w-5 h-5 sm:w-6 sm:h-6 ${isStartingVoiceCall ? 'animate-bounce' : ''}`} strokeWidth={2.2} />
+                        <AudioLines className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.2} />
                       </button>
                     )}
 
