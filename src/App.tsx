@@ -697,8 +697,8 @@ const renderInline = (text, isDarkMode) => {
     // 5. Inline Code: `code`
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       return (
-        <code key={i} className={`px-1.5 py-0.5 mx-0.5 rounded-md text-[0.86em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
-          isDarkMode ? 'bg-slate-800/70 text-slate-200 border-slate-700/60' : 'bg-slate-200/80 text-slate-800 border-slate-300/70'
+        <code key={i} className={`px-1.5 py-0.5 mx-0.5 rounded-md text-[0.86em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors shadow-sm ${
+          isDarkMode ? 'bg-[#0f2954]/80 text-sky-200 border-sky-400/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]' : 'bg-blue-100/80 text-blue-900 border-blue-300/70'
         }`}>
           {part.slice(1, -1)}
         </code>
@@ -4948,19 +4948,19 @@ const AI_PRESETS = [
 
               <form 
                 onSubmit={handleSendMessage}
-                className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border shadow-2xl transition-all duration-300 backdrop-blur-2xl saturate-[200%] w-full ${
+                className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 backdrop-blur-3xl saturate-[200%] w-full ${
                   isDarkMode 
-                    ? 'bg-[#070e1c]/80 border-blue-500/30 shadow-[0_8px_32px_0_rgba(2,10,35,0.75)] focus-within:border-cyan-400/60 focus-within:shadow-[0_0_25px_rgba(6,182,212,0.25)]' 
-                    : 'bg-white/85 border-blue-200 shadow-xl focus-within:border-blue-400'
+                    ? 'bg-gradient-to-r from-[#0a1e3f]/90 via-[#133569]/85 to-[#0a1e3f]/90 border-sky-400/35 shadow-[0_12px_45px_rgba(6,20,48,0.7),inset_0_1.5px_1px_rgba(255,255,255,0.25)] focus-within:border-sky-300/70 focus-within:shadow-[0_0_35px_rgba(56,189,248,0.35),inset_0_1.5px_1px_rgba(255,255,255,0.4)]' 
+                    : 'bg-gradient-to-r from-blue-100/90 via-sky-50/85 to-blue-100/90 border-blue-300/70 shadow-xl focus-within:border-blue-500'
                 }`}
               >
               {/* Integrated + Attachment Button */}
               <div className="relative flex-shrink-0" ref={attachMenuRef}>
                 {showAttachMenu && (
                   <div 
-                    className={`absolute bottom-full left-0 mb-3 w-56 sm:w-64 p-2 rounded-2xl border shadow-2xl backdrop-blur-2xl z-50 animate-float-up ${
+                    className={`absolute bottom-full left-0 mb-3 w-56 sm:w-64 p-2 rounded-2xl border shadow-2xl backdrop-blur-3xl z-50 animate-float-up ${
                       isDarkMode 
-                      ? 'bg-[#0a1224]/95 border-blue-500/30 text-slate-100 shadow-blue-950/50' 
+                      ? 'bg-gradient-to-b from-[#091b3b]/95 to-[#0d2754]/95 border-sky-400/35 text-slate-100 shadow-[0_16px_50px_rgba(4,12,30,0.85),inset_0_1px_1px_rgba(255,255,255,0.2)]' 
                       : 'bg-white/95 border-slate-200 text-slate-900'
                     }`}
                   >
@@ -5046,8 +5046,8 @@ const AI_PRESETS = [
                       }}
                       className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
                         showAttachMenu
-                        ? (isDarkMode ? 'bg-blue-500/20 text-cyan-300' : 'bg-blue-100 text-blue-700')
-                        : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')
+                        ? (isDarkMode ? 'bg-sky-400/25 text-sky-200 border border-sky-300/40' : 'bg-blue-100 text-blue-700')
+                        : (isDarkMode ? 'text-sky-300 hover:text-white hover:bg-sky-400/20' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')
                       }`}
                       title="Add attachment or preset tool"
                     >
@@ -5058,7 +5058,7 @@ const AI_PRESETS = [
                   <div className="relative flex-1 flex flex-col justify-end min-w-0">
                     {activeTool && (
                       <div className="px-2 pt-1 pb-1 flex items-center animate-float-up">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border shadow-sm ${isDarkMode ? 'bg-blue-500/10 text-cyan-300 border-cyan-500/20' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border shadow-sm ${isDarkMode ? 'bg-sky-500/20 text-sky-200 border-sky-400/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
                           <activeTool.icon className="w-3.5 h-3.5" />
                           {activeTool.label}
                           <button
@@ -5102,7 +5102,7 @@ const AI_PRESETS = [
                       onPaste={handlePaste}
                       dir="auto"
                       placeholder={activeTool ? activeTool.placeholder : "Ask Xare anything..."}
-                      className={`w-full max-h-48 min-h-[38px] sm:min-h-[46px] px-2 sm:px-3 bg-transparent outline-none resize-none text-[15px] ${activeTool || pendingAttachment ? 'pt-1 pb-2' : 'py-2 sm:py-3'} ${isDarkMode ? 'text-slate-100 placeholder-slate-500' : 'text-slate-900 placeholder-slate-500'}`}
+                      className={`w-full max-h-48 min-h-[38px] sm:min-h-[46px] px-2 sm:px-3 bg-transparent outline-none resize-none text-[15px] ${activeTool || pendingAttachment ? 'pt-1 pb-2' : 'py-2 sm:py-3'} ${isDarkMode ? 'text-slate-100 placeholder-sky-200/50' : 'text-slate-900 placeholder-slate-500'}`}
                       rows={1}
                     />
                   </div>
@@ -5120,7 +5120,7 @@ const AI_PRESETS = [
                         }}
                         title="Start Live Voice Call"
                         className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
-                          isDarkMode ? 'text-purple-400 hover:bg-purple-950/40 hover:text-purple-300' : 'text-purple-600 hover:bg-purple-50'
+                          isDarkMode ? 'text-sky-300 hover:bg-sky-400/20 hover:text-white' : 'text-purple-600 hover:bg-purple-50'
                         }`}
                       >
                         <AudioLines className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.2} />
@@ -5132,7 +5132,7 @@ const AI_PRESETS = [
                         type="submit"
                         disabled={isLoading}
                         title="Send Message"
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-950/50 active:scale-95 disabled:opacity-50 flex-shrink-0 cursor-pointer"
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-[#143e80] via-[#205bb0] to-[#3b82f6] hover:brightness-110 text-white border border-sky-300/40 shadow-lg shadow-blue-950/70 active:scale-95 disabled:opacity-50 flex-shrink-0 flex items-center justify-center transition-all cursor-pointer"
                       >
                         <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
                       </button>
@@ -5143,8 +5143,8 @@ const AI_PRESETS = [
                         title={isRecording ? "Send Voice Note" : "Record Voice Note"}
                         className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all shadow-md active:scale-95 flex-shrink-0 ${
                           isRecording
-                          ? 'bg-blue-600 text-white animate-pulse'
-                          : (isDarkMode ? 'bg-slate-800/80 text-slate-300 hover:bg-slate-700' : 'bg-slate-200/80 text-slate-700 hover:bg-slate-300')
+                          ? 'bg-gradient-to-tr from-[#143e80] via-[#205bb0] to-[#3b82f6] text-white border border-sky-300/40 animate-pulse'
+                          : (isDarkMode ? 'bg-[#0e2752]/80 text-sky-200 border border-sky-400/30 hover:bg-sky-400/20' : 'bg-slate-200/80 text-slate-700 hover:bg-slate-300')
                         }`}
                       >
                         {isRecording ? <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" /> : <Mic className="w-5 h-5" />}
