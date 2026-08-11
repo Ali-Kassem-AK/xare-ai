@@ -43,7 +43,7 @@ export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached t
  * - maxAdaptiveSpeed    : Max speed cap for long responses (chars/sec).
  */
 export const STREAMING_CONFIG = {
-  wordsPerSecond: 38,         // Typing speed directly in Words Per Second (WPS)
+  wordsPerSecond: 40,         // Typing speed directly in Words Per Second (WPS)
   tickIntervalMs: 16,         // Render update throttle tick interval in ms (16ms = 60fps, 30ms = 33fps)
   enableAdaptiveSpeed: true,  // Auto-scale speed for long text/code (>500 chars)
   maxAdaptiveWPS: 60,         // Max Words Per Second cap for long text
@@ -62,7 +62,7 @@ export const STREAMING_CONFIG = {
  *                           - 4.5s+       : Slow pace
  */
 export const GLOW_ANIMATION_CONFIG = {
-  textGlowSweepSpeedSec: 1.1, // Glowing light sweep duration in seconds (Default: 1.8s)
+  textGlowSweepSpeedSec: 1, // Glowing light sweep duration in seconds (Default: 1.8s)
 };
 
 // ==========================================
@@ -1870,7 +1870,7 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
 // --- WEBHOOK CONFIGURATION
 // ==========================================
 
-const N8N_WEBHOOK_URL = "https://aliiis-24-7-n8n.hf.space/webhook-test/9373cba5-102c-4b45-9dbf-5248fd3c40af";
+const N8N_WEBHOOK_URL = "https://aliiis-24-7-n8n.hf.space/webhook/9373cba5-102c-4b45-9dbf-5248fd3c40af";
 
 // ==========================================
 // --- UTILITY FUNCTIONS
