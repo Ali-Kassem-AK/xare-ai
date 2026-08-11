@@ -548,10 +548,16 @@ export const MessageActions = ({
 /**
  * Highly upgraded and robust LaTeX math renderer.
  */
-const renderMath = (tex, isDarkMode) => {
+const renderMath = (tex: string, isDarkMode: boolean) => {
   let inner = tex.replace(/^(\$\$?|\\\[|\\\()|(\$\$?|\\\]|\\\))$/g, '').trim();
 
-  let html = inner
+  // HTML Entity Escaping Shield: Prevents malicious XSS script/tag injection in LaTeX math blocks
+  let escaped = inner
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  let html = escaped
      // Numbers and basic spacing fixes
      .replace(/\{,\}/g, ',')
      .replace(/\\,/g, '<span class="mx-[1px]"></span>')
