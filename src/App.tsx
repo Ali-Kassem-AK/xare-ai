@@ -415,8 +415,8 @@ export const CodeBlock = ({ code, lang, isDarkMode }: { code: string; lang: stri
   const lines = (code || '').split('\n');
 
   return (
-    <div className={`my-4 rounded-2xl overflow-hidden border shadow-md transition-all ${isDarkMode ? 'border-slate-800 bg-[#090d16]' : 'border-slate-200 bg-[#f8fafc]'}`}>
-      <div className={`flex items-center justify-between px-4 py-2.5 border-b select-none ${isDarkMode ? 'bg-[#0f172a]/90 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
+    <div className={`my-4 rounded-2xl overflow-hidden border shadow-md transition-all ${isDarkMode ? 'border-slate-800/80 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'}`}>
+      <div className={`flex items-center justify-between px-4 py-2.5 border-b select-none ${isDarkMode ? 'bg-[#080c16]/90 border-slate-800/80 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
         <div className="flex items-center gap-2">
           <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold uppercase tracking-wider ${isDarkMode ? 'bg-cyan-950/60 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
             {lang || 'code'}
@@ -965,7 +965,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         const quoteMatch = trimmedLine.match(/^>\s+(.*)/);
         if (quoteMatch) {
           elements.push(
-            <blockquote key={`bq-${lIdx}`} className={`border-l-4 px-4.5 py-3 my-3.5 rounded-r-2xl text-sm font-medium ${isDarkMode ? 'border-cyan-500 bg-[#0a1224]/85 text-cyan-100 shadow-sm' : 'border-blue-500 bg-blue-50/70 text-blue-950 shadow-sm'}`}>
+            <blockquote key={`bq-${lIdx}`} className={`border-l-4 px-4.5 py-3 my-3.5 rounded-r-2xl text-sm font-medium ${isDarkMode ? 'border-cyan-500 bg-[#070d1a]/90 text-cyan-100 shadow-sm' : 'border-blue-500 bg-blue-50/70 text-blue-950 shadow-sm'}`}>
               {renderInline(quoteMatch[1], isDarkMode)}
             </blockquote>
           );
@@ -2458,7 +2458,7 @@ export const ChatMessageItem = React.memo(({
         <div
           className={`${
             msg.sender === 'user'
-            ? (isDarkMode ? 'bg-[#0e1628] text-slate-100 border border-slate-800/80 shadow-sm' : 'bg-[#f0f4f9] text-slate-900 shadow-sm') + ' rounded-[24px] px-5 py-3'
+            ? (isDarkMode ? 'bg-[#090e1a] text-slate-100 border border-slate-800/80 shadow-sm' : 'bg-[#f0f4f9] text-slate-900 shadow-sm') + ' rounded-[24px] px-5 py-3'
             : (isDarkMode ? 'text-slate-100' : 'text-slate-900') + ' w-full py-1 px-0 overflow-hidden'
           } ${isStreaming ? (isDarkMode ? 'soft-stream-text' : '') : ''} transition-all duration-300`}
         >
@@ -4329,7 +4329,7 @@ const AI_PRESETS = [
 
   if (isCheckingSession) {
     return (
-      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#060811] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
+      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
         <GoogleStyles />
         <div className="relative z-10 flex flex-col items-center animate-pulse">
           {/* ========================================== */}
@@ -4350,7 +4350,7 @@ const AI_PRESETS = [
 
   if (!currentUser) {
     return (
-      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#060811] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
+      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
         <GoogleStyles />
 
         <div className="absolute top-6 right-6 z-50">
@@ -4535,12 +4535,12 @@ const AI_PRESETS = [
   }
 
   return (
-    <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#060811] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
+    <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
       <GoogleStyles />
 
       {showLimitsPopup && (
-        <div className={`fixed inset-0 z-[100] flex overflow-y-auto chat-scroll p-4 sm:p-8 animate-overlay ${isDarkMode ? 'bg-[#060811]/90 backdrop-blur-sm' : 'bg-slate-900/40 backdrop-blur-sm'}`}>
-          <div className={`m-auto relative w-full max-w-3xl p-5 sm:p-10 rounded-[2.5rem] shadow-2xl animate-float-up ${isDarkMode ? 'bg-[#090d19] border border-slate-800' : 'bg-white border border-slate-200'}`}>
+        <div className={`fixed inset-0 z-[100] flex overflow-y-auto chat-scroll p-4 sm:p-8 animate-overlay ${isDarkMode ? 'bg-[#030407]/95 backdrop-blur-sm' : 'bg-slate-900/40 backdrop-blur-sm'}`}>
+          <div className={`m-auto relative w-full max-w-3xl p-5 sm:p-10 rounded-[2.5rem] shadow-2xl animate-float-up ${isDarkMode ? 'bg-[#070911] border border-slate-800' : 'bg-white border border-slate-200'}`}>
             
             <div className="flex flex-col items-center mb-6 mt-1">
               <div className="flex items-center justify-center mb-4">
@@ -4640,7 +4640,7 @@ const AI_PRESETS = [
           }}
           className={`fixed top-0 left-0 z-50 h-full flex flex-col border-r transition-all duration-300 ease-in-out shadow-[0_8px_32px_0_rgba(0,10,30,0.6)] ${
             isSidebarOpen ? 'w-[280px] translate-x-0 opacity-100' : 'w-0 -translate-x-full opacity-0 border-none overflow-hidden pointer-events-none'
-          } ${isDarkMode ? 'bg-[#080d1a]/85 border-blue-400/25 text-slate-100' : 'bg-white/40 border-white/50 text-slate-800'}`}
+          } ${isDarkMode ? 'bg-[#05070f]/90 border-blue-400/25 text-slate-100' : 'bg-white/40 border-white/50 text-slate-800'}`}
         >
           <div className={`w-[280px] h-full flex flex-col transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <div className="p-3">
@@ -5044,15 +5044,15 @@ const AI_PRESETS = [
                   }}
                   className={`p-2.5 sm:p-3.5 mb-0.5 sm:mb-0 rounded-full backdrop-blur-md transition-all border shadow-sm flex items-center justify-center ${
                     showAttachMenu
-                    ? (isDarkMode ? 'bg-[#0b101d]/90 text-slate-100 border-slate-700/50' : 'bg-slate-200/80 text-slate-800 border-slate-300/50')
-                    : (isDarkMode ? 'bg-[#0b101d]/90 text-slate-300 hover:bg-slate-800 border-slate-800/50' : 'bg-white/80 text-slate-600 hover:bg-white border-slate-200/50')
+                    ? (isDarkMode ? 'bg-[#070b14]/90 text-slate-100 border-slate-700/50' : 'bg-slate-200/80 text-slate-800 border-slate-300/50')
+                    : (isDarkMode ? 'bg-[#070b14]/90 text-slate-300 hover:bg-slate-800 border-slate-800/50' : 'bg-white/80 text-slate-600 hover:bg-white border-slate-200/50')
                   }`}
                 >
                   <Plus className={`w-5 h-5 transition-transform duration-300 ${showAttachMenu ? 'rotate-45' : 'rotate-0'}`} />
                 </button>
               </div>
 
-              <div className={`relative flex-1 backdrop-blur-xl border focus-within:border-blue-500/50 focus-within:ring-4 focus-within:ring-blue-500/10 rounded-[2rem] shadow-lg transition-all overflow-hidden flex flex-col justify-end ${isDarkMode ? 'bg-[#0b101d]/90 border-slate-800/70' : 'bg-white/80 border-slate-200/50'}`}>
+              <div className={`relative flex-1 backdrop-blur-xl border focus-within:border-blue-500/50 focus-within:ring-4 focus-within:ring-blue-500/10 rounded-[2rem] shadow-lg transition-all overflow-hidden flex flex-col justify-end ${isDarkMode ? 'bg-[#070b14]/90 border-slate-800/80' : 'bg-white/80 border-slate-200/50'}`}>
                 
                 {activeTool && (
                   <div className="px-4 pt-3 pb-1 flex items-center animate-float-up">
@@ -5178,7 +5178,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-[#060811] text-white p-6 text-center">
+        <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-[#030407] text-white p-6 text-center">
           <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl max-w-md w-full space-y-4 backdrop-blur-xl">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/20">
               <XareLogo className="w-8 h-8" scale={2.5} x="-8%" isDarkMode={true} />
