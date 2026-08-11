@@ -4391,7 +4391,11 @@ const AI_PRESETS = [
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={isAuthLoading}
-                  className={`w-full flex items-center justify-center gap-3 py-3.5 px-5 rounded-2xl font-semibold transition-all active:scale-[0.98] text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 shadow-lg shadow-blue-500/25 border border-white/10 ${isAuthLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  className={`w-full flex items-center justify-center gap-3 py-3.5 px-5 rounded-2xl font-semibold transition-all active:scale-[0.98] text-sm border ${
+                    isDarkMode 
+                      ? 'bg-[#1b2a47]/90 hover:bg-[#23365a] text-slate-100 border-blue-500/30 shadow-md backdrop-blur-md' 
+                      : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-500 shadow-md'
+                  } ${isAuthLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
                   {isAuthLoading ? (
                     <><Loader2 className="w-4 h-4 animate-spin text-white" /> Connecting...</>
@@ -4407,13 +4411,13 @@ const AI_PRESETS = [
                   type="button"
                   onClick={handleGuestSignIn}
                   disabled={isAuthLoading}
-                  className={`w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-2xl font-semibold transition-all active:scale-[0.98] text-sm border shadow-sm ${
+                  className={`w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-2xl font-semibold transition-all active:scale-[0.98] text-sm border ${
                     isDarkMode 
-                      ? 'bg-slate-900/80 hover:bg-slate-800/90 border-slate-700/80 text-slate-200' 
+                      ? 'bg-[#121c30]/90 hover:bg-[#18253f] border-slate-700/60 text-slate-300 hover:text-slate-100 backdrop-blur-md shadow-sm' 
                       : 'bg-slate-100 hover:bg-slate-200/80 border-slate-200 text-slate-700'
                   }`}
                 >
-                  <User className="w-4 h-4 text-cyan-400" />
+                  <User className="w-4 h-4 text-blue-400" />
                   Continue as Guest (Skip Sign In)
                 </button>
               </div>
