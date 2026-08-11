@@ -2465,6 +2465,7 @@ const UserMessageActions = ({
  * Guarantees that full responses NEVER leak or flash on screen, forcing 100% partial text rendering.
  */
 const STREAMING_TEXT_VAULT = new Map<string, { fullText: string; partialText: string }>();
+const ACTIVELY_STREAMING_IDS = new Set<string>();
 
 /**
  * Ultra-Fast Memoized Chat Message Item (ChatGPT/Gemini Style Performance Optimization)
@@ -2492,13 +2493,19 @@ export const ChatMessageItem = React.memo(({
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text || '');
 
-  // BULLETPROOF VAULT CHECK: If this message is actively in STREAMING_TEXT_VAULT,
-  // FORCE render partialText from vault so full response can NEVER flash!
+  // ABSOLUTE ZERO-FLASH VAULT CHECK:
+  // If this message is actively streaming or in vault, FORCE render partialText from vault!
+  // The full response text is 100% BLOCKED from ever leaking or flashing!
   const vaultData = STREAMING_TEXT_VAULT.get(msg.id);
-  let textToRender = vaultData ? vaultData.partialText : msg.text;
+  const isCurrentlyStreaming = isStreaming || ACTIVELY_STREAMING_IDS.has(msg.id) || Boolean(vaultData);
+  
+  let textToRender = msg.text;
+  if (isCurrentlyStreaming) {
+    textToRender = vaultData ? vaultData.partialText : "";
+  }
 
   // SAFETY SHIELD FOR EMPTY BOT MESSAGES:
-  if (msg.sender === 'bot' && !msg.image && !msg.audio && (!textToRender || !textToRender.trim()) && !isStreaming && !vaultData) {
+  if (msg.sender === 'bot' && !msg.image && !msg.audio && (!textToRender || !textToRender.trim()) && !isCurrentlyStreaming) {
     textToRender = TOKEN_LIMIT_REDIRECTION_MSG;
   }
 
@@ -2720,6 +2727,7 @@ export function App() {
     }
 
     setStreamingMessageId(msgId);
+    ACTIVELY_STREAMING_IDS.add(msgId);
     STREAMING_TEXT_VAULT.set(msgId, { fullText, partialText: "" });
 
     const totalLength = fullText.length;
@@ -2762,7 +2770,8 @@ export function App() {
 
         setTimeout(() => {
           STREAMING_TEXT_VAULT.delete(msgId);
-        }, 150);
+          ACTIVELY_STREAMING_IDS.delete(msgId);
+        }, 250);
 
         if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -3008,11 +3017,16 @@ const AI_PRESETS = [
         const messages = (data.messages || [])
           .filter((msg: any) => !isOldGreeting(msg))
           .map(msg => {
+            const isStreamingActive = ACTIVELY_STREAMING_IDS.has(msg.id) || msg.id === streamingMessageId;
             const vaultItem = STREAMING_TEXT_VAULT.get(msg.id);
+            let effectiveText = msg.text;
+            if (isStreamingActive || vaultItem) {
+              effectiveText = vaultItem ? vaultItem.partialText : "";
+            }
             return {
               ...msg,
               timestamp: parseDateSafe(msg.timestamp),
-              text: vaultItem ? vaultItem.partialText : msg.text
+              text: effectiveText
             };
           });
 
@@ -3876,6 +3890,10 @@ const AI_PRESETS = [
         timestamp: new Date()
       };
 
+      ACTIVELY_STREAMING_IDS.add(newGeminiMsg.id);
+      STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
+      setStreamingMessageId(newGeminiMsg.id);
+
       setChatHistory(prev => prev.map(c => c.id === currentChatId ? {
         ...c,
         messages: [...c.messages, newGeminiMsg],
@@ -4044,6 +4062,7 @@ const AI_PRESETS = [
           timestamp: new Date()
         };
 
+        ACTIVELY_STREAMING_IDS.add(newGeminiMsg.id);
         STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
         setStreamingMessageId(newGeminiMsg.id);
 
@@ -4134,6 +4153,7 @@ const AI_PRESETS = [
               timestamp: new Date()
             };
 
+            ACTIVELY_STREAMING_IDS.add(newGeminiMsg.id);
             STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
             setStreamingMessageId(newGeminiMsg.id);
 
@@ -4190,6 +4210,7 @@ const AI_PRESETS = [
            const shouldStream = Boolean(rawBotText && finalAction !== 'generate_image');
            
            if (shouldStream) {
+             ACTIVELY_STREAMING_IDS.add(taskId);
              STREAMING_TEXT_VAULT.set(taskId, { fullText: rawBotText, partialText: "" });
              setStreamingMessageId(taskId);
            }
