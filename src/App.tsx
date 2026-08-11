@@ -858,40 +858,52 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
             const headers = parseRow(cleanRows[0]);
             const bodyRows = cleanRows.slice(1).map(parseRow);
 
+            const numColumns = headers.length;
+
             elements.push(
               <div key={`table-${elements.length}`} className="my-4 overflow-x-auto w-full chat-scroll">
-                <table className="w-full text-left border-collapse min-w-[480px] sm:min-w-full text-sm">
+                <table className="w-full text-left border-collapse min-w-[550px] sm:min-w-full text-sm">
                   <thead>
                     <tr className={`border-b-2 ${isDarkMode ? 'border-slate-700/80' : 'border-slate-300'}`}>
-                      {headers.map((h, i) => (
-                        <th 
-                          key={i} 
-                          className={`py-2.5 px-3 font-bold text-[12.5px] tracking-wider uppercase whitespace-nowrap align-bottom ${
-                            h.trim() === '#' || h.trim().length <= 2 ? 'w-10 text-center' : ''
-                          } ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}
-                        >
-                          {renderInline(h, isDarkMode)}
-                        </th>
-                      ))}
+                      {headers.map((h, i) => {
+                        const isShortIdx = h.trim() === '#' || h.trim().length <= 2;
+                        return (
+                          <th 
+                            key={i} 
+                            className={`py-2.5 px-3 font-bold text-[12.5px] tracking-wider uppercase whitespace-nowrap align-bottom ${
+                              isShortIdx 
+                                ? 'w-10 text-center' 
+                                : i === 0 
+                                  ? 'min-w-[160px] w-1/4' 
+                                  : 'min-w-[220px]'
+                            } ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}
+                          >
+                            {renderInline(h, isDarkMode)}
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800/60' : 'divide-slate-200'}`}>
                     {bodyRows.map((row, rIdx) => (
                       <tr key={rIdx} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-100/50'}`}>
-                        {row.map((cell, cIdx) => (
-                          <td 
-                            key={cIdx} 
-                            className={`py-2.5 px-3 text-[13.5px] leading-relaxed align-top ${
-                              cIdx === 0 && (headers[0]?.trim() === '#' || headers[0]?.trim().length <= 2)
-                                ? `text-center font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
-                                : cIdx === 0
-                                  ? (isDarkMode ? 'font-semibold text-slate-100' : 'font-semibold text-slate-900') 
-                                  : (isDarkMode ? 'text-slate-300' : 'text-slate-700')
-                            }`}
-                          >
-                            {renderInline(cell, isDarkMode)}
-                          </td>
-                        ))}
+                        {row.map((cell, cIdx) => {
+                          const isShortIdx = headers[0]?.trim() === '#' || headers[0]?.trim().length <= 2;
+                          return (
+                            <td 
+                              key={cIdx} 
+                              className={`py-3 px-3 text-[13.5px] leading-relaxed align-top ${
+                                cIdx === 0 && isShortIdx
+                                  ? `text-center font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
+                                  : cIdx === 0
+                                    ? `min-w-[160px] font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
+                                    : `min-w-[220px] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`
+                              }`}
+                            >
+                              {renderInline(cell, isDarkMode)}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>
