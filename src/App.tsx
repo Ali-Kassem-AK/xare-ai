@@ -2656,6 +2656,20 @@ export function App() {
   const hasInitializedRef = useRef(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isVoiceModeActive, setIsVoiceModeActive] = useState(false); 
+  const [isStartingVoiceCall, setIsStartingVoiceCall] = useState(false);
+
+  const triggerLiveVoiceCall = () => {
+    if (isStartingVoiceCall) return;
+    if (dailyUsage.voiceCallSeconds >= 300) {
+      showLocalBotMessage("⚠️ **Usage Limit Reached**\nYou have reached your daily limit of 5 minutes for live calls.");
+      return;
+    }
+    setIsStartingVoiceCall(true);
+    setTimeout(() => {
+      setIsStartingVoiceCall(false);
+      setIsVoiceModeActive(true);
+    }, 1000);
+  };
   const [showLimitsPopup, setShowLimitsPopup] = useState(false);
   const [popupTimer, setPopupTimer] = useState(5);
   const [isNewUser, setIsNewUser] = useState(false);
@@ -5111,19 +5125,16 @@ const AI_PRESETS = [
                     {!inputValue.trim() && !pendingAttachment && !isRecording && (
                       <button
                         type="button"
-                        onClick={() => {
-                          if (dailyUsage.voiceCallSeconds >= 300) {
-                            showLocalBotMessage("⚠️ **Usage Limit Reached**\nYou have reached your daily limit of 5 minutes for live calls.");
-                          } else {
-                            setIsVoiceModeActive(true);
-                          }
-                        }}
-                        title="Start Live Voice Call"
+                        onClick={triggerLiveVoiceCall}
+                        disabled={isStartingVoiceCall}
+                        title={isStartingVoiceCall ? "Connecting Live Voice Call..." : "Start Live Voice Call"}
                         className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
-                          isDarkMode ? 'text-cyan-300 hover:bg-cyan-400/20 hover:text-white' : 'text-purple-600 hover:bg-purple-50'
+                          isStartingVoiceCall
+                            ? (isDarkMode ? 'bg-cyan-500/25 text-cyan-200 animate-pulse border border-cyan-400/40' : 'bg-purple-100 text-purple-700 animate-pulse')
+                            : (isDarkMode ? 'text-cyan-300 hover:bg-cyan-400/20 hover:text-white' : 'text-purple-600 hover:bg-purple-50')
                         }`}
                       >
-                        <AudioLines className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.2} />
+                        <AudioLines className={`w-5 h-5 sm:w-6 sm:h-6 ${isStartingVoiceCall ? 'animate-bounce' : ''}`} strokeWidth={2.2} />
                       </button>
                     )}
 
