@@ -46,7 +46,7 @@ export const STREAMING_CONFIG = {
   wordsPerSecond: 40,         // Typing speed directly in Words Per Second (WPS)
   tickIntervalMs: 16,         // Render update throttle tick interval in ms (16ms = 60fps, 30ms = 33fps)
   enableAdaptiveSpeed: true,  // Auto-scale speed for long text/code (>500 chars)
-  maxAdaptiveWPS: 60,         // Max Words Per Second cap for long text
+  maxAdaptiveWPS: 75,         // Max Words Per Second cap for long text
 };
 
 // ==========================================
