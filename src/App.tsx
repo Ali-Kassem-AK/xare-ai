@@ -697,8 +697,8 @@ const renderInline = (text, isDarkMode) => {
     // 5. Inline Code: `code`
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       return (
-        <code key={i} className={`px-1.5 py-0.5 mx-0.5 rounded-md text-[0.86em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors backdrop-blur-md ${
-          isDarkMode ? 'bg-white/10 text-slate-200 border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]' : 'bg-slate-200/80 text-slate-800 border-slate-300/70'
+        <code key={i} className={`px-2 py-0.5 mx-0.5 rounded-full text-[0.86em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors backdrop-blur-xl ${
+          isDarkMode ? 'bg-gradient-to-b from-white/20 to-white/5 text-slate-100 border-white/30 shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1.5px_3px_0_rgba(255,255,255,0.6)]' : 'bg-slate-200/80 text-slate-800 border-slate-300/70'
         }`}>
           {part.slice(1, -1)}
         </code>
@@ -4955,20 +4955,20 @@ const AI_PRESETS = [
 
               <form 
                 onSubmit={handleSendMessage}
-                className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 backdrop-blur-3xl saturate-[180%] w-full ${
+                className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 backdrop-blur-3xl saturate-[210%] w-full ${
                   isDarkMode 
-                    ? 'bg-white/[0.07] border-white/20 shadow-[0_12px_40px_rgba(0,0,0,0.45),inset_0_1.5px_1.5px_0_rgba(255,255,255,0.35),inset_0_-1px_1px_0_rgba(255,255,255,0.1)] focus-within:border-white/40' 
-                    : 'bg-white/40 border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.08),inset_0_1.5px_1.5px_0_rgba(255,255,255,0.8)] focus-within:border-white/80'
+                    ? 'bg-gradient-to-b from-white/15 via-white/[0.04] to-white/10 border-white/30 shadow-[0_16px_45px_0_rgba(0,0,0,0.6),inset_0_3px_6px_0_rgba(255,255,255,0.65),inset_0_-2px_6px_0_rgba(255,255,255,0.25),inset_0_0_12px_0_rgba(255,255,255,0.15)] focus-within:border-white/50' 
+                    : 'bg-gradient-to-b from-white/60 via-white/30 to-white/50 border-white/80 shadow-[0_12px_35px_rgba(0,0,0,0.12),inset_0_3px_6px_0_rgba(255,255,255,0.9),inset_0_-2px_5px_0_rgba(0,0,0,0.1)] focus-within:border-white'
                 }`}
               >
               {/* Integrated + Attachment Button */}
               <div className="relative flex-shrink-0" ref={attachMenuRef}>
                 {showAttachMenu && (
                   <div 
-                    className={`absolute bottom-full left-0 mb-3 w-56 sm:w-64 p-2 rounded-2xl border shadow-2xl backdrop-blur-3xl z-50 animate-float-up ${
+                    className={`absolute bottom-full left-0 mb-3 w-56 sm:w-64 p-2.5 rounded-3xl border shadow-2xl backdrop-blur-3xl z-50 animate-float-up ${
                       isDarkMode 
-                      ? 'bg-[#0f172a]/75 border-white/20 text-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.6),inset_0_1.5px_1.5px_rgba(255,255,255,0.25)]' 
-                      : 'bg-white/80 border-slate-200 text-slate-900'
+                      ? 'bg-gradient-to-b from-[#0f172a]/85 to-[#020617]/90 border-white/30 text-slate-100 shadow-[0_24px_60px_rgba(0,0,0,0.75),inset_0_2px_4px_rgba(255,255,255,0.4),inset_0_-2px_4px_rgba(255,255,255,0.15)]' 
+                      : 'bg-white/90 border-slate-200 text-slate-900'
                     }`}
                   >
                     {activeSubMenu ? (
@@ -5053,8 +5053,8 @@ const AI_PRESETS = [
                       }}
                       className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
                         showAttachMenu
-                        ? (isDarkMode ? 'bg-white/20 text-white border border-white/30' : 'bg-slate-200 text-slate-800')
-                        : (isDarkMode ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')
+                        ? (isDarkMode ? 'bg-white/30 text-white border border-white/50 shadow-[inset_0_2px_4px_rgba(255,255,255,0.8)]' : 'bg-slate-200 text-slate-800')
+                        : (isDarkMode ? 'text-slate-200 hover:text-white hover:bg-white/15' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')
                       }`}
                       title="Add attachment or preset tool"
                     >
@@ -5065,7 +5065,7 @@ const AI_PRESETS = [
                   <div className="relative flex-1 flex flex-col justify-end min-w-0">
                     {activeTool && (
                       <div className="px-2 pt-1 pb-1 flex items-center animate-float-up">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border shadow-sm ${isDarkMode ? 'bg-white/10 text-slate-200 border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border shadow-sm ${isDarkMode ? 'bg-gradient-to-b from-white/20 to-white/10 text-slate-100 border-white/30 shadow-[inset_0_1.5px_3px_0_rgba(255,255,255,0.5)]' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
                           <activeTool.icon className="w-3.5 h-3.5" />
                           {activeTool.label}
                           <button
@@ -5109,7 +5109,7 @@ const AI_PRESETS = [
                       onPaste={handlePaste}
                       dir="auto"
                       placeholder={activeTool ? activeTool.placeholder : "Ask Xare anything..."}
-                      className={`w-full max-h-48 min-h-[38px] sm:min-h-[46px] px-2 sm:px-3 bg-transparent outline-none resize-none text-[15px] ${activeTool || pendingAttachment ? 'pt-1 pb-2' : 'py-2 sm:py-3'} ${isDarkMode ? 'text-slate-100 placeholder-slate-400/70' : 'text-slate-900 placeholder-slate-500'}`}
+                      className={`w-full max-h-48 min-h-[38px] sm:min-h-[46px] px-2 sm:px-3 bg-transparent outline-none resize-none text-[15px] ${activeTool || pendingAttachment ? 'pt-1 pb-2' : 'py-2 sm:py-3'} ${isDarkMode ? 'text-slate-100 placeholder-slate-300/60 font-medium' : 'text-slate-900 placeholder-slate-500'}`}
                       rows={1}
                     />
                   </div>
@@ -5127,7 +5127,7 @@ const AI_PRESETS = [
                         }}
                         title="Start Live Voice Call"
                         className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
-                          isDarkMode ? 'text-slate-300 hover:bg-white/10 hover:text-white' : 'text-purple-600 hover:bg-purple-50'
+                          isDarkMode ? 'text-slate-200 hover:bg-white/15 hover:text-white' : 'text-purple-600 hover:bg-purple-50'
                         }`}
                       >
                         <AudioLines className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.2} />
@@ -5139,7 +5139,7 @@ const AI_PRESETS = [
                         type="submit"
                         disabled={isLoading}
                         title="Send Message"
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 hover:bg-white/30 text-white border border-white/30 shadow-[inset_0_1.5px_1.5px_0_rgba(255,255,255,0.4)] backdrop-blur-xl active:scale-95 disabled:opacity-50 flex-shrink-0 flex items-center justify-center transition-all cursor-pointer"
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all backdrop-blur-3xl active:scale-95 flex-shrink-0 bg-gradient-to-b from-white/35 via-white/15 to-white/25 text-white border border-white/40 shadow-[0_4px_15px_rgba(0,0,0,0.35),inset_0_2px_4px_0_rgba(255,255,255,0.8),inset_0_-1px_3px_0_rgba(255,255,255,0.3)] hover:brightness-125 cursor-pointer"
                       >
                         <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
                       </button>
@@ -5148,10 +5148,10 @@ const AI_PRESETS = [
                         type="button"
                         onClick={() => isRecording ? stopRecordingAndSend() : startRecording()}
                         title={isRecording ? "Send Voice Note" : "Record Voice Note"}
-                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all backdrop-blur-xl active:scale-95 flex-shrink-0 ${
+                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all backdrop-blur-3xl active:scale-95 flex-shrink-0 ${
                           isRecording
-                          ? 'bg-red-500/40 text-white border border-red-400/50 animate-pulse shadow-[inset_0_1.5px_2px_0_rgba(255,255,255,0.5)]'
-                          : (isDarkMode ? 'bg-white/10 text-slate-200 border border-white/20 hover:bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)]' : 'bg-slate-200/80 text-slate-700 hover:bg-slate-300')
+                          ? 'bg-red-500/40 text-white border border-red-400/50 animate-pulse shadow-[inset_0_2px_4px_0_rgba(255,255,255,0.6)]'
+                          : (isDarkMode ? 'bg-gradient-to-b from-white/20 via-white/5 to-white/10 text-slate-100 border border-white/30 hover:bg-white/25 shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_2px_4px_0_rgba(255,255,255,0.6)]' : 'bg-slate-200/80 text-slate-700 hover:bg-slate-300')
                         }`}
                       >
                         {isRecording ? <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" /> : <Mic className="w-5 h-5" />}
