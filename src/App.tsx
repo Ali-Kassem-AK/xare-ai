@@ -697,8 +697,8 @@ const renderInline = (text, isDarkMode) => {
     // 5. Inline Code: `code`
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       return (
-        <code key={i} className={`px-1.5 py-0.5 rounded-md text-[0.9em] font-mono border ${
-          isDarkMode ? 'bg-slate-700/50 text-blue-300 border-slate-700/50' : 'bg-slate-200/50 text-blue-600 border-slate-200/50'
+        <code key={i} className={`px-1.5 py-0.5 rounded-md text-[0.875em] font-mono border whitespace-pre-wrap ${
+          isDarkMode ? 'bg-slate-800/70 text-blue-300 border-slate-700/60' : 'bg-slate-200/60 text-blue-700 border-slate-300/60'
         }`}>
           {part.slice(1, -1)}
         </code>
@@ -860,15 +860,15 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
 
             elements.push(
               <div key={`table-${elements.length}`} className="my-4 overflow-x-auto w-full chat-scroll">
-                <table className="w-full text-left border-collapse table-auto text-sm">
+                <table className="w-full text-left border-collapse min-w-[480px] sm:min-w-full text-sm">
                   <thead>
-                    <tr className={`border-b ${isDarkMode ? 'border-slate-700/80' : 'border-slate-300'}`}>
+                    <tr className={`border-b-2 ${isDarkMode ? 'border-slate-700/80' : 'border-slate-300'}`}>
                       {headers.map((h, i) => (
                         <th 
                           key={i} 
-                          className={`py-2.5 px-3 font-bold text-[13px] tracking-wide uppercase whitespace-nowrap align-bottom ${
-                            isDarkMode ? 'text-slate-200' : 'text-slate-900'
-                          }`}
+                          className={`py-2.5 px-3 font-bold text-[12.5px] tracking-wider uppercase whitespace-nowrap align-bottom ${
+                            h.trim() === '#' || h.trim().length <= 2 ? 'w-10 text-center' : ''
+                          } ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}
                         >
                           {renderInline(h, isDarkMode)}
                         </th>
@@ -881,10 +881,12 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                         {row.map((cell, cIdx) => (
                           <td 
                             key={cIdx} 
-                            className={`py-3 px-3 text-[13.5px] leading-relaxed align-top ${
-                              cIdx === 0 
-                                ? (isDarkMode ? 'font-semibold text-slate-100' : 'font-semibold text-slate-900') 
-                                : (isDarkMode ? 'text-slate-300' : 'text-slate-700')
+                            className={`py-2.5 px-3 text-[13.5px] leading-relaxed align-top ${
+                              cIdx === 0 && (headers[0]?.trim() === '#' || headers[0]?.trim().length <= 2)
+                                ? `text-center font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
+                                : cIdx === 0
+                                  ? (isDarkMode ? 'font-semibold text-slate-100' : 'font-semibold text-slate-900') 
+                                  : (isDarkMode ? 'text-slate-300' : 'text-slate-700')
                             }`}
                           >
                             {renderInline(cell, isDarkMode)}
