@@ -1494,15 +1494,12 @@ export const GoogleStyles = () => (
         -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Reset core body margins and enforce fixed 100dvh container */
+    /* Reset core body margins and enforce full height container */
     html, body {
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
-        height: 100dvh;
-        position: fixed;
-        inset: 0;
         background-color: transparent !important;
         overflow: hidden; 
     }
@@ -3571,16 +3568,6 @@ const AI_PRESETS = [
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const lockWindowScroll = () => {
-      if (window.scrollY !== 0 || window.scrollX !== 0) {
-        window.scrollTo(0, 0);
-      }
-    };
-    window.addEventListener('scroll', lockWindowScroll, { passive: true });
-    return () => window.removeEventListener('scroll', lockWindowScroll);
-  }, []);
-
 
   // ==========================================
   // --- 4. ACTION HANDLERS
@@ -4800,7 +4787,7 @@ const AI_PRESETS = [
           </div>
         </aside>
 
-        <div className="flex-1 h-full relative z-10 flex flex-col min-w-0 transition-all duration-300">
+        <div className="flex-1 h-[100dvh] max-h-[100dvh] relative z-10 flex flex-col min-w-0 overflow-hidden">
           
           {isVoiceModeActive && (
             <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center animate-overlay ${isDarkMode ? 'bg-[#020617]/95' : 'bg-slate-50/95'}`}>
@@ -4810,7 +4797,7 @@ const AI_PRESETS = [
             </div>
           )}
 
-          <header className={`sticky top-0 z-30 flex-none px-4 sm:px-6 py-2.5 sm:py-3.5 flex justify-between items-center transition-all duration-300 border-b ${isDarkMode ? 'bg-[#030407]/90 border-slate-800/40 backdrop-blur-md' : 'bg-[#f8fafc]/90 border-slate-200/60 backdrop-blur-md'}`}>
+          <header className={`flex-none w-full z-30 px-4 sm:px-6 py-2.5 sm:py-3 flex justify-between items-center border-b transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] border-slate-800/60' : 'bg-[#f8fafc] border-slate-200/80'}`}>
             <div className="flex items-center gap-2 sm:gap-3 z-10 relative">
               {!isSidebarOpen && (
                 <button
@@ -4890,7 +4877,7 @@ const AI_PRESETS = [
             onTouchMove={handleTouchMove} 
             onTouchEnd={handleTouchEnd}
             onTouchCancel={handleTouchEnd} 
-            className="flex-1 overflow-y-auto chat-scroll gpu-accelerated w-full relative z-10"
+            className="flex-1 min-h-0 overflow-y-auto chat-scroll gpu-accelerated w-full relative z-10"
           >
             <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2">
 
@@ -4976,11 +4963,11 @@ const AI_PRESETS = [
                 </div>
               )}
 
-              <div className="h-28 sm:h-40 flex-shrink-0" />
+              <div className="h-4 flex-shrink-0" />
             </div>
           </div>
 
-          <div className={`absolute bottom-0 w-full p-3 sm:p-6 z-20 pointer-events-none pb-4 sm:pb-8 ${isDarkMode ? 'bg-gradient-to-t from-[#05070e] via-[#05070e]/95 to-transparent' : 'bg-gradient-to-t from-white via-white/95 to-transparent'}`}>
+          <div className={`flex-none w-full p-2.5 sm:p-4 z-20 pointer-events-none ${isDarkMode ? 'bg-[#030407]' : 'bg-[#f8fafc]'}`}>
             
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
                 <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
