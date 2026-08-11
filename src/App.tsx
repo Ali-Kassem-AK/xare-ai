@@ -864,8 +864,10 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         if (tableRows.length > 0) {
           const isSeparator = (r: string) => /^[\s\|\-:]+$/.test(r);
           const cleanRows = tableRows.filter(r => !isSeparator(r));
+          const hasSeparator = tableRows.some(isSeparator);
           
-          if (cleanRows.length > 0) {
+          // Require at least 2 clean rows OR a header + separator line to form a valid table
+          if (cleanRows.length >= 2 || (cleanRows.length >= 1 && hasSeparator)) {
             const parseRow = (r: string) => {
               let clean = r.trim().replace(/^\|/, '').replace(/\|$/, '');
               return clean.split('|').map(c => c.trim());
@@ -878,7 +880,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
 
             elements.push(
               <div key={`table-${elements.length}`} className="my-4 overflow-x-auto w-full chat-scroll">
-                <table className="w-full text-left border-collapse min-w-[650px] sm:min-w-full text-sm">
+                <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-full text-sm">
                   <thead>
                     <tr className={`border-b-2 ${isDarkMode ? 'border-slate-700/80' : 'border-slate-300'}`}>
                       {headers.map((h, i) => {
@@ -890,8 +892,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                               isShortIdx 
                                 ? 'w-10 text-center' 
                                 : i === 0 
-                                  ? 'min-w-[190px] w-1/4' 
-                                  : 'min-w-[340px]'
+                                  ? 'min-w-[170px] w-1/4' 
+                                  : 'min-w-[240px]'
                             } ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}
                           >
                             {renderInline(h, isDarkMode)}
@@ -912,8 +914,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                                 cIdx === 0 && isShortIdx
                                   ? `text-center font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
                                   : cIdx === 0
-                                    ? `min-w-[190px] font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
-                                    : `min-w-[340px] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`
+                                    ? `min-w-[170px] font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
+                                    : `min-w-[240px] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`
                               }`}
                             >
                               {renderInline(cell, isDarkMode)}
@@ -926,6 +928,15 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                 </table>
               </div>
             );
+          } else {
+            // Render single pipe lines (e.g. "| 9 |") as clean standard text
+            tableRows.forEach((rowStr) => {
+              elements.push(
+                <div key={`p-t-${elements.length}`} className={`min-h-[1.5rem] mt-1.5 leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                  {renderInline(rowStr, isDarkMode)}
+                </div>
+              );
+            });
           }
           tableRows = [];
         }
