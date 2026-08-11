@@ -859,22 +859,34 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
             const bodyRows = cleanRows.slice(1).map(parseRow);
 
             elements.push(
-              <div key={`table-${elements.length}`} className={`my-4 overflow-x-auto w-full rounded-2xl border shadow-sm chat-scroll ${isDarkMode ? 'border-slate-800/70 bg-[#070b16]/60' : 'border-slate-200 bg-white'}`}>
-                <table className="w-full text-left border-collapse min-w-[520px] sm:min-w-full">
+              <div key={`table-${elements.length}`} className="my-4 overflow-x-auto w-full chat-scroll">
+                <table className="w-full text-left border-collapse table-auto text-sm">
                   <thead>
-                    <tr className={`border-b ${isDarkMode ? 'bg-[#0d1424]/90 border-slate-800/80' : 'bg-slate-100/90 border-slate-200'}`}>
+                    <tr className={`border-b ${isDarkMode ? 'border-slate-700/80' : 'border-slate-300'}`}>
                       {headers.map((h, i) => (
-                        <th key={i} className={`px-4 py-3 text-[13px] font-bold tracking-wide uppercase ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                        <th 
+                          key={i} 
+                          className={`py-2.5 px-3 font-bold text-[13px] tracking-wide uppercase whitespace-nowrap align-bottom ${
+                            isDarkMode ? 'text-slate-200' : 'text-slate-900'
+                          }`}
+                        >
                           {renderInline(h, isDarkMode)}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800/50' : 'divide-slate-200/60'}`}>
+                  <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800/60' : 'divide-slate-200'}`}>
                     {bodyRows.map((row, rIdx) => (
-                      <tr key={rIdx} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50/80'}`}>
+                      <tr key={rIdx} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-100/50'}`}>
                         {row.map((cell, cIdx) => (
-                          <td key={cIdx} className={`px-4 py-3.5 text-[13.5px] leading-relaxed align-top ${cIdx === 0 ? (isDarkMode ? 'font-semibold text-slate-100' : 'font-semibold text-slate-900') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>
+                          <td 
+                            key={cIdx} 
+                            className={`py-3 px-3 text-[13.5px] leading-relaxed align-top ${
+                              cIdx === 0 
+                                ? (isDarkMode ? 'font-semibold text-slate-100' : 'font-semibold text-slate-900') 
+                                : (isDarkMode ? 'text-slate-300' : 'text-slate-700')
+                            }`}
+                          >
                             {renderInline(cell, isDarkMode)}
                           </td>
                         ))}
