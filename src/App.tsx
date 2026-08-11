@@ -20,9 +20,7 @@ import {
 // ==========================================
 // --- TOKEN LIMIT & REDIRECTION CONFIG
 // ==========================================
-export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached their free usage limit. Please try another tool, such as **Deep Thinking**, **Generate Image**, or **Upload Image or PDF**, or try again in a few minutes.
-
-Want to continue the conversation immediately? Click the button below, and we’ll automatically switch to **Gemini AI** so you can continue without interruption.`;
+export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached their free usage limit. Please try another tool, such as **Deep Thinking**, **Generate Image**, or **Upload Image or PDF**, or try again in a few minutes. Want to continue the conversation immediately? We’ll automatically switch you to **Gemini AI** so you can continue without interruption.`;
 
 // ==========================================
 // --- STREAMING SPEED & TICK INTERVAL CONFIG
@@ -2578,17 +2576,7 @@ export const ChatMessageItem = React.memo(({
             )
           )}
 
-          {msg.sender === 'bot' && textToRender && textToRender.includes("models have reached their free usage limit") && onSwitchToGeminiAPI && (
-            <div className="mt-4 mb-2 flex items-center">
-              <button
-                onClick={() => onSwitchToGeminiAPI(msg.id)}
-                className="inline-flex items-center gap-2.5 px-5 py-3 rounded-2xl font-semibold text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 active:scale-95 transition-all shadow-lg shadow-blue-500/25 hover:shadow-cyan-500/30 border border-white/10 group cursor-pointer"
-              >
-                <Bot className="w-4 h-4 text-cyan-200" />
-                <span>Switch to Gemini AI</span>
-              </button>
-            </div>
-          )}
+
 
           {msg.sender === 'bot' && textToRender && !isStreaming && !(msg.audio && textToRender === "🎤 Voice Message") && (
             <MessageActions 
@@ -4104,13 +4092,55 @@ const AI_PRESETS = [
         let newBotMsg;
         let rawBotText = "";
         
+        const triggerAutoGeminiFallback = (noticeText: string) => {
+          const noticeMsg = { id: generateUniqueId(), text: noticeText, sender: 'bot', timestamp: new Date() };
+          setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, noticeMsg], updatedAt: new Date() } : c));
+          
+          setChatModelModes(prev => ({ ...prev, [targetChatId]: 'gemini' }));
+          
+          setLoadingPhase('thinking');
+          setIsLoading(true);
+          setActiveLoadingChatId(targetChatId);
+
+          callGeminiAPI(finalMessageText).then(geminiRes => {
+            const finalAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
+            const newGeminiMsg = {
+              id: generateUniqueId(),
+              text: "",
+              sender: 'bot',
+              modelEngine: 'gemini',
+              timestamp: new Date()
+            };
+
+            STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
+            setStreamingMessageId(newGeminiMsg.id);
+
+            setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+              ...c,
+              messages: [...c.messages, newGeminiMsg],
+              updatedAt: new Date()
+            } : c));
+
+            setIsLoading(false);
+            setActiveLoadingChatId(null);
+            setLoadingType(null);
+            setIsGeneratingImage(false);
+
+            streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
+              triggerSuggestions(finalAnswer);
+            });
+          }).catch(err => {
+            console.error("Auto Gemini fallback error:", err);
+            setIsLoading(false);
+            setActiveLoadingChatId(null);
+            setLoadingType(null);
+            setIsGeneratingImage(false);
+          });
+        };
+
         if (isError) {
-           newBotMsg = { id: generateUniqueId(), text: TOKEN_LIMIT_REDIRECTION_MSG, sender: 'bot', timestamp: new Date() };
-           setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, newBotMsg], updatedAt: new Date() } : c));
-           setIsLoading(false);
-           setActiveLoadingChatId(null);
-           setLoadingType(null);
-           setIsGeneratingImage(false);
+           triggerAutoGeminiFallback(TOKEN_LIMIT_REDIRECTION_MSG);
+           return;
         } else {
            const parsedData = parsePayloadData(responseData);
            rawBotText = parsedData.text || "";
@@ -4120,7 +4150,8 @@ const AI_PRESETS = [
 
            // Fallback for empty text responses or rate limits
            if ((!rawBotText || !rawBotText.trim()) && !botImage && !botAudio) {
-               rawBotText = TOKEN_LIMIT_REDIRECTION_MSG;
+               triggerAutoGeminiFallback(TOKEN_LIMIT_REDIRECTION_MSG);
+               return;
            }
 
            if (botImage && botImage.length > 5000) { 
@@ -4261,12 +4292,45 @@ const AI_PRESETS = [
 
     } catch (error) {
       console.error("[ERROR]:", error);
-      const errorMsg = { id: generateUniqueId(), text: TOKEN_LIMIT_REDIRECTION_MSG, sender: 'bot', timestamp: new Date() };
-      setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, errorMsg], updatedAt: new Date() } : c));
-      setIsLoading(false);
-      setActiveLoadingChatId(null);
-      setLoadingType(null);
-      setIsGeneratingImage(false);
+      const noticeMsg = { id: generateUniqueId(), text: TOKEN_LIMIT_REDIRECTION_MSG, sender: 'bot', timestamp: new Date() };
+      setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, noticeMsg], updatedAt: new Date() } : c));
+      
+      setChatModelModes(prev => ({ ...prev, [targetChatId]: 'gemini' }));
+      
+      callGeminiAPI(finalMessageText).then(geminiRes => {
+        const finalAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
+        const newGeminiMsg = {
+          id: generateUniqueId(),
+          text: "",
+          sender: 'bot',
+          modelEngine: 'gemini',
+          timestamp: new Date()
+        };
+
+        STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
+        setStreamingMessageId(newGeminiMsg.id);
+
+        setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+          ...c,
+          messages: [...c.messages, newGeminiMsg],
+          updatedAt: new Date()
+        } : c));
+
+        setIsLoading(false);
+        setActiveLoadingChatId(null);
+        setLoadingType(null);
+        setIsGeneratingImage(false);
+
+        streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
+          triggerSuggestions(finalAnswer);
+        });
+      }).catch(err => {
+        console.error("Auto Gemini fallback error:", err);
+        setIsLoading(false);
+        setActiveLoadingChatId(null);
+        setLoadingType(null);
+        setIsGeneratingImage(false);
+      });
     }
   };
 
