@@ -1485,30 +1485,16 @@ export const XareLogo = ({
  */
 export const GoogleStyles = () => (
   <style>{`
-    /* Import Aref Ruqaa font from Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&display=swap');
-    
-    /* Define custom Google Sans Flex font */
-    @font-face {
-        font-family: 'Google Sans Flex';
-        font-style: oblique 0deg 10deg;
-        font-weight: 400 500;
-        font-stretch: 25% 150%;
-        font-display: swap;
-        src: url(https://fonts.gstatic.com/s/googlesansflex/v16/t5t2IQcYNIWbFgDgAAzZ34auoVyXkJCOvp3SFWJbN5hF8LGW72qutw.woff2) format('woff2');
-        unicode-range: U+02C7, U+02D8-02D9, U+02DB, U+0307, U+1400-167F, U+18B0-18F5, U+25CC, U+11AB0-11ABF;
-    }
-
     /* Apply base font and anti-aliasing to the application container */
     .xare-app {
-        font-family: 'Google Sans Flex', 'Google Sans', sans-serif;
+        font-family: 'Google Sans Flex', 'Google Sans', system-ui, -apple-system, sans-serif;
         font-weight: 400;
         font-optical-sizing: auto;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Reset core body margins and enforce full height/no-scroll behaviors */
+    /* Reset core body margins and enforce full height */
     html, body {
         margin: 0;
         padding: 0;
@@ -1516,7 +1502,6 @@ export const GoogleStyles = () => (
         height: 100%;
         background-color: transparent !important;
         overflow: hidden; 
-        touch-action: none; /* Prevent browser pull-to-refresh on mobile */
     }
 
     /* Universal box-sizing reset */
@@ -3086,7 +3071,7 @@ const AI_PRESETS = [
   // ==========================================
   // --- VERSION SWITCHING & PROMPT EDITING
   // ==========================================
-  const handleSwitchMessageVersion = (msgId: string, targetIdx: number) => {
+  const handleSwitchMessageVersion = useCallback((msgId: string, targetIdx: number) => {
     setChatHistory(prev => prev.map(c => {
       if (c.id !== currentChatId) return c;
       return {
@@ -3101,9 +3086,9 @@ const AI_PRESETS = [
         })
       };
     }));
-  };
+  }, [currentChatId]);
 
-  const handleRegenerateResponse = (botMsgId: string) => {
+  const handleRegenerateResponse = useCallback((botMsgId: string) => {
     const activeChat = chatHistory.find(c => c.id === currentChatId);
     if (!activeChat) return;
 
@@ -3121,9 +3106,9 @@ const AI_PRESETS = [
     if (!userMsg) return;
 
     sendMessageToBackend(userMsg.text, userMsg.image || userMsg.document || null, activeChat, botMsgId);
-  };
+  }, [chatHistory, currentChatId]);
 
-  const handleEditUserPrompt = (userMsgId: string, newPromptText: string) => {
+  const handleEditUserPrompt = useCallback((userMsgId: string, newPromptText: string) => {
     const activeChat = chatHistory.find(c => c.id === currentChatId);
     if (!activeChat) return;
 
@@ -3151,7 +3136,7 @@ const AI_PRESETS = [
       null, 
       true // isEditMode = true (prevents duplicate user message bubble)
     );
-  };
+  }, [chatHistory, currentChatId]);
 
   // ==========================================
   // --- SMART CHAT EXPORT (PDF)
@@ -3803,7 +3788,7 @@ const AI_PRESETS = [
       }
   };
 
-  const handleSwitchToGeminiAPI = async (msgId: string) => {
+  const handleSwitchToGeminiAPI = useCallback(async (msgId: string) => {
     const currentChat = chatHistory.find(c => c.id === currentChatId);
     if (!currentChat) return;
 
@@ -3856,12 +3841,12 @@ const AI_PRESETS = [
       setIsLoading(false);
       setActiveLoadingChatId(null);
     }
-  };
+  }, [chatHistory, currentChatId]);
 
-  const handleSwitchToXareAPI = (msgId: string) => {
+  const handleSwitchToXareAPI = useCallback((msgId: string) => {
     setChatModelModes(prev => ({ ...prev, [currentChatId]: 'xare' }));
     showLocalBotMessage("Switched back to primary Xare AI model engine.");
-  };
+  }, [currentChatId]);
 
   const sendMessageToBackend = async (
     msgText, 
@@ -4465,8 +4450,13 @@ const AI_PRESETS = [
     return `${m}:${s}`;
   };
 
-  const currentChat = chatHistory.find(c => c.id === currentChatId) || { id: currentChatId, title: 'New Chat', messages: [] };
-  const messages = currentChat.messages || [];
+  const currentChat = useMemo(() => {
+    return chatHistory.find(c => c.id === currentChatId) || { id: currentChatId, title: 'New Chat', messages: [] };
+  }, [chatHistory, currentChatId]);
+
+  const messages = useMemo(() => {
+    return currentChat.messages || [];
+  }, [currentChat]);
 
   // ==========================================
   // --- 5. RENDER LOGIC
