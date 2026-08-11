@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Sun, Moon, Send, Bot, User, Loader2, Paperclip, Mic, ImageIcon, 
@@ -2495,6 +2495,13 @@ export const notifyStreamingSubscribers = () => {
   STREAMING_SUBSCRIBERS.forEach(cb => cb());
 };
 
+const subscribeStreamingVault = (callback: () => void) => {
+  STREAMING_SUBSCRIBERS.add(callback);
+  return () => {
+    STREAMING_SUBSCRIBERS.delete(callback);
+  };
+};
+
 /**
  * Ultra-Fast Memoized Chat Message Item (ChatGPT/Gemini Style Performance Optimization)
  * Prevents unnecessary re-rendering and re-parsing of past messages when typing or streaming.
@@ -2520,24 +2527,23 @@ export const ChatMessageItem = React.memo(({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text || '');
-  const [_, setStreamingTick] = useState(0);
 
   const vaultData = STREAMING_TEXT_VAULT.get(msg.id);
   const isCurrentlyStreaming = isStreaming || ACTIVELY_STREAMING_IDS.has(msg.id) || Boolean(vaultData);
 
-  useEffect(() => {
-    if (isCurrentlyStreaming) {
-      const listener = () => setStreamingTick(t => t + 1);
-      STREAMING_SUBSCRIBERS.add(listener);
-      return () => {
-        STREAMING_SUBSCRIBERS.delete(listener);
-      };
-    }
-  }, [msg.id, isCurrentlyStreaming]);
+  const getSnapshot = useCallback(() => {
+    return STREAMING_TEXT_VAULT.get(msg.id)?.partialText || "";
+  }, [msg.id]);
+
+  const streamedTextSnapshot = useSyncExternalStore(
+    subscribeStreamingVault,
+    getSnapshot,
+    getSnapshot
+  );
 
   let textToRender = msg.text;
   if (isCurrentlyStreaming) {
-    textToRender = vaultData ? vaultData.partialText : "";
+    textToRender = streamedTextSnapshot || (vaultData ? vaultData.partialText : "");
   }
 
   // SAFETY SHIELD FOR EMPTY BOT MESSAGES:
