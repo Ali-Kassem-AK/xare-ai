@@ -207,20 +207,14 @@ const getTimeSafe = (val: any): number => {
  */
 const getLatestChatActivityTime = (chat: any): number => {
   if (!chat) return 0;
-  
   let maxTime = getTimeSafe(chat.updatedAt);
-
   if (Array.isArray(chat.messages) && chat.messages.length > 0) {
-    for (const msg of chat.messages) {
-      if (msg && msg.timestamp) {
-        const msgTime = getTimeSafe(msg.timestamp);
-        if (msgTime > maxTime) {
-          maxTime = msgTime;
-        }
-      }
+    const lastMsg = chat.messages[chat.messages.length - 1];
+    if (lastMsg && lastMsg.timestamp) {
+      const lastMsgTime = getTimeSafe(lastMsg.timestamp);
+      if (lastMsgTime > maxTime) maxTime = lastMsgTime;
     }
   }
-
   return maxTime;
 };
 
@@ -372,8 +366,19 @@ const copyToClipboard = async (text: string) => {
 /**
  * Lightweight syntax highlighter for code blocks
  */
+const SYNTAX_HIGHLIGHT_CACHE = new Map<string, string>();
+const MAX_SYNTAX_CACHE_SIZE = 500;
+
+/**
+ * Lightweight memoized syntax highlighter for code blocks ($O(1)$ cached lookup)
+ */
 const highlightSyntax = (code: string, lang: string, isDarkMode: boolean) => {
   if (!code) return '';
+  const cacheKey = `${lang || 'code'}_${isDarkMode ? 'd' : 'l'}_${code}`;
+  if (SYNTAX_HIGHLIGHT_CACHE.has(cacheKey)) {
+    return SYNTAX_HIGHLIGHT_CACHE.get(cacheKey)!;
+  }
+
   let escaped = code
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -388,7 +393,7 @@ const highlightSyntax = (code: string, lang: string, isDarkMode: boolean) => {
   // Single-pass tokenizer to prevent sub-string replacements inside generated HTML tags
   const tokenRegex = /(\/\/.*|\/\*[\s\S]*?\*\/|#.*)|(".*?"|'.*?'|`.*?`)|(\b(?:const|let|var|function|return|if|else|for|while|import|export|from|default|class|extends|async|await|try|catch|new|type|interface|public|private|protected|def|self|print|struct|enum|void|int|float|double|bool|string)\b)|(\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_]\w*(?=\s*\())/g;
 
-  return escaped.replace(tokenRegex, (match, comment, str, kw, num, fn) => {
+  const highlighted = escaped.replace(tokenRegex, (match, comment, str, kw, num, fn) => {
     if (comment) return `<span style="${cmStyle}">${comment}</span>`;
     if (str) return `<span style="${strStyle}">${str}</span>`;
     if (kw) return `<span style="${kwStyle}">${kw}</span>`;
@@ -396,21 +401,29 @@ const highlightSyntax = (code: string, lang: string, isDarkMode: boolean) => {
     if (fn) return `<span style="${fnStyle}">${fn}</span>`;
     return match;
   });
+
+  if (SYNTAX_HIGHLIGHT_CACHE.size >= MAX_SYNTAX_CACHE_SIZE) {
+    const firstKey = SYNTAX_HIGHLIGHT_CACHE.keys().next().value;
+    if (firstKey) SYNTAX_HIGHLIGHT_CACHE.delete(firstKey);
+  }
+  SYNTAX_HIGHLIGHT_CACHE.set(cacheKey, highlighted);
+  return highlighted;
 };
 
 /**
  * Enhanced Code Block component with line numbers, syntax highlighting, copy feedback, and language badge.
  */
-export const CodeBlock = ({ code, lang, isDarkMode }: { code: string; lang: string; isDarkMode: boolean }) => {
+export const CodeBlock = React.memo(({ code, lang, isDarkMode }: { code: string; lang: string; isDarkMode: boolean }) => {
   const [isCopied, setIsCopied] = useState(false);
   
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     await copyToClipboard(code);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
-  };
+  }, [code]);
 
-  const lines = (code || '').split('\n');
+  const lines = useMemo(() => (code || '').split('\n'), [code]);
+  const highlightedCode = useMemo(() => highlightSyntax(code, lang, isDarkMode), [code, lang, isDarkMode]);
 
   return (
     <div className={`my-4 rounded-2xl overflow-hidden border shadow-md transition-all ${isDarkMode ? 'border-slate-800/80 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'}`}>
@@ -448,13 +461,13 @@ export const CodeBlock = ({ code, lang, isDarkMode }: { code: string; lang: stri
         <pre className="flex-1 font-mono text-[13.5px] leading-relaxed whitespace-pre overflow-x-auto">
           <code 
             className={isDarkMode ? 'text-slate-200' : 'text-slate-800'}
-            dangerouslySetInnerHTML={{ __html: highlightSyntax(code, lang, isDarkMode) }}
+            dangerouslySetInnerHTML={{ __html: highlightedCode }}
           />
         </pre>
       </div>
     </div>
   );
-};
+});
 
 /**
  * Message action row attached to the bottom of AI messages (Copy, Regenerate, & Version Switcher controls).

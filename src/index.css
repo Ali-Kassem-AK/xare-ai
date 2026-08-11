@@ -47,6 +47,7 @@
 }
 
 .chat-message-card {
-  contain: content;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 80px;
 }
 
