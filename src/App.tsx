@@ -2669,6 +2669,9 @@ export function App() {
       if (window.scrollY !== 0 || window.scrollX !== 0) {
         window.scrollTo(0, 0);
       }
+      if (chatContainerRef.current && !isUserScrolledUpRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
     };
 
     updateViewport();
@@ -5016,11 +5019,10 @@ const AI_PRESETS = [
                 </div>
               )}
 
-              <div className="h-28 sm:h-40 flex-shrink-0" />
             </div>
           </div>
 
-          <div className={`absolute bottom-0 w-full p-3 sm:p-6 z-20 pointer-events-none pb-4 sm:pb-8 ${isDarkMode ? 'bg-gradient-to-t from-[#05070e] via-[#05070e]/95 to-transparent' : 'bg-gradient-to-t from-white via-white/95 to-transparent'}`}>
+          <div className={`flex-none relative w-full p-2 sm:p-4 z-20 pb-3 sm:pb-5 ${isDarkMode ? 'bg-[#030407]' : 'bg-[#f8fafc]'}`}>
             
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
                 <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
