@@ -1494,23 +1494,32 @@ export const GoogleStyles = () => (
         -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Reset core body margins and enforce full height container */
-    html, body {
+    /* Enforce fixed viewport layout to prevent window scrolling when mobile keyboard opens */
+    html, body, #root {
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden;
+        overscroll-behavior: none;
         background-color: transparent !important;
-        overflow: hidden; 
+        -webkit-text-size-adjust: 100%;
     }
 
     /* Universal box-sizing reset */
     * { box-sizing: border-box; }
     *, *:before, *:after { box-sizing: border-box; }
     
-    /* Custom thin scrollbar for chat areas */
+    /* Custom thin scrollbar & momentum touch scrolling for chat areas */
     .chat-scroll {
-      touch-action: auto; /* Re-enable scrolling specifically inside chat areas */
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+      touch-action: pan-y;
     }
     .chat-scroll::-webkit-scrollbar { width: 6px; }
     .chat-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -2653,6 +2662,42 @@ export function App() {
   const streamingAnimFrameRef = useRef<number | null>(null);
   const isUserScrolledUpRef = useRef(false);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const updateViewportHeight = () => {
+      if (window.visualViewport) {
+        setViewportHeight(window.visualViewport.height);
+      }
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewportHeight);
+      window.visualViewport.addEventListener('scroll', updateViewportHeight);
+      updateViewportHeight();
+    }
+
+    const preventWindowScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    window.addEventListener('scroll', preventWindowScroll, { passive: true });
+    window.addEventListener('focusin', preventWindowScroll, { passive: true });
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewportHeight);
+        window.visualViewport.removeEventListener('scroll', updateViewportHeight);
+      }
+      window.removeEventListener('scroll', preventWindowScroll);
+      window.removeEventListener('focusin', preventWindowScroll);
+    };
+  }, []);
 
   const streamBotResponse = (msgId: string, fullText: string, targetChatId: string, onComplete?: () => void) => {
     if (streamingAnimFrameRef.current) {
@@ -4581,7 +4626,7 @@ const AI_PRESETS = [
   }
 
   return (
-    <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
+    <div style={{ height: viewportHeight ? `${viewportHeight}px` : '100%' }} className={`xare-app fixed inset-0 w-full overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
       <GoogleStyles />
 
       {showLimitsPopup && (
@@ -4787,7 +4832,7 @@ const AI_PRESETS = [
           </div>
         </aside>
 
-        <div className="flex-1 h-[100dvh] max-h-[100dvh] relative z-10 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 h-full relative z-10 flex flex-col min-w-0 transition-all duration-300 overflow-hidden">
           
           {isVoiceModeActive && (
             <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center animate-overlay ${isDarkMode ? 'bg-[#020617]/95' : 'bg-slate-50/95'}`}>
@@ -4797,7 +4842,7 @@ const AI_PRESETS = [
             </div>
           )}
 
-          <header className={`flex-none w-full z-30 px-4 sm:px-6 py-2.5 sm:py-3 flex justify-between items-center border-b transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] border-slate-800/60' : 'bg-[#f8fafc] border-slate-200/80'}`}>
+          <header className={`sticky top-0 left-0 right-0 z-30 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center backdrop-blur-xl border-b transition-colors duration-300 flex-shrink-0 ${isDarkMode ? 'bg-[#030407]/85 border-slate-800/40' : 'bg-[#f8fafc]/85 border-slate-200/50'}`}>
             <div className="flex items-center gap-2 sm:gap-3 z-10 relative">
               {!isSidebarOpen && (
                 <button
@@ -4879,7 +4924,7 @@ const AI_PRESETS = [
             onTouchCancel={handleTouchEnd} 
             className="flex-1 min-h-0 overflow-y-auto chat-scroll gpu-accelerated w-full relative z-10"
           >
-            <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2">
+            <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2 pb-4">
 
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center min-h-[50vh] text-center my-auto px-4 animate-float-up select-none">
@@ -4963,11 +5008,11 @@ const AI_PRESETS = [
                 </div>
               )}
 
-              <div className="h-4 flex-shrink-0" />
+              <div className="h-2 flex-shrink-0" />
             </div>
           </div>
 
-          <div className={`flex-none w-full p-2.5 sm:p-4 z-20 pointer-events-none ${isDarkMode ? 'bg-[#030407]' : 'bg-[#f8fafc]'}`}>
+          <div className={`sticky bottom-0 left-0 right-0 w-full p-3 sm:p-5 z-20 pointer-events-none pb-3 sm:pb-6 flex-shrink-0 ${isDarkMode ? 'bg-gradient-to-t from-[#030407] via-[#030407]/95 to-transparent' : 'bg-gradient-to-t from-[#f8fafc] via-[#f8fafc]/95 to-transparent'}`}>
             
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
                 <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
@@ -5161,6 +5206,7 @@ const AI_PRESETS = [
                       onChange={handleInputChange}
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
+                      onFocus={() => window.scrollTo(0, 0)}
                       dir="auto"
                       placeholder={activeTool ? activeTool.placeholder : "Ask Xare anything..."}
                       className={`w-full max-h-48 min-h-[38px] sm:min-h-[46px] px-2 sm:px-3 bg-transparent outline-none resize-none text-[15px] ${activeTool || pendingAttachment ? 'pt-1 pb-2' : 'py-2 sm:py-3'} ${isDarkMode ? 'text-slate-100 placeholder-slate-400' : 'text-slate-900 placeholder-slate-500'}`}
