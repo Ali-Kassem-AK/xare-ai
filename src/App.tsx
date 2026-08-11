@@ -4623,11 +4623,13 @@ const AI_PRESETS = [
             WebkitBackdropFilter: 'blur(24px) saturate(190%)',
             backdropFilter: 'blur(24px) saturate(190%)',
           }}
-          className={`fixed top-0 left-0 z-50 h-full flex flex-col border-r transition-all duration-300 ease-in-out shadow-[0_8px_32px_0_rgba(0,10,30,0.5)] ${
-            isSidebarOpen ? 'w-[280px] translate-x-0 opacity-100' : 'w-0 -translate-x-full opacity-0 border-none overflow-hidden pointer-events-none'
+          className={`fixed lg:relative top-0 left-0 z-50 h-full flex flex-col border-r transition-all duration-300 ease-in-out shadow-[0_8px_32px_0_rgba(0,10,30,0.5)] flex-shrink-0 ${
+            isSidebarOpen 
+              ? 'w-[280px] lg:w-[260px] translate-x-0 opacity-100' 
+              : 'w-0 -translate-x-full opacity-0 border-none overflow-hidden pointer-events-none'
           } ${isDarkMode ? 'bg-[#070e1c]/45 border-blue-400/20 text-slate-100' : 'bg-white/45 border-white/50 text-slate-800'}`}
         >
-          <div className={`w-[280px] h-full flex flex-col transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <div className={`w-[280px] lg:w-[260px] h-full flex flex-col transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <div className="p-3">
               <button onClick={() => setIsSidebarOpen(false)} className={`p-2.5 rounded-full transition-colors ${isDarkMode ? 'hover:bg-blue-900/30 text-slate-400' : 'hover:bg-slate-200/50 text-slate-600'}`} title="Close menu">
                 <Menu className="w-5 h-5" />
