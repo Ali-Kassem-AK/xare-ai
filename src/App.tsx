@@ -3745,7 +3745,7 @@ const AI_PRESETS = [
     if (!currentUser) return;
 
     const existingEmptyChat = chatHistory.find(
-      (chat) => chat.messages && chat.messages.length === 1 && chat.messages[0].sender === 'bot'
+      (chat) => !chat.messages || chat.messages.length === 0 || !chat.messages.some(m => m.sender === 'user')
     );
 
     if (existingEmptyChat) {
@@ -4663,6 +4663,10 @@ const AI_PRESETS = [
               <div className={`px-4 pb-2 text-xs font-semibold uppercase tracking-wider mt-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Recent</div>
               
               {[...chatHistory]
+                .filter(chat => {
+                  const hasUserMessages = chat.messages && chat.messages.some((m: any) => m.sender === 'user');
+                  return hasUserMessages || chat.id === currentChatId;
+                })
                 .sort((a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a))
                 .map(chat => (
                 <button
