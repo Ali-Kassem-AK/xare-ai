@@ -62,7 +62,7 @@ export const STREAMING_CONFIG = {
  *                           - 4.5s+       : Slow pace
  */
 export const GLOW_ANIMATION_CONFIG = {
-  textGlowSweepSpeedSec: 1, // Glowing light sweep duration in seconds (Default: 1.8s)
+  textGlowSweepSpeedSec: 1.3, // Glowing light sweep duration in seconds (Default: 1.8s)
 };
 
 // ==========================================
