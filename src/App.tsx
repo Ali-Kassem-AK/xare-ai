@@ -697,8 +697,8 @@ const renderInline = (text, isDarkMode) => {
     // 5. Inline Code: `code`
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       return (
-        <code key={i} className={`px-1.5 py-0.5 rounded-md text-[0.875em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle ${
-          isDarkMode ? 'bg-slate-800/70 text-blue-300 border-slate-700/60' : 'bg-slate-200/60 text-blue-700 border-slate-300/60'
+        <code key={i} className={`px-1.5 py-0.5 mx-0.5 rounded-md text-[0.86em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
+          isDarkMode ? 'bg-slate-800/70 text-slate-200 border-slate-700/60' : 'bg-slate-200/80 text-slate-800 border-slate-300/70'
         }`}>
           {part.slice(1, -1)}
         </code>
