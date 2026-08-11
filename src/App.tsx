@@ -3928,23 +3928,7 @@ const AI_PRESETS = [
       finalMessageText += "\n\n[FORMAT DIRECTIVE: If your response includes code or scripts, you MUST wrap all code inside a standard markdown triple-backtick block, e.g. ```python\n# code\n```. Do NOT output code as plain text or inline backticks.]";
     }
 
-    if (finalAction === 'generate_image' && dailyUsage.imageGenCount >= 10) {
-      showLocalBotMessage("⚠️ **Usage Limit Reached**\nYou have reached your daily limit of 10 image generations.");
-      setPendingAttachment(null);
-      setInputValue('');
-      setActiveTool(null);
-      setIsLoading(false);
-      return;
-    }
-    
-    if (finalAction === 'search' && dailyUsage.webSearchCount >= 5) {
-      showLocalBotMessage("⚠️ **Usage Limit Reached**\nYou have reached your daily limit of 5 web searches.");
-      setPendingAttachment(null);
-      setInputValue('');
-      setActiveTool(null);
-      setIsLoading(false);
-      return;
-    }
+
 
     let targetChatId = currentChatId;
     if (!targetChatId) {
@@ -4668,7 +4652,7 @@ const AI_PRESETS = [
                   <ImageIcon className={`w-5 h-5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
                   <span className={`text-[14px] font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Image Generation</span>
                 </div>
-                <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 shadow-sm'}`}>10 / Day</span>
+                <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wider bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-sm`}>Unlimited</span>
               </div>
 
               <div className={`flex items-center justify-between p-3.5 rounded-2xl border ${isDarkMode ? 'bg-slate-800/30 border-slate-700/50' : 'bg-slate-50 border-slate-200'}`}>
@@ -4676,7 +4660,7 @@ const AI_PRESETS = [
                   <Globe className={`w-5 h-5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
                   <span className={`text-[14px] font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Web Search</span>
                 </div>
-                <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 shadow-sm'}`}>5 / Day</span>
+                <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wider bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-sm`}>Unlimited</span>
               </div>
 
               <div className={`flex items-center justify-between p-3.5 rounded-2xl border ${isDarkMode ? 'bg-slate-800/30 border-slate-700/50' : 'bg-slate-50 border-slate-200'}`}>
