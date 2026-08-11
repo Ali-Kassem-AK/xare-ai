@@ -413,7 +413,7 @@ const highlightSyntax = (code: string, lang: string, isDarkMode: boolean) => {
 /**
  * Enhanced Code Block component with line numbers, syntax highlighting, copy feedback, and language badge.
  */
-export const CodeBlock = React.memo(({ code, lang, isDarkMode }: { code: string; lang: string; isDarkMode: boolean }) => {
+export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { code: string; lang: string; isDarkMode: boolean; isStreaming?: boolean }) => {
   const [isCopied, setIsCopied] = useState(false);
   
   const handleCopy = useCallback(async () => {
@@ -423,7 +423,17 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode }: { code: string;
   }, [code]);
 
   const lines = useMemo(() => (code || '').split('\n'), [code]);
-  const highlightedCode = useMemo(() => highlightSyntax(code, lang, isDarkMode), [code, lang, isDarkMode]);
+
+  // Fast plain text path while code is actively streaming (0 regex execution cost per frame)
+  const highlightedCode = useMemo(() => {
+    if (isStreaming) {
+      return (code || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+    return highlightSyntax(code, lang, isDarkMode);
+  }, [code, lang, isDarkMode, isStreaming]);
 
   return (
     <div className={`my-4 rounded-2xl overflow-hidden border shadow-md transition-all ${isDarkMode ? 'border-slate-800/80 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'}`}>
@@ -834,7 +844,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         code = raw;
       }
 
-      return <CodeBlock key={bIdx} code={code.trimEnd()} lang={lang} isDarkMode={isDarkMode} />;
+      return <CodeBlock key={bIdx} code={code.trimEnd()} lang={lang} isDarkMode={isDarkMode} isStreaming={isStreaming} />;
     }
 
     // Display Math
@@ -2479,6 +2489,11 @@ const UserMessageActions = ({
  */
 const STREAMING_TEXT_VAULT = new Map<string, { fullText: string; partialText: string }>();
 const ACTIVELY_STREAMING_IDS = new Set<string>();
+const STREAMING_SUBSCRIBERS = new Set<() => void>();
+
+export const notifyStreamingSubscribers = () => {
+  STREAMING_SUBSCRIBERS.forEach(cb => cb());
+};
 
 /**
  * Ultra-Fast Memoized Chat Message Item (ChatGPT/Gemini Style Performance Optimization)
@@ -2505,13 +2520,21 @@ export const ChatMessageItem = React.memo(({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text || '');
+  const [_, setStreamingTick] = useState(0);
 
-  // ABSOLUTE ZERO-FLASH VAULT CHECK:
-  // If this message is actively streaming or in vault, FORCE render partialText from vault!
-  // The full response text is 100% BLOCKED from ever leaking or flashing!
   const vaultData = STREAMING_TEXT_VAULT.get(msg.id);
   const isCurrentlyStreaming = isStreaming || ACTIVELY_STREAMING_IDS.has(msg.id) || Boolean(vaultData);
-  
+
+  useEffect(() => {
+    if (isCurrentlyStreaming) {
+      const listener = () => setStreamingTick(t => t + 1);
+      STREAMING_SUBSCRIBERS.add(listener);
+      return () => {
+        STREAMING_SUBSCRIBERS.delete(listener);
+      };
+    }
+  }, [msg.id, isCurrentlyStreaming]);
+
   let textToRender = msg.text;
   if (isCurrentlyStreaming) {
     textToRender = vaultData ? vaultData.partialText : "";
@@ -2798,17 +2821,8 @@ export function App() {
           const partialText = fullText.slice(0, nextCharCount);
           STREAMING_TEXT_VAULT.set(msgId, { fullText, partialText });
 
-          setChatHistory(prev => prev.map(c => {
-            if (c.id !== targetChatId) return c;
-            const targetMsg = (c.messages || []).find(m => m.id === msgId);
-            if (targetMsg && targetMsg.text === partialText) return c;
-
-            return {
-              ...c,
-              messages: (c.messages || []).map(m => m.id === msgId ? { ...m, text: partialText } : m),
-              updatedAt: new Date()
-            };
-          }));
+          // ISOLATED STREAMING UPDATE: Notify subscriber (active ChatMessageItem) without re-rendering App root!
+          notifyStreamingSubscribers();
 
           if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
