@@ -4955,20 +4955,20 @@ const AI_PRESETS = [
 
               <form 
                 onSubmit={handleSendMessage}
-                className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 backdrop-blur-2xl w-full ${
+                className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 backdrop-blur-3xl w-full ${
                   isDarkMode 
-                    ? 'bg-[#080d19]/60 border-slate-700/50 shadow-[0_8px_32px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)] focus-within:border-slate-500/60' 
-                    : 'bg-white/70 border-slate-300/80 shadow-[0_8px_25px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.8)] focus-within:border-blue-400'
+                    ? 'bg-[#080d19]/80 border-slate-700/60 shadow-[0_8px_32px_rgba(0,0,0,0.55),inset_0_1px_1px_rgba(255,255,255,0.12)] focus-within:border-slate-500/70' 
+                    : 'bg-white/85 border-slate-300/80 shadow-[0_8px_25px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.8)] focus-within:border-blue-400'
                 }`}
               >
               {/* Integrated + Attachment Button */}
               <div className="relative flex-shrink-0" ref={attachMenuRef}>
                 {showAttachMenu && (
                   <div 
-                    className={`absolute bottom-full left-0 mb-3 w-56 sm:w-64 p-2 rounded-2xl border shadow-2xl backdrop-blur-2xl z-50 animate-float-up ${
+                    className={`absolute bottom-full left-0 mb-3 w-56 sm:w-64 p-2 rounded-2xl border shadow-2xl backdrop-blur-3xl z-50 animate-float-up ${
                       isDarkMode 
-                      ? 'bg-[#0f172a]/90 border-slate-700/50 text-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.65),inset_0_1px_1px_rgba(255,255,255,0.1)]' 
-                      : 'bg-white/95 border-slate-200 text-slate-900'
+                      ? 'bg-[#090e1a]/96 border-slate-700/60 text-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.75),inset_0_1px_1px_rgba(255,255,255,0.12)]' 
+                      : 'bg-white/98 border-slate-200 text-slate-900 shadow-xl'
                     }`}
                   >
                     {activeSubMenu ? (
