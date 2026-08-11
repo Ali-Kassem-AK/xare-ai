@@ -4950,7 +4950,7 @@ const AI_PRESETS = [
                 onSubmit={handleSendMessage}
                 className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 backdrop-blur-3xl saturate-[200%] w-full ${
                   isDarkMode 
-                    ? 'bg-[#09152a]/30 border-cyan-400/40 shadow-[0_10px_35px_rgba(0,0,0,0.45),inset_0_2px_3px_0_rgba(255,255,255,0.45),inset_0_-1.5px_2px_0_rgba(56,189,248,0.3)] focus-within:border-cyan-300 focus-within:shadow-[0_0_35px_rgba(56,189,248,0.45),inset_0_2px_3px_0_rgba(255,255,255,0.6)]' 
+                    ? 'bg-[#09152a]/30 border-cyan-400/40 shadow-[0_10px_35px_rgba(0,0,0,0.45),inset_0_2px_3px_0_rgba(255,255,255,0.45),inset_0_-1.5px_2px_0_rgba(56,189,248,0.3)] focus-within:border-cyan-300/70' 
                     : 'bg-white/40 border-sky-300/60 shadow-xl focus-within:border-blue-400'
                 }`}
               >
