@@ -661,9 +661,15 @@ const renderMath = (tex: string, isDarkMode: boolean) => {
   return html;
 };
 
-/**
- * Advanced custom Markdown renderer with Image & Link support.
- */
+const sanitizeUrl = (url: string) => {
+  if (!url || typeof url !== 'string') return '#';
+  const trimmed = url.trim();
+  if (/^(javascript:|data:|vbscript:)/i.test(trimmed)) {
+    return '#';
+  }
+  return trimmed;
+};
+
 /**
  * Advanced custom Markdown renderer with Image, Link, Bold, Italic, Code, & Math support.
  */
@@ -679,7 +685,7 @@ const renderInline = (text, isDarkMode) => {
     // 1. Markdown Image Syntax: ![alt](url) -> Renders with full Lightbox, Zoom & Download
     const imgMatch = part.match(/^!\[(.*?)\]\((.*?)\)$/);
     if (imgMatch) {
-      const url = imgMatch[2];
+      const url = sanitizeUrl(imgMatch[2]);
       return <ImageWithActions key={i} src={url} isDarkMode={isDarkMode} />;
     }
 
@@ -687,7 +693,7 @@ const renderInline = (text, isDarkMode) => {
     const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
     if (linkMatch) {
       const linkText = linkMatch[1];
-      const url = linkMatch[2];
+      const url = sanitizeUrl(linkMatch[2]);
       return (
         <a
           key={i}
