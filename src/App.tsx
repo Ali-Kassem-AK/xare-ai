@@ -694,11 +694,13 @@ const renderInline = (text, isDarkMode) => {
       );
     }
 
-    // 5. Inline Code: `code`
+    // 5. Inline Code: `code` (Liquid Glass Design)
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       return (
-        <code key={i} className={`px-1.5 py-0.5 mx-0.5 rounded-md text-[0.86em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
-          isDarkMode ? 'bg-slate-800/70 text-slate-200 border-slate-700/60' : 'bg-slate-200/80 text-slate-800 border-slate-300/70'
+        <code key={i} className={`px-2 py-0.5 mx-0.5 rounded-lg text-[0.86em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-all duration-200 ${
+          isDarkMode 
+            ? 'bg-[#0e1a30]/65 text-cyan-200 border-cyan-400/25 shadow-[0_2px_10px_rgba(6,182,212,0.08)] backdrop-blur-md hover:border-cyan-400/50 hover:bg-[#122342]/80 hover:text-white' 
+            : 'bg-blue-50/80 text-blue-900 border-blue-200/80 shadow-sm backdrop-blur-md hover:bg-blue-100/90'
         }`}>
           {part.slice(1, -1)}
         </code>
