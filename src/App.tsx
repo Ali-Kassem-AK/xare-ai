@@ -4360,154 +4360,61 @@ const AI_PRESETS = [
         <div className="flex flex-1 w-full overflow-y-auto chat-scroll relative z-10 px-4 py-6 sm:py-8">
           
           <div className="m-auto w-full max-w-md flex flex-col">
-            {/* Reduced padding to p-6 sm:p-7 to make the card itself smaller */}
-            <div className={`w-full backdrop-blur-md rounded-lg p-6 sm:p-7 relative animate-float-up ${isDarkMode ? 'bg-black/40' : 'bg-white/40'}`}>
+            {/* Executive Glassmorphic Auth Card */}
+            <div className={`w-full backdrop-blur-2xl rounded-3xl p-7 sm:p-9 relative animate-float-up border shadow-2xl ${isDarkMode ? 'bg-[#070b14]/90 border-slate-800/80 shadow-black/80' : 'bg-white/90 border-slate-200 shadow-slate-200/50'}`}>
               
-              {/* Tightened the header margins (mb-5 instead of mb-8) */}
-              <div className="relative z-10 flex flex-col items-center mb-5 mt-1">
-                <div className="flex items-center justify-center mb-3">
-                  {/* ========================================== */}
-                  {/* Reduced Logo Size to w-20 h-20 */}
-                  {/* ========================================== */}
+              <div className="relative z-10 flex flex-col items-center mb-6 mt-1 text-center">
+                <div className="flex items-center justify-center mb-4">
                   <XareLogo 
                     className="w-20 h-20" 
-                    scale={2.8} 
+                    scale={3.0} 
                     x="-11%" 
                     isDarkMode={isDarkMode} 
                   />
                 </div>
-                <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                  {authMode === 'login' ? 'Welcome back' : 'Create an account'}
+                <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                  Welcome to Xare
                 </h1>
-                <p className={`text-sm mt-1.5 text-center ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {authMode === 'login' ? 'Enter your credentials to access your chats.' : 'Sign up to start chatting with Xare.'}
+                <p className={`text-sm mt-2 text-center leading-relaxed max-w-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Sign in with Google to sync your chats or continue as guest instantly.
                 </p>
               </div>
 
-              {/* Tightened form gap to space-y-3 */}
-              <form onSubmit={handleAuthSubmit} className="relative z-10 space-y-3">
-                {authError && (
-                  <div className={`p-2.5 border rounded-xl text-sm font-medium text-center animate-float-up ${isDarkMode ? 'bg-red-900/20 border-red-800/50 text-red-400' : 'bg-red-50 border-red-200 text-red-600'}`}>
-                    {authError}
-                  </div>
-                )}
-
-                {authMode === 'register' && (
-                  <div className="space-y-1">
-                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Username</label>
-                    <div className="relative">
-                      <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
-                        <User className="w-4 h-4" />
-                      </div>
-                      {/* Reduced input padding to py-2.5 */}
-                      <input
-                        type="text"
-                        value={authUsername}
-                        onChange={(e) => setAuthUsername(e.target.value)}
-                        className={`w-full border rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm text-sm ${isDarkMode ? 'bg-slate-950/50 border-slate-700 text-white' : 'bg-white/50 border-slate-200 text-slate-900'}`}
-                        placeholder="Choose a username"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-1">
-                  <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Email</label>
-                  <div className="relative">
-                    <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
-                      <Mail className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="email"
-                      value={authEmail}
-                      onChange={(e) => setAuthEmail(e.target.value)}
-                      className={`w-full border rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm text-sm ${isDarkMode ? 'bg-slate-950/50 border-slate-700 text-white' : 'bg-white/50 border-slate-200 text-slate-900'}`}
-                      placeholder="Enter your email"
-                    />
-                  </div>
+              {authError && (
+                <div className={`mb-5 p-3 border rounded-2xl text-xs font-medium text-center animate-float-up ${isDarkMode ? 'bg-red-950/40 border-red-800/60 text-red-300' : 'bg-red-50 border-red-200 text-red-600'}`}>
+                  {authError}
                 </div>
+              )}
 
-                <div className="space-y-1">
-                  <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Password</label>
-                  <div className="relative">
-                    <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
-                      <Lock className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="password"
-                      value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
-                      className={`w-full border rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm text-sm ${isDarkMode ? 'bg-slate-950/50 border-slate-700 text-white' : 'bg-white/50 border-slate-200 text-slate-900'}`}
-                      placeholder="Enter your password"
-                    />
-                  </div>
-                </div>
-
-                {/* Reduced button padding to py-3 mt-3 */}
+              <div className="relative z-10 space-y-3.5">
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleGoogleSignIn}
                   disabled={isAuthLoading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-3 mt-3 shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] flex justify-center items-center gap-2 text-sm"
+                  className={`w-full flex items-center justify-center gap-3 py-3.5 px-5 rounded-2xl font-semibold transition-all active:scale-[0.98] text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 shadow-lg shadow-blue-500/25 border border-white/10 ${isAuthLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
                   {isAuthLoading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Please wait...</>
+                    <><Loader2 className="w-4 h-4 animate-spin text-white" /> Connecting...</>
                   ) : (
-                    authMode === 'login' ? 'Log In' : 'Sign Up'
+                    <>
+                      <GoogleLogo className="w-4 h-4" />
+                      Sign in with Google
+                    </>
                   )}
                 </button>
-              </form>
 
-              <div className="relative z-10">
-                {/* Tightened separator margins to my-4 */}
-                <div className="flex items-center my-4">
-                  <div className={`flex-grow border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-300/50'}`}></div>
-                  <span className={`px-4 text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                    Or continue with
-                  </span>
-                  <div className={`flex-grow border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-300/50'}`}></div>
-                </div>
-
-                <div className="space-y-2.5">
-                  <button
-                    type="button"
-                    onClick={handleGoogleSignIn}
-                    disabled={isAuthLoading}
-                    className={`w-full flex items-center justify-center gap-3 py-2.5 px-4 border rounded-xl font-semibold transition-all active:scale-[0.98] text-sm ${
-                      isDarkMode 
-                        ? 'bg-slate-900/50 border-slate-700 text-white hover:bg-slate-800' 
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
-                    }`}
-                  >
-                    <GoogleLogo className="w-4 h-4" />
-                    {authMode === 'login' ? 'Log in with Google' : 'Sign up with Google'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleGuestSignIn}
-                    disabled={isAuthLoading}
-                    className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 border rounded-xl font-semibold transition-all active:scale-[0.98] text-sm ${
-                      isDarkMode 
-                        ? 'bg-slate-800/60 border-slate-700 text-slate-200 hover:bg-slate-700/80 hover:text-white' 
-                        : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200/80 shadow-sm'
-                    }`}
-                  >
-                    <User className="w-4 h-4 text-blue-500" />
-                    Continue as Guest (Skip Sign In)
-                  </button>
-                </div>
-              </div>
-
-              {/* Tightened bottom margin to mt-5 */}
-              <div className="mt-5 text-center relative z-10">
                 <button
-                  onClick={() => {
-                    setAuthMode(authMode === 'login' ? 'register' : 'login');
-                    setAuthError('');
-                  }}
-                  className={`text-sm hover:underline font-medium ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}
+                  type="button"
+                  onClick={handleGuestSignIn}
+                  disabled={isAuthLoading}
+                  className={`w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-2xl font-semibold transition-all active:scale-[0.98] text-sm border shadow-sm ${
+                    isDarkMode 
+                      ? 'bg-slate-900/80 hover:bg-slate-800/90 border-slate-700/80 text-slate-200' 
+                      : 'bg-slate-100 hover:bg-slate-200/80 border-slate-200 text-slate-700'
+                  }`}
                 >
-                  {authMode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
+                  <User className="w-4 h-4 text-cyan-400" />
+                  Continue as Guest (Skip Sign In)
                 </button>
               </div>
             </div>
