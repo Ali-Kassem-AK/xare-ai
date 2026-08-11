@@ -2148,11 +2148,11 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
     
     const currentTime = ctx.currentTime;
     
-    // JITTER BUFFER LOGIC:
-    // If nextStartTimeRef is uninitialized (0) or falling behind currentTime,
-    // start with an 80ms hardware warmup buffer to prevent clipping initial words.
+    // STRICT AUDIO QUEUE LOGIC:
+    // If uninitialized (0) or playback fell behind due to silence, queue 100ms ahead of currentTime.
+    // Once queued, nextStartTimeRef advances continuously so no incoming chunks are ever skipped.
     if (nextStartTimeRef.current === 0 || nextStartTimeRef.current < currentTime) {
-        nextStartTimeRef.current = currentTime + 0.08;
+        nextStartTimeRef.current = currentTime + 0.1;
     }
     
     source.start(nextStartTimeRef.current);
@@ -2185,6 +2185,7 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
 
       setAgentStatus('Connecting...');
       const ws = new WebSocket("wss://agent.deepgram.com/v1/agent/converse", ['token', DEEPGRAM_API_KEY]);
+      ws.binaryType = "arraybuffer";
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -2248,7 +2249,7 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
         updateVolume(); 
       };
 
-      ws.onmessage = async (event) => {
+      ws.onmessage = (event) => {
         if (typeof event.data === "string") {
           try {
             const msg = JSON.parse(event.data);
@@ -2262,18 +2263,15 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
           } catch (e) { 
             console.warn("Failed to parse Deepgram message:", e); 
           }
-        } else {
+        } else if (event.data instanceof ArrayBuffer) {
           if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-            await audioCtxRef.current.resume();
+            audioCtxRef.current.resume();
           }
-          const arrayBuffer = await event.data.arrayBuffer();
-          const int16Array = new Int16Array(arrayBuffer);
+          const int16Array = new Int16Array(event.data);
           const float32Array = new Float32Array(int16Array.length);
-          
           for (let i = 0; i < int16Array.length; i++) {
             float32Array[i] = int16Array[i] / 32768.0;
           }
-          
           scheduleAudioChunk(float32Array);
         }
       };
