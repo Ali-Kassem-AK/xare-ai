@@ -749,6 +749,45 @@ const renderInline = (text, isDarkMode) => {
     
     let cleanText = part.replace(/\$\\rightarrow\$/g, '→').replace(/\\rightarrow/g, '→');
     
+    // Autolink raw URLs in plain text
+    const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
+    const urlParts = cleanText.split(urlRegex);
+    if (urlParts.length > 1) {
+      return (
+        <React.Fragment key={i}>
+          {urlParts.map((subPart, subIdx) => {
+            if (/^https?:\/\//i.test(subPart)) {
+              const safeUrl = sanitizeUrl(subPart);
+              return (
+                <a
+                  key={subIdx}
+                  href={safeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`underline font-medium hover:opacity-80 transition-opacity break-all ${
+                    isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                  }`}
+                >
+                  {subPart}
+                </a>
+              );
+            }
+            const textNodes = subPart.split(/(<br\s*\/?>)/i);
+            if (textNodes.length > 1) {
+              return (
+                <React.Fragment key={subIdx}>
+                  {textNodes.map((node, nodeIdx) => (
+                    /<br\s*\/?>/i.test(node) ? <br key={nodeIdx} /> : <React.Fragment key={nodeIdx}>{node}</React.Fragment>
+                  ))}
+                </React.Fragment>
+              );
+            }
+            return <React.Fragment key={subIdx}>{subPart}</React.Fragment>;
+          })}
+        </React.Fragment>
+      );
+    }
+
     const textNodes = cleanText.split(/(<br\s*\/?>)/i);
     if (textNodes.length > 1) {
       return (
