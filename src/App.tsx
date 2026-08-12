@@ -5070,14 +5070,11 @@ const AI_PRESETS = [
                   ) : (
                     <div 
                       style={{ '--glow-sweep-speed': `${GLOW_ANIMATION_CONFIG.textGlowSweepSpeedSec}s` } as React.CSSProperties}
-                      className={`px-6 py-3.5 rounded-[24px] flex items-center justify-center min-w-[120px] border shadow-md relative overflow-hidden ${
-                        isDarkMode 
-                          ? 'bg-[#0f1523] border-slate-800/80 text-slate-200 ring-1 ring-cyan-500/20 shadow-cyan-950/30' 
-                          : 'bg-white border-slate-200/80 shadow-[0_4px_20px_-3px_rgba(0,0,0,0.08)] text-slate-700 ring-1 ring-blue-500/20'
-                      }`}
+                      className="py-1.5 flex items-center gap-2.5"
                     >
-                      <div className="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse opacity-80" />
-                      <span className="text-[14.5px] font-bold tracking-wide animate-modern-glow relative z-10">
+                      <span className={`text-[15px] font-semibold tracking-wide animate-modern-glow ${
+                        isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                      }`}>
                         {loadingPhase}
                       </span>
                     </div>
