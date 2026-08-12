@@ -43,10 +43,10 @@ export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached t
  * - maxAdaptiveSpeed    : Max speed cap for long responses (chars/sec).
  */
 export const STREAMING_CONFIG = {
-  wordsPerSecond: 40,         // Typing speed directly in Words Per Second (WPS)
+  wordsPerSecond: 50,         // Typing speed directly in Words Per Second (WPS)
   tickIntervalMs: 30,         // Render update throttle tick interval in ms (30ms = 33fps optimal liquid tick)
   enableAdaptiveSpeed: true,  // Auto-scale speed for long text/code (>500 chars)
-  maxAdaptiveWPS: 75,         // Max Words Per Second cap for long text
+  maxAdaptiveWPS: 85,         // Max Words Per Second cap for long text
 };
 
 // ==========================================
