@@ -2929,7 +2929,7 @@ const AI_PRESETS = [
     icon: Languages, 
     label: 'Translate', 
     hasSubMenu: true,
-    subOptions: [
+    subItems: [
       { label: 'Arabic', action: 'translate', prompt: 'Translate the following text to Arabic:\n\n', placeholder: 'Type text to translate...' },
       { label: 'English', action: 'translate', prompt: 'Translate the following text to English:\n\n', placeholder: 'Type text to translate...' },
       { label: 'Turkish', action: 'translate', prompt: 'Translate the following text to Turkish:\n\n', placeholder: 'Type text to translate...' },
@@ -5155,7 +5155,7 @@ const AI_PRESETS = [
                           </button>
                           <span className="text-xs font-semibold uppercase tracking-wider">{activeSubMenu.label}</span>
                         </div>
-                        {activeSubMenu.subItems.map((sub, idx) => (
+                        {(activeSubMenu.subItems || activeSubMenu.subOptions || []).map((sub, idx) => (
                           <button
                             key={idx}
                             type="button"
@@ -5163,7 +5163,7 @@ const AI_PRESETS = [
                             onClick={() => {
                               setShowAttachMenu(false);
                               setActiveSubMenu(null);
-                              setActiveTool({ icon: activeSubMenu.icon, label: `${activeSubMenu.label} (${sub.label})`, prompt: sub.prompt, placeholder: sub.placeholder });
+                              setActiveTool({ icon: activeSubMenu.icon, label: `${activeSubMenu.label} (${sub.label})`, prompt: sub.prompt, placeholder: sub.placeholder, action: sub.action || activeSubMenu.action });
                               setTimeout(() => textareaRef.current?.focus(), 50);
                             }}
                           >
