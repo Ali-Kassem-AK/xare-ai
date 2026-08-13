@@ -3350,19 +3350,19 @@ const AI_PRESETS = [
   }, [chatHistory, currentChatId]);
 
   // ==========================================
-  // --- EXECUTIVE PDF GENERATION ENGINE
+  // --- EXECUTIVE PDF PUBLISHING ENGINE
   // ==========================================
   /**
-   * Compiles raw Markdown AST, LaTeX math, and structured data into an ultra-modern publication HTML document.
+   * Compiles raw Markdown AST, LaTeX math, and structured data into a publication-grade executive HTML document.
    */
   const renderMarkdownToHTMLForPDF = (text: string): string => {
     if (!text) return '';
 
     let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
-    // Purge uncompiled metadata tokens & artifact lines
-    cleaned = cleaned.replace(/MARKDOWN\s+\d+\s+LINES?/gi, '');
-    cleaned = cleaned.replace(/PYTHON\s+\d+\s+LINES?/gi, '');
+    // SECTION 1: Metadata & Line-Counter Stripper
+    cleaned = cleaned.replace(/(MARKDOWN|PYTHON|TYPESCRIPT|JAVASCRIPT|HTML|CSS|JSON)\s+\d+\s+LINES?/gi, '');
+    cleaned = cleaned.replace(/\b\d+\s+LINES\b/gi, '');
 
     // Escape HTML special characters safely before rendering Markdown tags
     let html = cleaned
@@ -3373,10 +3373,10 @@ const AI_PRESETS = [
     // 1. LaTeX Display Math ($$...$$ or \[...\])
     html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, tex) => {
       const rendered = renderMath(tex, false);
-      return `<div class="math-display" style="margin: 14px 0; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; text-align: center; font-size: 11pt; color: #0f172a; page-break-inside: avoid; break-inside: avoid;">${rendered}</div>`;
+      return `<div class="math-display" style="margin: 14px 0; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; text-align: center; font-size: 11pt; color: #0f172a; page-break-inside: avoid; break-inside: avoid;">${rendered}</div>`;
     });
 
-    // 2. LaTeX Inline Math ($$ or \(...\))
+    // 2. LaTeX Inline Math ($...$ or \(...\))
     html = html.replace(/\$([^\$\n]+)\$/g, (match, tex) => {
       const rendered = renderMath(tex, false);
       return `<span class="math-inline" style="font-size: 10pt; color: #0f172a; padding: 0 2px;">${rendered}</span>`;
@@ -3385,18 +3385,13 @@ const AI_PRESETS = [
     // 3. Fenced Code Blocks ```lang ... ```
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
       const lines = code.trim().split('\n');
-      const lineNumbersHTML = lines.map((_, i) => `<div>${i + 1}</div>`).join('');
       const codeLinesHTML = lines.map(line => `<div>${line || '&nbsp;'}</div>`).join('');
       
       return `<div class="code-block" style="margin: 14px 0; background: #0f172a; border-radius: 6px; overflow: hidden; border: 1px solid #1e293b; color: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 9pt; page-break-inside: avoid; break-inside: avoid;">
         <div style="background: #1e293b; padding: 6px 14px; font-size: 7.5pt; text-transform: uppercase; color: #38bdf8; font-weight: 700; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.05em;">
           <span>${lang || 'CODE'}</span>
-          <span style="opacity: 0.7;">${lines.length} lines</span>
         </div>
-        <div style="padding: 10px 14px; display: flex; overflow-x: auto; line-height: 1.55;">
-          <div style="color: #475569; text-align: right; padding-right: 12px; margin-right: 12px; border-right: 1px solid #334155; user-select: none;">${lineNumbersHTML}</div>
-          <div style="color: #e2e8f0; white-space: pre; overflow-x: auto;">${codeLinesHTML}</div>
-        </div>
+        <div style="padding: 10px 14px; line-height: 1.55; color: #e2e8f0; white-space: pre; overflow-x: auto;">${codeLinesHTML}</div>
       </div>`;
     });
 
@@ -3447,15 +3442,15 @@ const AI_PRESETS = [
         return cells;
       });
 
-      const thHTML = headers.map(h => `<th style="padding: 8px 12px; background: #f8fafc; color: #475569; font-size: 8.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; text-align: left; border-bottom: 2px solid #e2e8f0;">${h}</th>`).join('');
+      const thHTML = headers.map(h => `<th style="padding: 10px 12px !important; background-color: #f8fafc !important; color: #475569 !important; font-weight: 700 !important; text-align: left !important; border-bottom: 2px solid #cbd5e1 !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; font-size: 8.5pt !important;">${h}</th>`).join('');
       const trHTML = rows.map((row, rIdx) => {
         const bg = rIdx % 2 === 0 ? '#ffffff' : '#f8fafc';
-        const tdHTML = row.map(cell => `<td style="padding: 8px 12px; font-size: 9.5pt; color: #1e293b; border-bottom: 1px solid #f1f5f9; line-height: 1.6;">${cell}</td>`).join('');
+        const tdHTML = row.map(cell => `<td style="padding: 10px 12px !important; border-bottom: 1px solid #e2e8f0 !important; color: #334155 !important; vertical-align: top !important; font-size: 9.5pt !important;">${cell}</td>`).join('');
         return `<tr style="background: ${bg};">${tdHTML}</tr>`;
       }).join('');
 
-      return `<div style="margin: 14px 0; overflow-x: auto; page-break-inside: avoid; break-inside: avoid;">
-        <table style="border-collapse: separate; border-spacing: 0; width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-family: inherit;">
+      return `<div style="margin: 16px 0; overflow-x: auto; page-break-inside: avoid; break-inside: avoid;">
+        <table style="width: 100% !important; border-collapse: collapse !important; margin: 16px 0 !important; font-size: 9.5pt !important;">
           <thead><tr>${thHTML}</tr></thead>
           <tbody>${trHTML}</tbody>
         </table>
@@ -3463,40 +3458,29 @@ const AI_PRESETS = [
     });
 
     // 5. Executive Callout Boxes & Blockquotes (> text)
-    html = html.replace(/^>\s*(.*$)/gim, '<blockquote class="xare-callout" style="margin: 14px 0; border-left: 3px solid #0ea5e9; background: #f0f9ff; padding: 12px 16px; border-radius: 0 8px 8px 0; color: #1e293b; font-size: 10pt; line-height: 1.65; page-break-inside: avoid; break-inside: avoid;">$1</blockquote>');
+    html = html.replace(/^>\s*(.*$)/gim, '<blockquote style="margin: 16px 0 !important; padding: 12px 18px !important; background-color: #f0f9ff !important; border-left: 4px solid #0ea5e9 !important; border-radius: 0 6px 6px 0 !important; color: #0c4a6e !important; font-style: normal !important; page-break-inside: avoid; break-inside: avoid;">$1</blockquote>');
 
-    // 6. Key-Value Cards (Key: Value)
-    html = html.replace(/^([A-Z0-9][a-zA-Z0-9\s_\-\.]{1,25})\s*[:–]\s*(.+)$/gm, (match, key, val) => {
-      if (key.trim().length > 1 && !key.toLowerCase().startsWith('http')) {
-        return `<div class="kv-container" style="display: flex; gap: 12px; margin: 6px 0; font-size: 10pt; page-break-inside: avoid; break-inside: avoid;">
-          <span style="font-weight: 700; color: #0284c7; min-width: 130px; flex-shrink: 0;">${key.trim()}:</span>
-          <span style="color: #334155;">${val.trim()}</span>
-        </div>`;
-      }
-      return match;
-    });
-
-    // 7. Semantic Headings Hierarchy
+    // 6. Semantic Headings Hierarchy
     html = html.replace(/^#### (.*$)/gim, '<h4 style="font-size: 11pt; font-weight: 600; color: #334155; margin: 14px 0 6px 0; page-break-after: avoid; break-after: avoid;">$1</h4>');
     html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 11.5pt; font-weight: 700; color: #0f172a; margin: 16px 0 8px 0; page-break-after: avoid; break-after: avoid;">$1</h3>');
     html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 14pt; font-weight: 700; color: #0f172a; border-left: 3px solid #0ea5e9; padding-left: 8px; margin: 20px 0 10px 0; page-break-after: avoid; break-after: avoid;">$1</h2>');
     html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 20pt; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; margin: 24px 0 12px 0; page-break-after: avoid; break-after: avoid;">$1</h1>');
 
-    // 8. Bold & Italics
+    // 7. Bold & Italics
     html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 800; color: #0f172a;">$1</strong>');
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 700; color: #0f172a;">$1</strong>');
     html = html.replace(/\*(.*?)\*/g, '<em style="font-style: italic; color: #334155;">$1</em>');
 
-    // 9. Inline Code `code`
-    html = html.replace(/`([^`]+)`/g, '<code style="background: #f1f5f9; color: #0284c7; padding: 2px 6px; border-radius: 4px; font-family: \'JetBrains Mono\', monospace; font-size: 9pt; border: 1px solid #cbd5e1; font-weight: 600;">$1</code>');
+    // 8. Inline Code `code` (Purge Pill Boxes & Button Fills)
+    html = html.replace(/`([^`]+)`/g, '<code style="background-color: #f1f5f9 !important; color: #0ea5e9 !important; padding: 2px 6px !important; border-radius: 3px !important; font-family: \'JetBrains Mono\', monospace !important; font-size: 9pt !important; border: 1px solid #cbd5e1 !important; box-shadow: none !important;">$1</code>');
 
-    // 10. Bullet Lists (- or *)
-    html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li style="margin-bottom: 5px; color: #334155; line-height: 1.6; list-style-type: disc; margin-left: 20px;">$1</li>');
+    // 9. Bullet Lists (- or *) (Standard Typography, No Badge Boxes)
+    html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li style="margin-bottom: 5px; color: #1e293b; line-height: 1.6; list-style-type: disc; margin-left: 20px; font-weight: 400;">$1</li>');
 
-    // 11. Numbered Lists (1. 2.)
-    html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li style="margin-bottom: 6px; color: #1e293b; font-weight: 500; line-height: 1.6; margin-left: 20px;">$2</li>');
+    // 10. Numbered Lists (1. 2.) (Standard Typography, No Badge Boxes)
+    html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li style="margin-bottom: 6px; color: #1e293b; font-weight: 400; line-height: 1.6; margin-left: 20px;">$2</li>');
 
-    // 12. Paragraph Spacing & Line Breaks
+    // 11. Paragraph Spacing & Line Breaks
     html = html.replace(/\n\n/g, '<div style="height: 10px;"></div>');
     html = html.replace(/\n/g, '<br/>');
 
@@ -3524,11 +3508,12 @@ const AI_PRESETS = [
       })
     );
 
+    // Continuous Publication Flow - Zero Chat Bubbles, Avatars, or Role Tags
     const messagesHTML = resolvedMessages.map((m: any) => {
       const renderedContent = renderMarkdownToHTMLForPDF(m.text || '');
       const isUser = m.sender === 'user';
       const imageHTML = m.resolvedImageUrl 
-        ? `<div style="margin: 14px 0;"><img src="${m.resolvedImageUrl}" style="max-width: 100%; max-height: 480px; border-radius: 8px; border: 1px solid #cbd5e1; object-fit: contain; display: block;" /></div>` 
+        ? `<div style="margin: 14px 0;"><img src="${m.resolvedImageUrl}" style="max-width: 100%; max-height: 480px; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain; display: block;" /></div>` 
         : '';
 
       if (isUser) {
@@ -3555,44 +3540,171 @@ const AI_PRESETS = [
   <title>${chatTitle} - Xare AI Executive Report</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
-    @page { size: A4 portrait; margin: 15mm 15mm 20mm 15mm; }
-    html, body {
-      background-color: #ffffff !important;
-      color: #0f172a !important;
-      font-family: 'Inter', sans-serif;
+    
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 15mm 15mm 20mm 15mm;
+      }
+
+      html, body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+        font-size: 10pt !important;
+        line-height: 1.6 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .browser-header, .browser-footer, header:empty, footer:empty {
+        display: none !important;
+      }
+
+      h1, h2, h3, h4, .executive-header {
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+      }
+
+      tr, blockquote, pre, .code-block, table, .metric-card, .key-value-container, .doc-user-prompt {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background-color: #ffffff;
+      color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       font-size: 10pt;
       line-height: 1.6;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 10px;
     }
-    * { box-sizing: border-box; }
-    body { max-width: 860px; margin: 0 auto; padding: 10px; }
-    h1, h2, h3, h4, .document-header, .document-footer-tag { break-after: avoid !important; }
-    .xare-card, blockquote, .code-block, table, tr, .doc-user-prompt { break-inside: avoid !important; }
-    .document-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #0ea5e9; }
-    .header-badge { background: #0f172a; color: #38bdf8; font-size: 8.5pt; font-weight: 800; padding: 4px 12px; border-radius: 6px; display: inline-block; margin-bottom: 10px; }
-    .document-title { font-size: 22pt; font-weight: 800; color: #0f172a; margin: 0 0 12px 0; }
-    .metadata-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 16px; font-size: 9pt; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }
-    .doc-user-prompt { margin: 24px 0 16px 0; padding: 14px 18px; background: #f8fafc; border-left: 4px solid #0f172a; border-radius: 0 8px 8px 0; }
-    .doc-prompt-label { font-size: 8pt; font-weight: 800; color: #0ea5e9; margin-bottom: 4px; }
-    .doc-prompt-text { font-size: 10.5pt; font-weight: 600; color: #0f172a; }
-    .doc-body { margin-bottom: 24px; }
-    .document-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 8.5pt; color: #64748b; }
+
+    table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      margin: 16px 0 !important;
+      font-size: 9.5pt !important;
+    }
+    th {
+      background-color: #f8fafc !important;
+      color: #475569 !important;
+      font-weight: 700 !important;
+      text-align: left !important;
+      padding: 10px 12px !important;
+      border-bottom: 2px solid #cbd5e1 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.05em !important;
+    }
+    td {
+      padding: 10px 12px !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      color: #334155 !important;
+      vertical-align: top !important;
+    }
+    td *, th * {
+      display: inline !important;
+      vertical-align: baseline !important;
+    }
+
+    blockquote {
+      margin: 16px 0 !important;
+      padding: 12px 18px !important;
+      background-color: #f0f9ff !important;
+      border-left: 4px solid #0ea5e9 !important;
+      border-radius: 0 6px 6px 0 !important;
+      color: #0c4a6e !important;
+      font-style: normal !important;
+    }
+
+    code {
+      background-color: #f1f5f9 !important;
+      color: #0ea5e9 !important;
+      padding: 2px 6px !important;
+      border-radius: 3px !important;
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 9pt !important;
+      border: 1px solid #cbd5e1 !important;
+      box-shadow: none !important;
+    }
+
+    .executive-header {
+      border-bottom: 2px solid #0ea5e9;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+
+    .doc-user-prompt {
+      margin: 20px 0 16px 0;
+      padding: 12px 16px;
+      background: #f8fafc;
+      border-left: 4px solid #0f172a;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .doc-prompt-label {
+      font-size: 8pt;
+      font-weight: 800;
+      color: #0ea5e9;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .doc-prompt-text {
+      font-size: 10.5pt;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .doc-body {
+      margin-bottom: 24px;
+      font-size: 10pt;
+      color: #1e293b;
+      line-height: 1.6;
+    }
+
+    .executive-footer {
+      margin-top: 32px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 8pt;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+    }
   </style>
 </head>
 <body>
-  <header class="document-header">
-    <div class="header-badge">XARE AI EXECUTIVE REPORT</div>
-    <h1 class="document-title">${chatTitle}</h1>
-    <div class="metadata-grid">
-      <div><strong>Prepared For:</strong> ${userName}</div>
+
+  <!-- EXECUTIVE DOCUMENT HEADER -->
+  <header class="executive-header">
+    <div style="font-size: 8pt; font-weight: 800; color: #0ea5e9; letter-spacing: 0.1em; text-transform: uppercase;">Xare AI Executive Technical Report</div>
+    <h1 style="font-size: 20pt; font-weight: 800; color: #0f172a; margin: 6px 0 12px 0;">${chatTitle}</h1>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 8.5pt; color: #64748b; background: #f8fafc; padding: 12px; border-radius: 6px;">
+      <div><strong>Prepared For:</strong> Ali Kassem</div>
       <div><strong>Date:</strong> ${dateStr}</div>
       <div><strong>Classification:</strong> Executive Internal</div>
-      <div><strong>System Engine:</strong> Xare V2 Publishing Core</div>
+      <div><strong>Engine:</strong> Xare V2 Publishing Core</div>
     </div>
   </header>
-  <main class="document-content">${messagesHTML}</main>
-  <footer class="document-footer">Generated with Xare AI Engine • Confidential</footer>
+
+  <!-- MAIN DOCUMENT CONTENT -->
+  <main class="document-body">
+    ${messagesHTML}
+  </main>
+
+  <!-- RUNNING FOOTER -->
+  <footer class="executive-footer">
+    <span>Generated with Xare AI Engine • Confidential</span>
+    <span>Executive Internal Report</span>
+  </footer>
+
   <script>
     const images = document.querySelectorAll('img');
     let loaded = 0;
