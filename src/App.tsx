@@ -1993,13 +1993,13 @@ const N8N_WEBHOOK_URL = "https://aliiis-24-7-n8n.hf.space/webhook/9373cba5-102c-
 // --- UTILITY FUNCTIONS
 // ==========================================
 
+const BASE64_AUDIO_REGEX = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const IMAGE_URL_REGEX = /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)/i;
+
 const parsePayloadData = (payload) => {
   let parsedText = '';
   let parsedAudio = null;
   let parsedImage = null;
-
-  const BASE64_AUDIO_REGEX = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-  const IMAGE_URL_REGEX = /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)/i;
 
   // Intelligent Image Base64 Sniffer
   const isImageStr = (str) => {
