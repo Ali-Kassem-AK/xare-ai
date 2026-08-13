@@ -4299,7 +4299,7 @@ const AI_PRESETS = [
 
     if (pendingAttachment) {
       if (pendingAttachment.size && pendingAttachment.size > 10 * 1024 * 1024) {
-        showLocalBotMessage("⚠️ **File Size Limit Exceeded**\nThe attached file exceeds the maximum allowed limit of 10 MB. Message was not sent.");
+        showLocalBotMessage("**File Size Limit Exceeded**\nThe attached file exceeds the maximum allowed limit of 10 MB. Message was not sent.");
         setPendingAttachment(null);
         return;
       }
