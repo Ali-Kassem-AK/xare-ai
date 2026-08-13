@@ -3355,6 +3355,10 @@ const AI_PRESETS = [
   // --- DIRECT CLIPBOARD PASTE (IMAGES & PDFS)
   // ==========================================
   const processPastedFile = (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      showLocalBotMessage("⚠️ **File Size Limit Exceeded**\nThe pasted file exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64Data = event.target?.result as string;
@@ -4294,6 +4298,11 @@ const AI_PRESETS = [
     const toolLabel = activeTool ? activeTool.label : null;
 
     if (pendingAttachment) {
+      if (pendingAttachment.size && pendingAttachment.size > 10 * 1024 * 1024) {
+        showLocalBotMessage("⚠️ **File Size Limit Exceeded**\nThe attached file exceeds the maximum allowed limit of 10 MB. Message was not sent.");
+        setPendingAttachment(null);
+        return;
+      }
       sendMessageToBackend(baseText, pendingAttachment.data, pendingAttachment.type, hiddenPrompt, toolAction, toolLabel);
       setPendingAttachment(null);
     } else {
@@ -4317,12 +4326,19 @@ const AI_PRESETS = [
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      showLocalBotMessage("⚠️ **File Size Limit Exceeded**\nThe selected image exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
+      e.target.value = '';
+      setShowAttachMenu(false);
+      return;
+    }
     
     try {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onloadend = () => {
-        setPendingAttachment({ type: 'image', data: reader.result, name: file.name });
+        setPendingAttachment({ type: 'image', data: reader.result, name: file.name, size: file.size });
       };
     } catch (error) {
       console.error("Failed to process image:", error);
@@ -4336,10 +4352,17 @@ const AI_PRESETS = [
   const handleDocumentSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      showLocalBotMessage("⚠️ **File Size Limit Exceeded**\nThe selected PDF document exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
+      e.target.value = '';
+      setShowAttachMenu(false);
+      return;
+    }
     
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onloadend = () => setPendingAttachment({ type: 'document', data: reader.result, name: file.name });
+    reader.onloadend = () => setPendingAttachment({ type: 'document', data: reader.result, name: file.name, size: file.size });
     e.target.value = '';
     setShowAttachMenu(false);
   };
