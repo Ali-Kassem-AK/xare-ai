@@ -83,7 +83,7 @@ export const TOOL_PHASE_DURATIONS = {
     thinking: 8000,               // Time before switching from 'Analyzing image' to 'Thinking'
   },
   document: {
-    thinking: 9000,               // Time before switching from 'Analyzing document' to 'Thinking'
+    thinking: 13000,               // Time before switching from 'Analyzing document' to 'Thinking'
   },
   summarize: {
     thinking: 5000,               // Time before switching from 'Summarizing' to 'Thinking'
