@@ -3314,61 +3314,85 @@ const AI_PRESETS = [
   }, [chatHistory, currentChatId]);
 
   // ==========================================
-  // --- SMART CHAT EXPORT (PDF)
+  // --- EXECUTIVE DOCUMENT EXPORTER (PDF)
   // ==========================================
   /**
-   * Compiles raw Markdown text into rich, beautifully formatted HTML for PDF export.
+   * Compiles raw Markdown text into publication-ready executive HTML for PDF export.
    */
   const renderMarkdownToHTMLForPDF = (text: string): string => {
     if (!text) return '';
 
     let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
-    // Escape HTML special characters
+    // Escape HTML special characters safely before rendering Markdown tags
     let html = cleaned
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    // Code Blocks ```lang ... ```
+    // 1. Fenced Code Blocks ```lang ... ```
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
       const lines = code.trim().split('\n');
       const lineNumbersHTML = lines.map((_, i) => `<div>${i + 1}</div>`).join('');
       const codeLinesHTML = lines.map(line => `<div>${line || '&nbsp;'}</div>`).join('');
       
-      return `<div style="margin: 16px 0; background: #090d16; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; color: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">
-        <div style="background: #0f172a; padding: 8px 16px; font-size: 11px; text-transform: uppercase; color: #38bdf8; font-weight: 700; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center;">
+      return `<div class="code-block" style="margin: 20px 0; background: #090d16; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; color: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 12px; page-break-inside: avoid; break-inside: avoid;">
+        <div style="background: #0f172a; padding: 10px 18px; font-size: 11px; text-transform: uppercase; color: #38bdf8; font-weight: 700; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px;">
           <span>${lang || 'CODE'}</span>
           <span style="opacity: 0.6;">${lines.length} lines</span>
         </div>
-        <div style="padding: 14px 16px; display: flex; overflow-x: auto; line-height: 1.6;">
+        <div style="padding: 14px 18px; display: flex; overflow-x: auto; line-height: 1.6;">
           <div style="color: #475569; text-align: right; padding-right: 14px; margin-right: 14px; border-right: 1px solid #1e293b; user-select: none;">${lineNumbersHTML}</div>
-          <div style="color: #e2e8f0; white-space: pre;">${codeLinesHTML}</div>
+          <div style="color: #e2e8f0; white-space: pre; overflow-x: auto;">${codeLinesHTML}</div>
         </div>
       </div>`;
     });
 
-    // Headings
-    html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 20px 0 8px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">$1</h3>');
-    html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 19px; font-weight: 800; color: #0284c7; margin: 24px 0 10px 0; border-bottom: 2px solid #bae6fd; padding-bottom: 6px;">$1</h2>');
-    html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 22px; font-weight: 800; color: #0369a1; margin: 28px 0 12px 0;">$1</h1>');
+    // 2. Data Tables (| Header 1 | Header 2 |)
+    html = html.replace(/^\|(.+)\|\s*\n\|[\s\|:\-]+\|\s*\n((?:\|.+\|\s*\n?)+)/gm, (match, headerRow, bodyContent) => {
+      const headers = headerRow.split('|').map(h => h.trim()).filter(Boolean);
+      const rows = bodyContent.trim().split('\n').map(r => r.split('|').map(c => c.trim()).filter(Boolean));
 
-    // Bold & Italic
+      const thHTML = headers.map(h => `<th style="padding: 10px 14px; background: #0f172a; color: #ffffff; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; border-bottom: 2px solid #0284c7;">${h}</th>`).join('');
+      const trHTML = rows.map((row, rIdx) => {
+        const bg = rIdx % 2 === 0 ? '#ffffff' : '#f8fafc';
+        const tdHTML = row.map(cell => `<td style="padding: 10px 14px; font-size: 13px; color: #1e293b; border-bottom: 1px solid #e2e8f0; line-height: 1.6;">${cell}</td>`).join('');
+        return `<tr style="background: ${bg};">${tdHTML}</tr>`;
+      }).join('');
+
+      return `<div style="margin: 22px 0; overflow-x: auto; page-break-inside: avoid; break-inside: avoid;">
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; font-family: inherit;">
+          <thead><tr>${thHTML}</tr></thead>
+          <tbody>${trHTML}</tbody>
+        </table>
+      </div>`;
+    });
+
+    // 3. Callout Blockquotes (> text)
+    html = html.replace(/^>\s*(.*$)/gim, '<blockquote style="margin: 18px 0; border-left: 4px solid #0284c7; background: #f0f9ff; padding: 14px 20px; border-radius: 0 12px 12px 0; color: #0c4a6e; font-size: 14px; line-height: 1.65; page-break-inside: avoid; break-inside: avoid;">$1</blockquote>');
+
+    // 4. Semantic Headings (#, ##, ###, ####)
+    html = html.replace(/^#### (.*$)/gim, '<h4 style="font-size: 15px; font-weight: 700; color: #1e293b; margin: 18px 0 8px 0; page-break-after: avoid; break-after: avoid;">$1</h4>');
+    html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 17px; font-weight: 700; color: #0f172a; margin: 22px 0 10px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; page-break-after: avoid; break-after: avoid;">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 20px; font-weight: 800; color: #0284c7; margin: 26px 0 12px 0; border-bottom: 2px solid #bae6fd; padding-bottom: 6px; page-break-after: avoid; break-after: avoid;">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 24px; font-weight: 800; color: #0369a1; margin: 30px 0 14px 0; page-break-after: avoid; break-after: avoid;">$1</h1>');
+
+    // 5. Bold & Italics
     html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 700; color: #0f172a;">$1</strong>');
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 800; color: #0f172a;">$1</strong>');
     html = html.replace(/\*(.*?)\*/g, '<em style="font-style: italic; color: #334155;">$1</em>');
 
-    // Inline Code `code`
-    html = html.replace(/`([^`]+)`/g, '<code style="background: #f1f5f9; color: #2563eb; padding: 2px 6px; border-radius: 6px; font-family: \'JetBrains Mono\', monospace; font-size: 12.5px; border: 1px solid #cbd5e1;">$1</code>');
+    // 6. Inline Code `code`
+    html = html.replace(/`([^`]+)`/g, '<code style="background: #f1f5f9; color: #0284c7; padding: 2px 6px; border-radius: 5px; font-family: \'JetBrains Mono\', monospace; font-size: 12.5px; border: 1px solid #cbd5e1; font-weight: 600;">$1</code>');
 
-    // List bullets (* or -)
-    html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li style="margin-bottom: 4px; color: #334155;">$1</li>');
+    // 7. Bullet Lists (- or *)
+    html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li style="margin-bottom: 5px; color: #334155; line-height: 1.6; list-style-type: disc; margin-left: 20px;">$1</li>');
 
-    // Numbered lists (1. 2.)
-    html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li style="margin-bottom: 6px; color: #1e293b; font-weight: 500;">$2</li>');
+    // 8. Numbered Lists (1. 2.)
+    html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li style="margin-bottom: 6px; color: #1e293b; font-weight: 500; line-height: 1.6; margin-left: 20px;">$2</li>');
 
-    // Paragraph spacing & line breaks
-    html = html.replace(/\n\n/g, '<div style="height: 10px;"></div>');
+    // 9. Paragraph Spacing & Line Breaks
+    html = html.replace(/\n\n/g, '<div style="height: 12px;"></div>');
     html = html.replace(/\n/g, '<br/>');
 
     return html;
@@ -3378,7 +3402,7 @@ const AI_PRESETS = [
     const activeChat = chatHistory.find(c => c.id === currentChatId);
     if (!activeChat) return;
 
-    const chatTitle = activeChat.title || 'Xare Chat';
+    const chatTitle = activeChat.title || 'Xare AI Executive Technical Report';
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const userName = currentUser?.username || 'User';
 
@@ -3401,25 +3425,30 @@ const AI_PRESETS = [
       })
     );
 
+    // Continuous Document Flow - NO Chat Bubbles, Avatars, or Role Tags
     const messagesHTML = resolvedMessages.map((m: any) => {
       const renderedContent = renderMarkdownToHTMLForPDF(m.text || '');
       const isUser = m.sender === 'user';
       const imageHTML = m.resolvedImageUrl 
-        ? `<div style="margin-bottom: 14px; margin-top: 6px;"><img src="${m.resolvedImageUrl}" style="max-width: 100%; max-height: 480px; border-radius: 16px; border: 1px solid #cbd5e1; object-fit: contain; display: block; box-shadow: 0 2px 10px rgba(0,0,0,0.06);" /></div>` 
+        ? `<div style="margin: 16px 0;"><img src="${m.resolvedImageUrl}" style="max-width: 100%; max-height: 480px; border-radius: 12px; border: 1px solid #cbd5e1; object-fit: contain; display: block; box-shadow: 0 2px 10px rgba(0,0,0,0.06);" /></div>` 
         : '';
 
-      return `
-        <div class="${isUser ? 'msg-card-user' : 'msg-card-bot'}">
-          <div class="sender-header ${isUser ? 'sender-user' : 'sender-bot'}">
-            <span>${isUser ? '👤' : '🤖'}</span>
-            <span>${isUser ? userName : 'Xare AI'}</span>
+      if (isUser) {
+        return `
+          <div class="doc-user-prompt">
+            <div class="doc-prompt-label">OBJECTIVE / USER PROMPT</div>
+            <div class="doc-prompt-text">${renderedContent}</div>
+            ${imageHTML}
           </div>
-          ${imageHTML}
-          <div class="msg-content">
+        `;
+      } else {
+        return `
+          <div class="doc-body">
+            ${imageHTML}
             ${renderedContent}
           </div>
-        </div>
-      `;
+        `;
+      }
     }).join('');
 
     const printWindow = window.open('', '_blank');
@@ -3429,25 +3458,31 @@ const AI_PRESETS = [
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${chatTitle} - Xare AI Document</title>
+          <title>${chatTitle} - Xare AI Technical Report</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+            
+            @page {
+              margin: 15mm;
+              size: A4;
+            }
             
             * { box-sizing: border-box; }
+            
             body { 
               font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
               padding: 40px; 
               color: #0f172a; 
-              max-width: 920px; 
+              max-width: 880px; 
               margin: 0 auto; 
-              background: #f8fafc;
+              background: #ffffff;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
             
-            .header-card {
+            .exec-header {
               background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
-              border-radius: 24px;
+              border-radius: 20px;
               padding: 28px 32px;
               color: #ffffff;
               margin-bottom: 36px;
@@ -3457,81 +3492,114 @@ const AI_PRESETS = [
               box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.3);
             }
             
-            .brand-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(90deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-            .chat-subtitle { font-size: 15px; color: #94a3b8; font-weight: 500; margin-top: 4px; }
-            .meta-badge { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 14px; font-size: 12px; color: #cbd5e1; text-align: right; }
-            
-            .msg-card-user {
-              margin-bottom: 24px;
-              padding: 20px 24px;
-              border-radius: 20px;
-              background: #f0f4f9;
-              border: 1px solid #dbe2ef;
-              box-shadow: 0 2px 8px -2px rgba(0,0,0,0.03);
+            .brand-badge { 
+              font-size: 24px; 
+              font-weight: 800; 
+              letter-spacing: -0.5px; 
+              background: linear-gradient(90deg, #38bdf8, #818cf8); 
+              -webkit-background-clip: text; 
+              -webkit-text-fill-color: transparent; 
             }
             
-            .msg-card-bot {
-              margin-bottom: 24px;
-              padding: 24px 28px;
-              border-radius: 20px;
-              background: #ffffff;
-              border: 1px solid #e2e8f0;
-              box-shadow: 0 4px 20px -3px rgba(0,0,0,0.05);
+            .doc-subtitle { 
+              font-size: 14px; 
+              color: #94a3b8; 
+              font-weight: 500; 
+              margin-top: 4px; 
             }
-
-            .sender-header {
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              font-weight: 700;
-              font-size: 13px;
+            
+            .meta-box { 
+              background: rgba(255, 255, 255, 0.08); 
+              border: 1px solid rgba(255, 255, 255, 0.15); 
+              padding: 10px 18px; 
+              border-radius: 12px; 
+              font-size: 12px; 
+              color: #cbd5e1; 
+              text-align: right; 
+              line-height: 1.5;
+            }
+            
+            .doc-user-prompt {
+              margin: 32px 0 20px 0;
+              padding: 18px 22px;
+              background: #f8fafc;
+              border-left: 4px solid #0f172a;
+              border-radius: 0 12px 12px 0;
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
+            
+            .doc-prompt-label {
+              font-size: 11px;
+              font-weight: 800;
               text-transform: uppercase;
-              letter-spacing: 0.5px;
-              margin-bottom: 12px;
+              letter-spacing: 1px;
+              color: #0284c7;
+              margin-bottom: 6px;
             }
             
-            .sender-user { color: #2563eb; }
-            .sender-bot { color: #0284c7; }
+            .doc-prompt-text {
+              font-size: 15px;
+              font-weight: 600;
+              color: #0f172a;
+              line-height: 1.6;
+            }
             
-            .msg-content {
+            .doc-body {
               font-size: 14.5px;
-              line-height: 1.7;
+              line-height: 1.75;
               color: #1e293b;
+              margin-bottom: 28px;
               word-break: break-word;
             }
             
-            .footer {
-              margin-top: 50px;
-              padding-top: 24px;
+            .exec-footer {
+              margin-top: 60px;
+              padding-top: 20px;
               border-top: 1px solid #e2e8f0;
-              text-align: center;
-              font-size: 12px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              font-size: 11px;
               color: #64748b;
               font-weight: 500;
             }
             
             @media print { 
-              body { background: #ffffff; padding: 20px; }
-              .msg-card-user, .msg-card-bot { page-break-inside: avoid; }
+              body { background: #ffffff !important; padding: 0 !important; }
+              html, body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              h1, h2, h3, h4, .code-block, table, blockquote, .doc-user-prompt { 
+                page-break-inside: avoid !important; 
+                break-inside: avoid !important; 
+              }
+              h1, h2, h3, h4 { 
+                page-break-after: avoid !important; 
+                break-after: avoid !important; 
+              }
             }
           </style>
         </head>
         <body>
-          <div class="header-card">
+          <div class="exec-header">
             <div>
-              <div class="brand-title">Xare AI</div>
-              <div class="chat-subtitle">${chatTitle}</div>
+              <div class="brand-badge">Xare AI Executive Technical Report</div>
+              <div class="doc-subtitle">${chatTitle}</div>
             </div>
-            <div class="meta-badge">
+            <div class="meta-box">
               <div style="font-weight: 700; color: #ffffff;">${dateStr}</div>
-              <div style="margin-top: 2px;">Exported for ${userName}</div>
+              <div>Prepared For: <strong>${userName}</strong></div>
+              <div>Classification: <strong>Executive Internal</strong></div>
             </div>
           </div>
 
           <div>${messagesHTML}</div>
 
-          <div class="footer">
-            Generated with Xare AI • Ultra-Modern AI Platform • https://github.com/Ali-Kassem-AK/xare-ai
+          <div class="exec-footer">
+            <span>Generated with Xare AI • Publication Technical Exporter</span>
+            <span>https://xare-ai.vercel.app</span>
           </div>
           <script>
             const images = document.querySelectorAll('img');
