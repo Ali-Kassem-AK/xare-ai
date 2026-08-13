@@ -942,10 +942,38 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           // Require at least 2 clean rows OR a header + separator line to form a valid table
           if (cleanRows.length >= 2 || (cleanRows.length >= 1 && hasSeparator)) {
             const parseRow = (r: string) => {
-              // Protect pipes inside inline code backticks `...`
-              const protectedRow = r.replace(/`([^`]+)`/g, (match) => match.replace(/\|/g, '__XARE_PIPE__'));
-              const clean = protectedRow.trim().replace(/^\|/, '').replace(/\|$/, '');
-              return clean.split('|').map(c => c.trim().replace(/__XARE_PIPE__/g, '|'));
+              const chars = Array.from(r);
+              let backtickCount = 0;
+              let currentCell = '';
+              const cells: string[] = [];
+
+              for (let i = 0; i < chars.length; i++) {
+                const ch = chars[i];
+                if (ch === '`' && (i === 0 || chars[i - 1] !== '\\')) {
+                  backtickCount++;
+                  currentCell += ch;
+                } else if (ch === '|' && (i === 0 || chars[i - 1] !== '\\')) {
+                  if (backtickCount % 2 === 0) {
+                    // EVEN backticks -> Pipe is a true cell separator!
+                    cells.push(currentCell.trim());
+                    currentCell = '';
+                  } else {
+                    // ODD backticks -> Pipe is inside inline code!
+                    currentCell += ch;
+                  }
+                } else {
+                  currentCell += ch;
+                }
+              }
+              if (currentCell.trim() !== '') {
+                cells.push(currentCell.trim());
+              }
+
+              // Remove outer boundary empty cells from leading/trailing pipes `| ... |`
+              if (cells.length > 0 && cells[0] === '') cells.shift();
+              if (cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
+
+              return cells;
             };
 
             const headers = parseRow(cleanRows[0]);
@@ -3359,9 +3387,35 @@ const AI_PRESETS = [
     // 2. Data Tables (| Header 1 | Header 2 |)
     html = html.replace(/^\|(.+)\|\s*\n\|[\s\|:\-]+\|\s*\n((?:\|.+\|\s*\n?)+)/gm, (match, headerRow, bodyContent) => {
       const parsePDFRow = (r: string) => {
-        const protectedRow = r.replace(/`([^`]+)`/g, (m) => m.replace(/\|/g, '__XARE_PIPE__'));
-        const clean = protectedRow.trim().replace(/^\|/, '').replace(/\|$/, '');
-        return clean.split('|').map(c => c.trim().replace(/__XARE_PIPE__/g, '|'));
+        const chars = Array.from(r);
+        let backtickCount = 0;
+        let currentCell = '';
+        const cells: string[] = [];
+
+        for (let i = 0; i < chars.length; i++) {
+          const ch = chars[i];
+          if (ch === '`' && (i === 0 || chars[i - 1] !== '\\')) {
+            backtickCount++;
+            currentCell += ch;
+          } else if (ch === '|' && (i === 0 || chars[i - 1] !== '\\')) {
+            if (backtickCount % 2 === 0) {
+              cells.push(currentCell.trim());
+              currentCell = '';
+            } else {
+              currentCell += ch;
+            }
+          } else {
+            currentCell += ch;
+          }
+        }
+        if (currentCell.trim() !== '') {
+          cells.push(currentCell.trim());
+        }
+
+        if (cells.length > 0 && cells[0] === '') cells.shift();
+        if (cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
+
+        return cells;
       };
 
       const headers = parsePDFRow(headerRow);
