@@ -4328,7 +4328,7 @@ const AI_PRESETS = [
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      showLocalBotMessage("⚠️ **File Size Limit Exceeded**\nThe selected image exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
+      showLocalBotMessage("**File Size Limit Exceeded**\nThe selected image exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
       e.target.value = '';
       setShowAttachMenu(false);
       return;
@@ -4354,7 +4354,7 @@ const AI_PRESETS = [
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      showLocalBotMessage("⚠️ **File Size Limit Exceeded**\nThe selected PDF document exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
+      showLocalBotMessage("**File Size Limit Exceeded**\nThe selected PDF document exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
       e.target.value = '';
       setShowAttachMenu(false);
       return;
