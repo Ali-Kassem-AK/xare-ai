@@ -673,7 +673,7 @@ const sanitizeUrl = (url: string) => {
 /**
  * Advanced custom Markdown renderer with Image, Link, Bold, Italic, Code, & Math support.
  */
-const renderInline = (text, isDarkMode) => {
+const renderInline = (text: any, isDarkMode: boolean, isInsideCode: boolean = false) => {
   if (typeof text !== 'string') return text;
 
   // Regex split to capture Images, Links, Bold, Italics, Code, and LaTeX Inline Math
@@ -711,18 +711,41 @@ const renderInline = (text, isDarkMode) => {
 
     // 3. Bold Text: **text**
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      const boldContent = part.slice(2, -2);
+      if (isInsideCode) {
+        return (
+          <span
+            key={i}
+            className={`font-mono font-bold px-1 py-0.5 mx-0.5 rounded transition-colors ${
+              isDarkMode
+                ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-700/60 shadow-[0_0_8px_rgba(6,182,212,0.15)]'
+                : 'bg-blue-100 text-blue-900 border border-blue-300'
+            }`}
+          >
+            {boldContent}
+          </span>
+        );
+      }
       return (
         <strong key={i} className={`font-bold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-          {renderInline(part.slice(2, -2), isDarkMode)}
+          {renderInline(boldContent, isDarkMode, false)}
         </strong>
       );
     }
 
     // 4. Italic Text: *text*
     if (part.startsWith('*') && part.endsWith('*') && part.length >= 2 && !part.startsWith('**')) {
+      const italicContent = part.slice(1, -1);
+      if (isInsideCode) {
+        return (
+          <span key={i} className={`font-mono italic ${isDarkMode ? 'text-cyan-300/90' : 'text-blue-800'}`}>
+            {italicContent}
+          </span>
+        );
+      }
       return (
         <em key={i} className={`italic ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-          {renderInline(part.slice(1, -1), isDarkMode)}
+          {renderInline(italicContent, isDarkMode, false)}
         </em>
       );
     }
@@ -731,10 +754,10 @@ const renderInline = (text, isDarkMode) => {
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       const innerCode = part.slice(1, -1);
       return (
-        <code key={i} className={`px-1.5 py-0.5 mx-0.5 rounded-md text-[0.88em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
+        <code key={i} className={`px-1.5 py-0.5 mx-0.5 rounded-md text-[0.88em] font-mono border inline-flex items-center gap-0.5 max-w-full overflow-x-auto align-middle transition-colors ${
           isDarkMode ? 'bg-slate-800/80 text-cyan-200 border-slate-700/70' : 'bg-slate-200/90 text-blue-900 border-slate-300/80'
         }`}>
-          {renderInline(innerCode, isDarkMode)}
+          {renderInline(innerCode, isDarkMode, true)}
         </code>
       );
     }
@@ -967,22 +990,18 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
             }
 
             elements.push(
-              <div key={`table-${elements.length}`} className="my-4 overflow-x-auto w-full chat-scroll">
-                <table className="w-full text-left border-collapse min-w-[280px] sm:min-w-full text-sm">
+              <div key={`table-${elements.length}`} className="my-3.5 overflow-x-auto w-full rounded-xl border border-slate-800/70 bg-slate-900/40 p-0.5 shadow-sm chat-scroll">
+                <table className="w-full text-left border-collapse text-xs sm:text-sm">
                   <thead>
-                    <tr className={`border-b-2 ${isDarkMode ? 'border-slate-700/80' : 'border-slate-300'}`}>
+                    <tr className={`border-b ${isDarkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-300 bg-slate-100/60'}`}>
                       {headers.map((h, i) => {
                         const isShortIdx = h.trim() === '#' || h.trim().length <= 2;
                         return (
                           <th 
                             key={i} 
-                            className={`py-2.5 px-3 font-bold text-[12.5px] tracking-wider uppercase whitespace-nowrap align-bottom ${
-                              isShortIdx 
-                                ? 'w-10 text-center' 
-                                : i === 0 
-                                  ? 'min-w-[110px] sm:min-w-[170px] w-1/4' 
-                                  : 'min-w-[130px] sm:min-w-[220px]'
-                            } ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}
+                            className={`py-2 px-2.5 font-bold text-[11px] sm:text-[12px] tracking-wider uppercase whitespace-nowrap align-bottom ${
+                              isShortIdx ? 'w-8 text-center' : ''
+                            } ${isDarkMode ? 'text-cyan-300' : 'text-blue-900'}`}
                           >
                             {renderInline(h, isDarkMode)}
                           </th>
@@ -990,20 +1009,20 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                       })}
                     </tr>
                   </thead>
-                  <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800/60' : 'divide-slate-200'}`}>
+                  <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800/50' : 'divide-slate-200'}`}>
                     {bodyRows.map((row, rIdx) => (
-                      <tr key={rIdx} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-100/50'}`}>
+                      <tr key={rIdx} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-100/60'}`}>
                         {row.map((cell, cIdx) => {
                           const isShortIdx = headers[0]?.trim() === '#' || headers[0]?.trim().length <= 2;
                           return (
                             <td 
                               key={cIdx} 
-                              className={`py-3 px-3 text-[13.5px] leading-relaxed align-top ${
+                              className={`py-2.5 px-2.5 text-[13px] sm:text-[13.5px] leading-relaxed align-middle ${
                                 cIdx === 0 && isShortIdx
                                   ? `text-center font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
                                   : cIdx === 0
-                                    ? `min-w-[110px] sm:min-w-[170px] font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
-                                    : `min-w-[130px] sm:min-w-[220px] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`
+                                    ? `font-semibold whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
+                                    : `${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`
                               }`}
                             >
                               {renderInline(cell, isDarkMode)}
