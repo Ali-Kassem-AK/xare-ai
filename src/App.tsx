@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { 
   Sun, Moon, Send, Bot, User, Loader2, Paperclip, Mic, ImageIcon, 
   FileText, Menu, Plus, MessageSquare, Settings, Play, Pause, X, 
-  LogOut, Lock, Mail, AlignLeft, CheckCircle, Code, Languages, 
+  LogOut, AlignLeft, CheckCircle, Code, Languages, 
   Globe, ChevronLeft, ChevronRight, ChevronDown, AudioLines, Copy, Brain, Download,
-  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, ExternalLink, Sparkles, ArrowUp
+  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, ExternalLink, ArrowUp
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -134,15 +134,23 @@ const db = getFirestore(app);
 const DB_NAME = 'XareMediaDB';
 const STORE_NAME = 'mediaStore';
 
-const initDB = () => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = (e) => {
-      e.target.result.createObjectStore(STORE_NAME);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+let cachedDBPromise: Promise<IDBDatabase> | null = null;
+
+const initDB = (): Promise<IDBDatabase> => {
+  if (!cachedDBPromise) {
+    cachedDBPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 1);
+      request.onupgradeneeded = (e: any) => {
+        e.target.result.createObjectStore(STORE_NAME);
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => {
+        cachedDBPromise = null;
+        reject(request.error);
+      };
+    });
+  }
+  return cachedDBPromise;
 };
 
 const saveToLocalDB = async (id, data) => {
