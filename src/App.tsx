@@ -545,20 +545,32 @@ export const MessageActions = ({
   );
 };
 
+// ==========================================
+// --- OPTIMIZED STATIC REGEXP CONSTANTS (0-ALLOCATION PERFORMANCE)
+// ==========================================
+const INLINE_SPLIT_REGEX = /(!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\*\*.*?\*\*|\*.*?\*|`.*?`|\$.*?\$|\\\(.*?\\\))/g;
+const MARKDOWN_IMG_REGEX = /^!\[(.*?)\]\((.*?)\)$/;
+const MARKDOWN_LINK_REGEX = /^\[(.*?)\]\((.*?)\)$/;
+const URL_AUTOLINK_REGEX = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
+const IS_HTTP_REGEX = /^https?:\/\//i;
+const BR_TAG_SPLIT_REGEX = /(<br\s*\/?>)/i;
+
+const SQRT_MATH_REGEX = /\\sqrt\{((?:[^{}]|\{[^{}]*\})*)\}/g;
+const FRAC_MATH_REGEX = /\\frac\{((?:[^{}]|\{[^{}]*\})*)\}\{((?:[^{}]|\{[^{}]*\})*)\}/g;
+const BOXED_MATH_REGEX = /\\boxed\{((?:[^{}]|\{[^{}]*\})*)\}/g;
+
 /**
  * Highly upgraded and robust LaTeX math renderer.
  */
 const renderMath = (tex: string, isDarkMode: boolean) => {
   let inner = tex.replace(/^(\$\$?|\\\[|\\\()|(\$\$?|\\\]|\\\))$/g, '').trim();
 
-  // HTML Entity Escaping Shield: Prevents malicious XSS script/tag injection in LaTeX math blocks
   let escaped = inner
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
   let html = escaped
-     // Numbers and basic spacing fixes
      .replace(/\{,\}/g, ',')
      .replace(/\\,/g, '<span class="mx-[1px]"></span>')
      .replace(/\\;/g, '<span class="mx-[2px]"></span>')
@@ -568,8 +580,6 @@ const renderMath = (tex: string, isDarkMode: boolean) => {
      .replace(/\\\}/g, '}')
      .replace(/\\\|/g, '|')
      .replace(/\\!/g, '')
-
-     // Greek letters & symbols
      .replace(/\\Delta/g, 'Δ')
      .replace(/\\delta/g, 'δ')
      .replace(/\\pi/g, 'π')
@@ -591,8 +601,6 @@ const renderMath = (tex: string, isDarkMode: boolean) => {
      .replace(/\\infty/g, '∞')
      .replace(/\\nabla/g, '∇')
      .replace(/\\partial/g, '∂')
-
-     // Operators and relations (Ordered for safe replacement)
      .replace(/\\le(q)?/g, ' ≤ ')
      .replace(/\\ge(q)?/g, ' ≥ ')
      .replace(/\\times/g, ' × ')
@@ -622,37 +630,26 @@ const renderMath = (tex: string, isDarkMode: boolean) => {
      .replace(/\\subset(eq)?/g, ' ⊆ ')
      .replace(/\\forall/g, ' ∀ ')
      .replace(/\\exists/g, ' ∃ ')
-
-     // Sets
      .replace(/\\mathbb\{R\}/g, 'ℝ')
      .replace(/\\mathbb\{Z\}/g, 'ℤ')
      .replace(/\\mathbb\{N\}/g, 'ℕ')
      .replace(/\\mathbb\{C\}/g, 'ℂ')
      .replace(/\\mathbb\{Q\}/g, 'ℚ')
-
-     // Styling macros
      .replace(/\\text\{([^}]*)\}/g, '<span class="font-sans normal-case font-normal opacity-80 mx-1">$1</span>')
      .replace(/\\textbf\{([^}]*)\}/g, '<strong class="font-bold">$1</strong>')
      .replace(/\\mathbf\{([^}]*)\}/g, '<strong class="font-bold">$1</strong>')
      .replace(/\\mathit\{([^}]*)\}/g, '<em class="italic">$1</em>');
 
-  // Square roots (Elegant formatting with overline)
-  const sqrtRegex = /\\sqrt\{((?:[^{}]|\{[^{}]*\})*)\}/g;
   for (let i = 0; i < 3; i++) {
-      html = html.replace(sqrtRegex, '<span class="inline-flex items-baseline"><span class="mr-[1px] leading-none">√</span><span class="border-t border-current pt-[1px]">$1</span></span>');
+      html = html.replace(SQRT_MATH_REGEX, '<span class="inline-flex items-baseline"><span class="mr-[1px] leading-none">√</span><span class="border-t border-current pt-[1px]">$1</span></span>');
   }
 
-  // Fractions
-  const fracRegex = /\\frac\{((?:[^{}]|\{[^{}]*\})*)\}\{((?:[^{}]|\{[^{}]*\})*)\}/g;
   for (let i = 0; i < 3; i++) {
-     html = html.replace(fracRegex, `<span class="inline-flex flex-col align-middle text-center text-[0.85em] leading-tight mx-1.5"><span class="border-b-[1.5px] pb-[1px] border-current opacity-90">$1</span><span class="pt-[1px] opacity-90">$2</span></span>`);
+     html = html.replace(FRAC_MATH_REGEX, `<span class="inline-flex flex-col align-middle text-center text-[0.85em] leading-tight mx-1.5"><span class="border-b-[1.5px] pb-[1px] border-current opacity-90">$1</span><span class="pt-[1px] opacity-90">$2</span></span>`);
   }
 
-  // Boxed (More elegant, professional modern box design)
-  const boxedRegex = /\\boxed\{((?:[^{}]|\{[^{}]*\})*)\}/g;
-  html = html.replace(boxedRegex, `<span class="inline-block border px-3 py-1 rounded-md font-semibold mx-1 shadow-sm transition-colors ${isDarkMode ? 'border-blue-500/30 bg-blue-500/10 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800'}">$1</span>`);
+  html = html.replace(BOXED_MATH_REGEX, `<span class="inline-block border px-3 py-1 rounded-md font-semibold mx-1 shadow-sm transition-colors ${isDarkMode ? 'border-blue-500/30 bg-blue-500/10 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800'}">$1</span>`);
 
-  // Superscripts and subscripts
   html = html.replace(/\^\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<sup class="text-[0.7em] ml-[1px] opacity-90">$1</sup>');
   html = html.replace(/\^([a-zA-Z0-9\-\+\*])/g, '<sup class="text-[0.7em] ml-[1px] opacity-90">$1</sup>');
   html = html.replace(/_\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<sub class="text-[0.7em] ml-[1px] opacity-90">$1</sub>');
@@ -673,24 +670,21 @@ const sanitizeUrl = (url: string) => {
 /**
  * Advanced custom Markdown renderer with Image, Link, Bold, Italic, Code, & Math support.
  */
-const renderInline = (text, isDarkMode) => {
+const renderInline = (text: any, isDarkMode: boolean) => {
   if (typeof text !== 'string') return text;
 
-  // Regex split to capture Images, Links, Bold, Italics, Code, and LaTeX Inline Math
-  const parts = text.split(/(!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\*\*.*?\*\*|\*.*?\*|`.*?`|\$.*?\$|\\\(.*?\\\))/g);
+  const parts = text.split(INLINE_SPLIT_REGEX);
   
   return parts.map((part, i) => {
     if (!part) return null;
     
-    // 1. Markdown Image Syntax: ![alt](url) -> Renders with full Lightbox, Zoom & Download
-    const imgMatch = part.match(/^!\[(.*?)\]\((.*?)\)$/);
+    const imgMatch = part.match(MARKDOWN_IMG_REGEX);
     if (imgMatch) {
       const url = sanitizeUrl(imgMatch[2]);
       return <ImageWithActions key={i} src={url} isDarkMode={isDarkMode} />;
     }
 
-    // 2. Markdown Link Syntax: [text](url) -> Renders clickable link
-    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    const linkMatch = part.match(MARKDOWN_LINK_REGEX);
     if (linkMatch) {
       const linkText = linkMatch[1];
       const url = sanitizeUrl(linkMatch[2]);
@@ -709,7 +703,6 @@ const renderInline = (text, isDarkMode) => {
       );
     }
 
-    // 3. Bold Text: **text**
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
         <strong key={i} className={`font-black text-[1.08em] tracking-tight ${isDarkMode ? 'text-cyan-300' : 'text-blue-800'}`}>
@@ -718,7 +711,6 @@ const renderInline = (text, isDarkMode) => {
       );
     }
 
-    // 4. Italic Text: *text*
     if (part.startsWith('*') && part.endsWith('*') && part.length >= 2 && !part.startsWith('**')) {
       return (
         <em key={i} className={`italic font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
@@ -727,7 +719,6 @@ const renderInline = (text, isDarkMode) => {
       );
     }
 
-    // 5. Inline Code: `code` (Supports nested bold/italic formatting e.g. `ev**im**`)
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       const innerCode = part.slice(1, -1);
       return (
@@ -739,7 +730,6 @@ const renderInline = (text, isDarkMode) => {
       );
     }
 
-    // 6. LaTeX Inline Math: $math$ or \(math\)
     if ((part.startsWith('$') && part.endsWith('$') && part.length >= 2) || (part.startsWith('\\(') && part.endsWith('\\)') && part.length >= 4)) {
       return (
         <span key={i} className={`font-sans font-medium tracking-wide text-[1.05em] px-0.5 whitespace-nowrap ${
@@ -750,14 +740,12 @@ const renderInline = (text, isDarkMode) => {
     
     let cleanText = part.replace(/\$\\rightarrow\$/g, '→').replace(/\\rightarrow/g, '→');
     
-    // Autolink raw URLs in plain text
-    const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
-    const urlParts = cleanText.split(urlRegex);
+    const urlParts = cleanText.split(URL_AUTOLINK_REGEX);
     if (urlParts.length > 1) {
       return (
         <React.Fragment key={i}>
           {urlParts.map((subPart, subIdx) => {
-            if (/^https?:\/\//i.test(subPart)) {
+            if (IS_HTTP_REGEX.test(subPart)) {
               const safeUrl = sanitizeUrl(subPart);
               return (
                 <a
@@ -773,12 +761,12 @@ const renderInline = (text, isDarkMode) => {
                 </a>
               );
             }
-            const textNodes = subPart.split(/(<br\s*\/?>)/i);
-            if (textNodes.length > 1) {
+            const subNodes = subPart.split(BR_TAG_SPLIT_REGEX);
+            if (subNodes.length > 1) {
               return (
                 <React.Fragment key={subIdx}>
-                  {textNodes.map((node, nodeIdx) => (
-                    /<br\s*\/?>/i.test(node) ? <br key={nodeIdx} /> : <React.Fragment key={nodeIdx}>{node}</React.Fragment>
+                  {subNodes.map((node, nodeIdx) => (
+                    BR_TAG_SPLIT_REGEX.test(node) ? <br key={nodeIdx} /> : <React.Fragment key={nodeIdx}>{node}</React.Fragment>
                   ))}
                 </React.Fragment>
               );
@@ -789,12 +777,12 @@ const renderInline = (text, isDarkMode) => {
       );
     }
 
-    const textNodes = cleanText.split(/(<br\s*\/?>)/i);
+    const textNodes = cleanText.split(BR_TAG_SPLIT_REGEX);
     if (textNodes.length > 1) {
       return (
         <React.Fragment key={i}>
           {textNodes.map((node, nodeIdx) => (
-            /<br\s*\/?>/i.test(node) ? <br key={nodeIdx} /> : <React.Fragment key={nodeIdx}>{node}</React.Fragment>
+            BR_TAG_SPLIT_REGEX.test(node) ? <br key={nodeIdx} /> : <React.Fragment key={nodeIdx}>{node}</React.Fragment>
           ))}
         </React.Fragment>
       );
@@ -3345,24 +3333,20 @@ const AI_PRESETS = [
       null, 
       null, 
       null, 
-      true
+      true // isEditMode = true (prevents duplicate user message bubble)
     );
   }, [chatHistory, currentChatId]);
 
   // ==========================================
-  // --- EXECUTIVE PDF PUBLISHING ENGINE
+  // --- EXECUTIVE DOCUMENT EXPORTER (PDF)
   // ==========================================
   /**
-   * Compiles raw Markdown AST, LaTeX math, and structured data into a publication-grade executive HTML document.
+   * Compiles raw Markdown text into publication-ready executive HTML for PDF export.
    */
   const renderMarkdownToHTMLForPDF = (text: string): string => {
     if (!text) return '';
 
     let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-
-    // SECTION 1: Metadata & Line-Counter Stripper
-    cleaned = cleaned.replace(/(MARKDOWN|PYTHON|TYPESCRIPT|JAVASCRIPT|HTML|CSS|JSON)\s+\d+\s+LINES?/gi, '');
-    cleaned = cleaned.replace(/\b\d+\s+LINES\b/gi, '');
 
     // Escape HTML special characters safely before rendering Markdown tags
     let html = cleaned
@@ -3370,32 +3354,25 @@ const AI_PRESETS = [
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    // 1. LaTeX Display Math ($$...$$ or \[...\])
-    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, tex) => {
-      const rendered = renderMath(tex, false);
-      return `<div class="math-display" style="margin: 14px 0; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; text-align: center; font-size: 11pt; color: #0f172a; page-break-inside: avoid; break-inside: avoid;">${rendered}</div>`;
-    });
-
-    // 2. LaTeX Inline Math ($...$ or \(...\))
-    html = html.replace(/\$([^\$\n]+)\$/g, (match, tex) => {
-      const rendered = renderMath(tex, false);
-      return `<span class="math-inline" style="font-size: 10pt; color: #0f172a; padding: 0 2px;">${rendered}</span>`;
-    });
-
-    // 3. Fenced Code Blocks ```lang ... ```
+    // 1. Fenced Code Blocks ```lang ... ```
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
       const lines = code.trim().split('\n');
+      const lineNumbersHTML = lines.map((_, i) => `<div>${i + 1}</div>`).join('');
       const codeLinesHTML = lines.map(line => `<div>${line || '&nbsp;'}</div>`).join('');
       
-      return `<div class="code-block" style="margin: 14px 0; background: #0f172a; border-radius: 6px; overflow: hidden; border: 1px solid #1e293b; color: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 9pt; page-break-inside: avoid; break-inside: avoid;">
-        <div style="background: #1e293b; padding: 6px 14px; font-size: 7.5pt; text-transform: uppercase; color: #38bdf8; font-weight: 700; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.05em;">
+      return `<div class="code-block" style="margin: 20px 0; background: #090d16; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; color: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 12px; page-break-inside: avoid; break-inside: avoid;">
+        <div style="background: #0f172a; padding: 10px 18px; font-size: 11px; text-transform: uppercase; color: #38bdf8; font-weight: 700; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px;">
           <span>${lang || 'CODE'}</span>
+          <span style="opacity: 0.6;">${lines.length} lines</span>
         </div>
-        <div style="padding: 10px 14px; line-height: 1.55; color: #e2e8f0; white-space: pre; overflow-x: auto;">${codeLinesHTML}</div>
+        <div style="padding: 14px 18px; display: flex; overflow-x: auto; line-height: 1.6;">
+          <div style="color: #475569; text-align: right; padding-right: 14px; margin-right: 14px; border-right: 1px solid #1e293b; user-select: none;">${lineNumbersHTML}</div>
+          <div style="color: #e2e8f0; white-space: pre; overflow-x: auto;">${codeLinesHTML}</div>
+        </div>
       </div>`;
     });
 
-    // 4. Data Tables (| Header 1 | Header 2 |) with EVEN-backtick pipe protection
+    // 2. Data Tables (| Header 1 | Header 2 |)
     html = html.replace(/^\|(.+)\|\s*\n\|[\s\|:\-]+\|\s*\n((?:\|.+\|\s*\n?)+)/gm, (match, headerRow, bodyContent) => {
       const parsePDFRow = (r: string) => {
         const chars = Array.from(r);
@@ -3419,7 +3396,10 @@ const AI_PRESETS = [
             currentCell += ch;
           }
         }
-        if (currentCell.trim() !== '') cells.push(currentCell.trim());
+        if (currentCell.trim() !== '') {
+          cells.push(currentCell.trim());
+        }
+
         if (cells.length > 0 && cells[0] === '') cells.shift();
         if (cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
 
@@ -3442,46 +3422,46 @@ const AI_PRESETS = [
         return cells;
       });
 
-      const thHTML = headers.map(h => `<th style="padding: 10px 12px !important; background-color: #f8fafc !important; color: #475569 !important; font-weight: 700 !important; text-align: left !important; border-bottom: 2px solid #cbd5e1 !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; font-size: 8.5pt !important;">${h}</th>`).join('');
+      const thHTML = headers.map(h => `<th style="padding: 10px 14px; background: #0f172a; color: #ffffff; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; border-bottom: 2px solid #0284c7;">${h}</th>`).join('');
       const trHTML = rows.map((row, rIdx) => {
         const bg = rIdx % 2 === 0 ? '#ffffff' : '#f8fafc';
-        const tdHTML = row.map(cell => `<td style="padding: 10px 12px !important; border-bottom: 1px solid #e2e8f0 !important; color: #334155 !important; vertical-align: top !important; font-size: 9.5pt !important;">${cell}</td>`).join('');
+        const tdHTML = row.map(cell => `<td style="padding: 10px 14px; font-size: 13px; color: #1e293b; border-bottom: 1px solid #e2e8f0; line-height: 1.6;">${cell}</td>`).join('');
         return `<tr style="background: ${bg};">${tdHTML}</tr>`;
       }).join('');
 
-      return `<div style="margin: 16px 0; overflow-x: auto; page-break-inside: avoid; break-inside: avoid;">
-        <table style="width: 100% !important; border-collapse: collapse !important; margin: 16px 0 !important; font-size: 9.5pt !important;">
+      return `<div style="margin: 22px 0; overflow-x: auto; page-break-inside: avoid; break-inside: avoid;">
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; font-family: inherit;">
           <thead><tr>${thHTML}</tr></thead>
           <tbody>${trHTML}</tbody>
         </table>
       </div>`;
     });
 
-    // 5. Executive Callout Boxes & Blockquotes (> text)
-    html = html.replace(/^>\s*(.*$)/gim, '<blockquote style="margin: 16px 0 !important; padding: 12px 18px !important; background-color: #f0f9ff !important; border-left: 4px solid #0ea5e9 !important; border-radius: 0 6px 6px 0 !important; color: #0c4a6e !important; font-style: normal !important; page-break-inside: avoid; break-inside: avoid;">$1</blockquote>');
+    // 3. Callout Blockquotes (> text)
+    html = html.replace(/^>\s*(.*$)/gim, '<blockquote style="margin: 18px 0; border-left: 4px solid #0284c7; background: #f0f9ff; padding: 14px 20px; border-radius: 0 12px 12px 0; color: #0c4a6e; font-size: 14px; line-height: 1.65; page-break-inside: avoid; break-inside: avoid;">$1</blockquote>');
 
-    // 6. Semantic Headings Hierarchy
-    html = html.replace(/^#### (.*$)/gim, '<h4 style="font-size: 11pt; font-weight: 600; color: #334155; margin: 14px 0 6px 0; page-break-after: avoid; break-after: avoid;">$1</h4>');
-    html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 11.5pt; font-weight: 700; color: #0f172a; margin: 16px 0 8px 0; page-break-after: avoid; break-after: avoid;">$1</h3>');
-    html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 14pt; font-weight: 700; color: #0f172a; border-left: 3px solid #0ea5e9; padding-left: 8px; margin: 20px 0 10px 0; page-break-after: avoid; break-after: avoid;">$1</h2>');
-    html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 20pt; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; margin: 24px 0 12px 0; page-break-after: avoid; break-after: avoid;">$1</h1>');
+    // 4. Semantic Headings (#, ##, ###, ####)
+    html = html.replace(/^#### (.*$)/gim, '<h4 style="font-size: 15px; font-weight: 700; color: #1e293b; margin: 18px 0 8px 0; page-break-after: avoid; break-after: avoid;">$1</h4>');
+    html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 17px; font-weight: 700; color: #0f172a; margin: 22px 0 10px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; page-break-after: avoid; break-after: avoid;">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 20px; font-weight: 800; color: #0284c7; margin: 26px 0 12px 0; border-bottom: 2px solid #bae6fd; padding-bottom: 6px; page-break-after: avoid; break-after: avoid;">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 24px; font-weight: 800; color: #0369a1; margin: 30px 0 14px 0; page-break-after: avoid; break-after: avoid;">$1</h1>');
 
-    // 7. Bold & Italics
+    // 5. Bold & Italics
     html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 700; color: #0f172a;">$1</strong>');
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 800; color: #0f172a;">$1</strong>');
     html = html.replace(/\*(.*?)\*/g, '<em style="font-style: italic; color: #334155;">$1</em>');
 
-    // 8. Inline Code `code` (Purge Pill Boxes & Button Fills)
-    html = html.replace(/`([^`]+)`/g, '<code style="background-color: #f1f5f9 !important; color: #0ea5e9 !important; padding: 2px 6px !important; border-radius: 3px !important; font-family: \'JetBrains Mono\', monospace !important; font-size: 9pt !important; border: 1px solid #cbd5e1 !important; box-shadow: none !important;">$1</code>');
+    // 6. Inline Code `code`
+    html = html.replace(/`([^`]+)`/g, '<code style="background: #f1f5f9; color: #0284c7; padding: 2px 6px; border-radius: 5px; font-family: \'JetBrains Mono\', monospace; font-size: 12.5px; border: 1px solid #cbd5e1; font-weight: 600;">$1</code>');
 
-    // 9. Bullet Lists (- or *) (Standard Typography, No Badge Boxes)
-    html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li style="margin-bottom: 5px; color: #1e293b; line-height: 1.6; list-style-type: disc; margin-left: 20px; font-weight: 400;">$1</li>');
+    // 7. Bullet Lists (- or *)
+    html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li style="margin-bottom: 5px; color: #334155; line-height: 1.6; list-style-type: disc; margin-left: 20px;">$1</li>');
 
-    // 10. Numbered Lists (1. 2.) (Standard Typography, No Badge Boxes)
-    html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li style="margin-bottom: 6px; color: #1e293b; font-weight: 400; line-height: 1.6; margin-left: 20px;">$2</li>');
+    // 8. Numbered Lists (1. 2.)
+    html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li style="margin-bottom: 6px; color: #1e293b; font-weight: 500; line-height: 1.6; margin-left: 20px;">$2</li>');
 
-    // 11. Paragraph Spacing & Line Breaks
-    html = html.replace(/\n\n/g, '<div style="height: 10px;"></div>');
+    // 9. Paragraph Spacing & Line Breaks
+    html = html.replace(/\n\n/g, '<div style="height: 12px;"></div>');
     html = html.replace(/\n/g, '<br/>');
 
     return html;
@@ -3493,39 +3473,50 @@ const AI_PRESETS = [
 
     const chatTitle = activeChat.title || 'Xare AI Executive Technical Report';
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const userName = currentUser?.username || 'Ali Kassem';
+    const userName = currentUser?.username || 'User';
 
-    // Resolve image attachments
+    // Resolve image attachments for all messages in parallel (from IndexedDB or direct URLs)
     const resolvedMessages = await Promise.all(
       (activeChat.messages || []).map(async (m: any) => {
         let imageUrl: string | null = null;
         if (m.image) {
           if (typeof m.image === 'string' && m.image.startsWith('localdb_')) {
-            try { imageUrl = await getFromLocalDB(m.image); } catch (e) { console.warn("Failed to load local DB image", e); }
-          } else { imageUrl = m.image; }
+            try {
+              imageUrl = await getFromLocalDB(m.image);
+            } catch (e) {
+              console.warn("Failed to load local DB image for PDF export", e);
+            }
+          } else {
+            imageUrl = m.image;
+          }
         }
         return { ...m, resolvedImageUrl: imageUrl };
       })
     );
 
-    // Continuous Publication Flow - Zero Chat Bubbles, Avatars, or Role Tags
+    // Continuous Document Flow - NO Chat Bubbles, Avatars, or Role Tags
     const messagesHTML = resolvedMessages.map((m: any) => {
       const renderedContent = renderMarkdownToHTMLForPDF(m.text || '');
       const isUser = m.sender === 'user';
       const imageHTML = m.resolvedImageUrl 
-        ? `<div style="margin: 14px 0;"><img src="${m.resolvedImageUrl}" style="max-width: 100%; max-height: 480px; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain; display: block;" /></div>` 
+        ? `<div style="margin: 16px 0;"><img src="${m.resolvedImageUrl}" style="max-width: 100%; max-height: 480px; border-radius: 12px; border: 1px solid #cbd5e1; object-fit: contain; display: block; box-shadow: 0 2px 10px rgba(0,0,0,0.06);" /></div>` 
         : '';
 
       if (isUser) {
         return `
           <div class="doc-user-prompt">
-            <div class="doc-prompt-label">OBJECTIVE / PROMPT</div>
+            <div class="doc-prompt-label">OBJECTIVE / USER PROMPT</div>
             <div class="doc-prompt-text">${renderedContent}</div>
             ${imageHTML}
           </div>
         `;
       } else {
-        return `<div class="doc-body">${imageHTML}${renderedContent}</div>`;
+        return `
+          <div class="doc-body">
+            ${imageHTML}
+            ${renderedContent}
+          </div>
+        `;
       }
     }).join('');
 
@@ -3533,190 +3524,178 @@ const AI_PRESETS = [
     if (!printWindow) return;
 
     printWindow.document.write(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>${chatTitle} - Xare AI Executive Report</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
-    
-    @media print {
-      @page {
-        size: A4 portrait;
-        margin: 15mm 15mm 20mm 15mm;
-      }
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${chatTitle} - Xare AI Technical Report</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+            
+            @page {
+              margin: 15mm;
+              size: A4;
+            }
+            
+            * { box-sizing: border-box; }
+            
+            body { 
+              font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+              padding: 40px; 
+              color: #0f172a; 
+              max-width: 880px; 
+              margin: 0 auto; 
+              background: #ffffff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            
+            .exec-header {
+              background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+              border-radius: 20px;
+              padding: 28px 32px;
+              color: #ffffff;
+              margin-bottom: 36px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.3);
+            }
+            
+            .brand-badge { 
+              font-size: 24px; 
+              font-weight: 800; 
+              letter-spacing: -0.5px; 
+              background: linear-gradient(90deg, #38bdf8, #818cf8); 
+              -webkit-background-clip: text; 
+              -webkit-text-fill-color: transparent; 
+            }
+            
+            .doc-subtitle { 
+              font-size: 14px; 
+              color: #94a3b8; 
+              font-weight: 500; 
+              margin-top: 4px; 
+            }
+            
+            .meta-box { 
+              background: rgba(255, 255, 255, 0.08); 
+              border: 1px solid rgba(255, 255, 255, 0.15); 
+              padding: 10px 18px; 
+              border-radius: 12px; 
+              font-size: 12px; 
+              color: #cbd5e1; 
+              text-align: right; 
+              line-height: 1.5;
+            }
+            
+            .doc-user-prompt {
+              margin: 32px 0 20px 0;
+              padding: 18px 22px;
+              background: #f8fafc;
+              border-left: 4px solid #0f172a;
+              border-radius: 0 12px 12px 0;
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
+            
+            .doc-prompt-label {
+              font-size: 11px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              color: #0284c7;
+              margin-bottom: 6px;
+            }
+            
+            .doc-prompt-text {
+              font-size: 15px;
+              font-weight: 600;
+              color: #0f172a;
+              line-height: 1.6;
+            }
+            
+            .doc-body {
+              font-size: 14.5px;
+              line-height: 1.75;
+              color: #1e293b;
+              margin-bottom: 28px;
+              word-break: break-word;
+            }
+            
+            .exec-footer {
+              margin-top: 60px;
+              padding-top: 20px;
+              border-top: 1px solid #e2e8f0;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              font-size: 11px;
+              color: #64748b;
+              font-weight: 500;
+            }
+            
+            @media print { 
+              body { background: #ffffff !important; padding: 0 !important; }
+              html, body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              h1, h2, h3, h4, .code-block, table, blockquote, .doc-user-prompt { 
+                page-break-inside: avoid !important; 
+                break-inside: avoid !important; 
+              }
+              h1, h2, h3, h4 { 
+                page-break-after: avoid !important; 
+                break-after: avoid !important; 
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="exec-header">
+            <div>
+              <div class="brand-badge">Xare AI Executive Technical Report</div>
+              <div class="doc-subtitle">${chatTitle}</div>
+            </div>
+            <div class="meta-box">
+              <div style="font-weight: 700; color: #ffffff;">${dateStr}</div>
+              <div>Prepared For: <strong>${userName}</strong></div>
+              <div>Classification: <strong>Executive Internal</strong></div>
+            </div>
+          </div>
 
-      html, body {
-        background: #ffffff !important;
-        color: #0f172a !important;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-        font-size: 10pt !important;
-        line-height: 1.6 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
+          <div>${messagesHTML}</div>
 
-      .browser-header, .browser-footer, header:empty, footer:empty {
-        display: none !important;
-      }
-
-      h1, h2, h3, h4, .executive-header {
-        break-after: avoid !important;
-        page-break-after: avoid !important;
-      }
-
-      tr, blockquote, pre, .code-block, table, .metric-card, .key-value-container, .doc-user-prompt {
-        break-inside: avoid !important;
-        page-break-inside: avoid !important;
-      }
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      background-color: #ffffff;
-      color: #0f172a;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      font-size: 10pt;
-      line-height: 1.6;
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 10px;
-    }
-
-    table {
-      width: 100% !important;
-      border-collapse: collapse !important;
-      margin: 16px 0 !important;
-      font-size: 9.5pt !important;
-    }
-    th {
-      background-color: #f8fafc !important;
-      color: #475569 !important;
-      font-weight: 700 !important;
-      text-align: left !important;
-      padding: 10px 12px !important;
-      border-bottom: 2px solid #cbd5e1 !important;
-      text-transform: uppercase !important;
-      letter-spacing: 0.05em !important;
-    }
-    td {
-      padding: 10px 12px !important;
-      border-bottom: 1px solid #e2e8f0 !important;
-      color: #334155 !important;
-      vertical-align: top !important;
-    }
-    td *, th * {
-      display: inline !important;
-      vertical-align: baseline !important;
-    }
-
-    blockquote {
-      margin: 16px 0 !important;
-      padding: 12px 18px !important;
-      background-color: #f0f9ff !important;
-      border-left: 4px solid #0ea5e9 !important;
-      border-radius: 0 6px 6px 0 !important;
-      color: #0c4a6e !important;
-      font-style: normal !important;
-    }
-
-    code {
-      background-color: #f1f5f9 !important;
-      color: #0ea5e9 !important;
-      padding: 2px 6px !important;
-      border-radius: 3px !important;
-      font-family: 'JetBrains Mono', monospace !important;
-      font-size: 9pt !important;
-      border: 1px solid #cbd5e1 !important;
-      box-shadow: none !important;
-    }
-
-    .executive-header {
-      border-bottom: 2px solid #0ea5e9;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
-    }
-
-    .doc-user-prompt {
-      margin: 20px 0 16px 0;
-      padding: 12px 16px;
-      background: #f8fafc;
-      border-left: 4px solid #0f172a;
-      border-radius: 0 6px 6px 0;
-    }
-
-    .doc-prompt-label {
-      font-size: 8pt;
-      font-weight: 800;
-      color: #0ea5e9;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-
-    .doc-prompt-text {
-      font-size: 10.5pt;
-      font-weight: 600;
-      color: #0f172a;
-    }
-
-    .doc-body {
-      margin-bottom: 24px;
-      font-size: 10pt;
-      color: #1e293b;
-      line-height: 1.6;
-    }
-
-    .executive-footer {
-      margin-top: 32px;
-      padding-top: 12px;
-      border-top: 1px solid #e2e8f0;
-      font-size: 8pt;
-      color: #94a3b8;
-      display: flex;
-      justify-content: space-between;
-    }
-  </style>
-</head>
-<body>
-
-  <!-- EXECUTIVE DOCUMENT HEADER -->
-  <header class="executive-header">
-    <div style="font-size: 8pt; font-weight: 800; color: #0ea5e9; letter-spacing: 0.1em; text-transform: uppercase;">Xare AI Executive Technical Report</div>
-    <h1 style="font-size: 20pt; font-weight: 800; color: #0f172a; margin: 6px 0 12px 0;">${chatTitle}</h1>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 8.5pt; color: #64748b; background: #f8fafc; padding: 12px; border-radius: 6px;">
-      <div><strong>Prepared For:</strong> Ali Kassem</div>
-      <div><strong>Date:</strong> ${dateStr}</div>
-      <div><strong>Classification:</strong> Executive Internal</div>
-      <div><strong>Engine:</strong> Xare V2 Publishing Core</div>
-    </div>
-  </header>
-
-  <!-- MAIN DOCUMENT CONTENT -->
-  <main class="document-body">
-    ${messagesHTML}
-  </main>
-
-  <!-- RUNNING FOOTER -->
-  <footer class="executive-footer">
-    <span>Generated with Xare AI Engine • Confidential</span>
-    <span>Executive Internal Report</span>
-  </footer>
-
-  <script>
-    const images = document.querySelectorAll('img');
-    let loaded = 0;
-    const triggerPrint = () => { setTimeout(window.print, 300); };
-    if (images.length === 0) triggerPrint();
-    else images.forEach(img => {
-      if (img.complete) { loaded++; if (loaded === images.length) triggerPrint(); }
-      else img.onload = img.onerror = () => { loaded++; if (loaded === images.length) triggerPrint(); };
-    });
-  </script>
-</body>
-</html>
+          <div class="exec-footer">
+            <span>Generated with Xare AI • Publication Technical Exporter</span>
+            <span>https://xare-ai.vercel.app</span>
+          </div>
+          <script>
+            const images = document.querySelectorAll('img');
+            let loaded = 0;
+            const triggerPrint = () => {
+              setTimeout(() => {
+                window.print();
+              }, 300);
+            };
+            if (images.length === 0) {
+              triggerPrint();
+            } else {
+              images.forEach(img => {
+                if (img.complete) {
+                  loaded++;
+                  if (loaded === images.length) triggerPrint();
+                } else {
+                  img.onload = img.onerror = () => {
+                    loaded++;
+                    if (loaded === images.length) triggerPrint();
+                  };
+                }
+              });
+            }
+          </script>
+        </body>
+      </html>
     `);
     printWindow.document.close();
   };
