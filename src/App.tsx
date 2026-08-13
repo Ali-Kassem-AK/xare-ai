@@ -3345,20 +3345,24 @@ const AI_PRESETS = [
       null, 
       null, 
       null, 
-      true // isEditMode = true (prevents duplicate user message bubble)
+      true
     );
   }, [chatHistory, currentChatId]);
 
   // ==========================================
-  // --- EXECUTIVE DOCUMENT EXPORTER (PDF)
+  // --- EXECUTIVE PDF GENERATION ENGINE
   // ==========================================
   /**
-   * Compiles raw Markdown text into publication-ready executive HTML for PDF export.
+   * Compiles raw Markdown AST, LaTeX math, and structured data into an ultra-modern publication HTML document.
    */
   const renderMarkdownToHTMLForPDF = (text: string): string => {
     if (!text) return '';
 
     let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+    // Purge uncompiled metadata tokens & artifact lines
+    cleaned = cleaned.replace(/MARKDOWN\s+\d+\s+LINES?/gi, '');
+    cleaned = cleaned.replace(/PYTHON\s+\d+\s+LINES?/gi, '');
 
     // Escape HTML special characters safely before rendering Markdown tags
     let html = cleaned
@@ -3366,25 +3370,37 @@ const AI_PRESETS = [
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    // 1. Fenced Code Blocks ```lang ... ```
+    // 1. LaTeX Display Math ($$...$$ or \[...\])
+    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, tex) => {
+      const rendered = renderMath(tex, false);
+      return `<div class="math-display" style="margin: 14px 0; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; text-align: center; font-size: 11pt; color: #0f172a; page-break-inside: avoid; break-inside: avoid;">${rendered}</div>`;
+    });
+
+    // 2. LaTeX Inline Math ($$ or \(...\))
+    html = html.replace(/\$([^\$\n]+)\$/g, (match, tex) => {
+      const rendered = renderMath(tex, false);
+      return `<span class="math-inline" style="font-size: 10pt; color: #0f172a; padding: 0 2px;">${rendered}</span>`;
+    });
+
+    // 3. Fenced Code Blocks ```lang ... ```
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
       const lines = code.trim().split('\n');
       const lineNumbersHTML = lines.map((_, i) => `<div>${i + 1}</div>`).join('');
       const codeLinesHTML = lines.map(line => `<div>${line || '&nbsp;'}</div>`).join('');
       
-      return `<div class="code-block" style="margin: 20px 0; background: #090d16; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; color: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 12px; page-break-inside: avoid; break-inside: avoid;">
-        <div style="background: #0f172a; padding: 10px 18px; font-size: 11px; text-transform: uppercase; color: #38bdf8; font-weight: 700; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px;">
+      return `<div class="code-block" style="margin: 14px 0; background: #0f172a; border-radius: 6px; overflow: hidden; border: 1px solid #1e293b; color: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 9pt; page-break-inside: avoid; break-inside: avoid;">
+        <div style="background: #1e293b; padding: 6px 14px; font-size: 7.5pt; text-transform: uppercase; color: #38bdf8; font-weight: 700; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.05em;">
           <span>${lang || 'CODE'}</span>
-          <span style="opacity: 0.6;">${lines.length} lines</span>
+          <span style="opacity: 0.7;">${lines.length} lines</span>
         </div>
-        <div style="padding: 14px 18px; display: flex; overflow-x: auto; line-height: 1.6;">
-          <div style="color: #475569; text-align: right; padding-right: 14px; margin-right: 14px; border-right: 1px solid #1e293b; user-select: none;">${lineNumbersHTML}</div>
+        <div style="padding: 10px 14px; display: flex; overflow-x: auto; line-height: 1.55;">
+          <div style="color: #475569; text-align: right; padding-right: 12px; margin-right: 12px; border-right: 1px solid #334155; user-select: none;">${lineNumbersHTML}</div>
           <div style="color: #e2e8f0; white-space: pre; overflow-x: auto;">${codeLinesHTML}</div>
         </div>
       </div>`;
     });
 
-    // 2. Data Tables (| Header 1 | Header 2 |)
+    // 4. Data Tables (| Header 1 | Header 2 |) with EVEN-backtick pipe protection
     html = html.replace(/^\|(.+)\|\s*\n\|[\s\|:\-]+\|\s*\n((?:\|.+\|\s*\n?)+)/gm, (match, headerRow, bodyContent) => {
       const parsePDFRow = (r: string) => {
         const chars = Array.from(r);
@@ -3408,10 +3424,7 @@ const AI_PRESETS = [
             currentCell += ch;
           }
         }
-        if (currentCell.trim() !== '') {
-          cells.push(currentCell.trim());
-        }
-
+        if (currentCell.trim() !== '') cells.push(currentCell.trim());
         if (cells.length > 0 && cells[0] === '') cells.shift();
         if (cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
 
@@ -3434,46 +3447,57 @@ const AI_PRESETS = [
         return cells;
       });
 
-      const thHTML = headers.map(h => `<th style="padding: 10px 14px; background: #0f172a; color: #ffffff; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; border-bottom: 2px solid #0284c7;">${h}</th>`).join('');
+      const thHTML = headers.map(h => `<th style="padding: 8px 12px; background: #f8fafc; color: #475569; font-size: 8.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; text-align: left; border-bottom: 2px solid #e2e8f0;">${h}</th>`).join('');
       const trHTML = rows.map((row, rIdx) => {
         const bg = rIdx % 2 === 0 ? '#ffffff' : '#f8fafc';
-        const tdHTML = row.map(cell => `<td style="padding: 10px 14px; font-size: 13px; color: #1e293b; border-bottom: 1px solid #e2e8f0; line-height: 1.6;">${cell}</td>`).join('');
+        const tdHTML = row.map(cell => `<td style="padding: 8px 12px; font-size: 9.5pt; color: #1e293b; border-bottom: 1px solid #f1f5f9; line-height: 1.6;">${cell}</td>`).join('');
         return `<tr style="background: ${bg};">${tdHTML}</tr>`;
       }).join('');
 
-      return `<div style="margin: 22px 0; overflow-x: auto; page-break-inside: avoid; break-inside: avoid;">
-        <table style="width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; font-family: inherit;">
+      return `<div style="margin: 14px 0; overflow-x: auto; page-break-inside: avoid; break-inside: avoid;">
+        <table style="border-collapse: separate; border-spacing: 0; width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-family: inherit;">
           <thead><tr>${thHTML}</tr></thead>
           <tbody>${trHTML}</tbody>
         </table>
       </div>`;
     });
 
-    // 3. Callout Blockquotes (> text)
-    html = html.replace(/^>\s*(.*$)/gim, '<blockquote style="margin: 18px 0; border-left: 4px solid #0284c7; background: #f0f9ff; padding: 14px 20px; border-radius: 0 12px 12px 0; color: #0c4a6e; font-size: 14px; line-height: 1.65; page-break-inside: avoid; break-inside: avoid;">$1</blockquote>');
+    // 5. Executive Callout Boxes & Blockquotes (> text)
+    html = html.replace(/^>\s*(.*$)/gim, '<blockquote class="xare-callout" style="margin: 14px 0; border-left: 3px solid #0ea5e9; background: #f0f9ff; padding: 12px 16px; border-radius: 0 8px 8px 0; color: #1e293b; font-size: 10pt; line-height: 1.65; page-break-inside: avoid; break-inside: avoid;">$1</blockquote>');
 
-    // 4. Semantic Headings (#, ##, ###, ####)
-    html = html.replace(/^#### (.*$)/gim, '<h4 style="font-size: 15px; font-weight: 700; color: #1e293b; margin: 18px 0 8px 0; page-break-after: avoid; break-after: avoid;">$1</h4>');
-    html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 17px; font-weight: 700; color: #0f172a; margin: 22px 0 10px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; page-break-after: avoid; break-after: avoid;">$1</h3>');
-    html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 20px; font-weight: 800; color: #0284c7; margin: 26px 0 12px 0; border-bottom: 2px solid #bae6fd; padding-bottom: 6px; page-break-after: avoid; break-after: avoid;">$1</h2>');
-    html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 24px; font-weight: 800; color: #0369a1; margin: 30px 0 14px 0; page-break-after: avoid; break-after: avoid;">$1</h1>');
+    // 6. Key-Value Cards (Key: Value)
+    html = html.replace(/^([A-Z0-9][a-zA-Z0-9\s_\-\.]{1,25})\s*[:–]\s*(.+)$/gm, (match, key, val) => {
+      if (key.trim().length > 1 && !key.toLowerCase().startsWith('http')) {
+        return `<div class="kv-container" style="display: flex; gap: 12px; margin: 6px 0; font-size: 10pt; page-break-inside: avoid; break-inside: avoid;">
+          <span style="font-weight: 700; color: #0284c7; min-width: 130px; flex-shrink: 0;">${key.trim()}:</span>
+          <span style="color: #334155;">${val.trim()}</span>
+        </div>`;
+      }
+      return match;
+    });
 
-    // 5. Bold & Italics
+    // 7. Semantic Headings Hierarchy
+    html = html.replace(/^#### (.*$)/gim, '<h4 style="font-size: 11pt; font-weight: 600; color: #334155; margin: 14px 0 6px 0; page-break-after: avoid; break-after: avoid;">$1</h4>');
+    html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 11.5pt; font-weight: 700; color: #0f172a; margin: 16px 0 8px 0; page-break-after: avoid; break-after: avoid;">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 14pt; font-weight: 700; color: #0f172a; border-left: 3px solid #0ea5e9; padding-left: 8px; margin: 20px 0 10px 0; page-break-after: avoid; break-after: avoid;">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 20pt; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; margin: 24px 0 12px 0; page-break-after: avoid; break-after: avoid;">$1</h1>');
+
+    // 8. Bold & Italics
     html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 800; color: #0f172a;">$1</strong>');
     html = html.replace(/\*(.*?)\*/g, '<em style="font-style: italic; color: #334155;">$1</em>');
 
-    // 6. Inline Code `code`
-    html = html.replace(/`([^`]+)`/g, '<code style="background: #f1f5f9; color: #0284c7; padding: 2px 6px; border-radius: 5px; font-family: \'JetBrains Mono\', monospace; font-size: 12.5px; border: 1px solid #cbd5e1; font-weight: 600;">$1</code>');
+    // 9. Inline Code `code`
+    html = html.replace(/`([^`]+)`/g, '<code style="background: #f1f5f9; color: #0284c7; padding: 2px 6px; border-radius: 4px; font-family: \'JetBrains Mono\', monospace; font-size: 9pt; border: 1px solid #cbd5e1; font-weight: 600;">$1</code>');
 
-    // 7. Bullet Lists (- or *)
+    // 10. Bullet Lists (- or *)
     html = html.replace(/^\s*[\*\-]\s+(.*$)/gim, '<li style="margin-bottom: 5px; color: #334155; line-height: 1.6; list-style-type: disc; margin-left: 20px;">$1</li>');
 
-    // 8. Numbered Lists (1. 2.)
+    // 11. Numbered Lists (1. 2.)
     html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li style="margin-bottom: 6px; color: #1e293b; font-weight: 500; line-height: 1.6; margin-left: 20px;">$2</li>');
 
-    // 9. Paragraph Spacing & Line Breaks
-    html = html.replace(/\n\n/g, '<div style="height: 12px;"></div>');
+    // 12. Paragraph Spacing & Line Breaks
+    html = html.replace(/\n\n/g, '<div style="height: 10px;"></div>');
     html = html.replace(/\n/g, '<br/>');
 
     return html;
@@ -3485,50 +3509,38 @@ const AI_PRESETS = [
 
     const chatTitle = activeChat.title || 'Xare AI Executive Technical Report';
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const userName = currentUser?.username || 'User';
+    const userName = currentUser?.username || 'Ali Kassem';
 
-    // Resolve image attachments for all messages in parallel (from IndexedDB or direct URLs)
+    // Resolve image attachments
     const resolvedMessages = await Promise.all(
       (activeChat.messages || []).map(async (m: any) => {
         let imageUrl: string | null = null;
         if (m.image) {
           if (typeof m.image === 'string' && m.image.startsWith('localdb_')) {
-            try {
-              imageUrl = await getFromLocalDB(m.image);
-            } catch (e) {
-              console.warn("Failed to load local DB image for PDF export", e);
-            }
-          } else {
-            imageUrl = m.image;
-          }
+            try { imageUrl = await getFromLocalDB(m.image); } catch (e) { console.warn("Failed to load local DB image", e); }
+          } else { imageUrl = m.image; }
         }
         return { ...m, resolvedImageUrl: imageUrl };
       })
     );
 
-    // Continuous Document Flow - NO Chat Bubbles, Avatars, or Role Tags
     const messagesHTML = resolvedMessages.map((m: any) => {
       const renderedContent = renderMarkdownToHTMLForPDF(m.text || '');
       const isUser = m.sender === 'user';
       const imageHTML = m.resolvedImageUrl 
-        ? `<div style="margin: 16px 0;"><img src="${m.resolvedImageUrl}" style="max-width: 100%; max-height: 480px; border-radius: 12px; border: 1px solid #cbd5e1; object-fit: contain; display: block; box-shadow: 0 2px 10px rgba(0,0,0,0.06);" /></div>` 
+        ? `<div style="margin: 14px 0;"><img src="${m.resolvedImageUrl}" style="max-width: 100%; max-height: 480px; border-radius: 8px; border: 1px solid #cbd5e1; object-fit: contain; display: block;" /></div>` 
         : '';
 
       if (isUser) {
         return `
           <div class="doc-user-prompt">
-            <div class="doc-prompt-label">OBJECTIVE / USER PROMPT</div>
+            <div class="doc-prompt-label">OBJECTIVE / PROMPT</div>
             <div class="doc-prompt-text">${renderedContent}</div>
             ${imageHTML}
           </div>
         `;
       } else {
-        return `
-          <div class="doc-body">
-            ${imageHTML}
-            ${renderedContent}
-          </div>
-        `;
+        return `<div class="doc-body">${imageHTML}${renderedContent}</div>`;
       }
     }).join('');
 
@@ -3536,178 +3548,63 @@ const AI_PRESETS = [
     if (!printWindow) return;
 
     printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${chatTitle} - Xare AI Technical Report</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
-            
-            @page {
-              margin: 15mm;
-              size: A4;
-            }
-            
-            * { box-sizing: border-box; }
-            
-            body { 
-              font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-              padding: 40px; 
-              color: #0f172a; 
-              max-width: 880px; 
-              margin: 0 auto; 
-              background: #ffffff;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            
-            .exec-header {
-              background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
-              border-radius: 20px;
-              padding: 28px 32px;
-              color: #ffffff;
-              margin-bottom: 36px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.3);
-            }
-            
-            .brand-badge { 
-              font-size: 24px; 
-              font-weight: 800; 
-              letter-spacing: -0.5px; 
-              background: linear-gradient(90deg, #38bdf8, #818cf8); 
-              -webkit-background-clip: text; 
-              -webkit-text-fill-color: transparent; 
-            }
-            
-            .doc-subtitle { 
-              font-size: 14px; 
-              color: #94a3b8; 
-              font-weight: 500; 
-              margin-top: 4px; 
-            }
-            
-            .meta-box { 
-              background: rgba(255, 255, 255, 0.08); 
-              border: 1px solid rgba(255, 255, 255, 0.15); 
-              padding: 10px 18px; 
-              border-radius: 12px; 
-              font-size: 12px; 
-              color: #cbd5e1; 
-              text-align: right; 
-              line-height: 1.5;
-            }
-            
-            .doc-user-prompt {
-              margin: 32px 0 20px 0;
-              padding: 18px 22px;
-              background: #f8fafc;
-              border-left: 4px solid #0f172a;
-              border-radius: 0 12px 12px 0;
-              page-break-inside: avoid;
-              break-inside: avoid;
-            }
-            
-            .doc-prompt-label {
-              font-size: 11px;
-              font-weight: 800;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              color: #0284c7;
-              margin-bottom: 6px;
-            }
-            
-            .doc-prompt-text {
-              font-size: 15px;
-              font-weight: 600;
-              color: #0f172a;
-              line-height: 1.6;
-            }
-            
-            .doc-body {
-              font-size: 14.5px;
-              line-height: 1.75;
-              color: #1e293b;
-              margin-bottom: 28px;
-              word-break: break-word;
-            }
-            
-            .exec-footer {
-              margin-top: 60px;
-              padding-top: 20px;
-              border-top: 1px solid #e2e8f0;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              font-size: 11px;
-              color: #64748b;
-              font-weight: 500;
-            }
-            
-            @media print { 
-              body { background: #ffffff !important; padding: 0 !important; }
-              html, body {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              h1, h2, h3, h4, .code-block, table, blockquote, .doc-user-prompt { 
-                page-break-inside: avoid !important; 
-                break-inside: avoid !important; 
-              }
-              h1, h2, h3, h4 { 
-                page-break-after: avoid !important; 
-                break-after: avoid !important; 
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="exec-header">
-            <div>
-              <div class="brand-badge">Xare AI Executive Technical Report</div>
-              <div class="doc-subtitle">${chatTitle}</div>
-            </div>
-            <div class="meta-box">
-              <div style="font-weight: 700; color: #ffffff;">${dateStr}</div>
-              <div>Prepared For: <strong>${userName}</strong></div>
-              <div>Classification: <strong>Executive Internal</strong></div>
-            </div>
-          </div>
-
-          <div>${messagesHTML}</div>
-
-          <div class="exec-footer">
-            <span>Generated with Xare AI • Publication Technical Exporter</span>
-            <span>https://xare-ai.vercel.app</span>
-          </div>
-          <script>
-            const images = document.querySelectorAll('img');
-            let loaded = 0;
-            const triggerPrint = () => {
-              setTimeout(() => {
-                window.print();
-              }, 300);
-            };
-            if (images.length === 0) {
-              triggerPrint();
-            } else {
-              images.forEach(img => {
-                if (img.complete) {
-                  loaded++;
-                  if (loaded === images.length) triggerPrint();
-                } else {
-                  img.onload = img.onerror = () => {
-                    loaded++;
-                    if (loaded === images.length) triggerPrint();
-                  };
-                }
-              });
-            }
-          </script>
-        </body>
-      </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${chatTitle} - Xare AI Executive Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+    @page { size: A4 portrait; margin: 15mm 15mm 20mm 15mm; }
+    html, body {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      font-family: 'Inter', sans-serif;
+      font-size: 10pt;
+      line-height: 1.6;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    * { box-sizing: border-box; }
+    body { max-width: 860px; margin: 0 auto; padding: 10px; }
+    h1, h2, h3, h4, .document-header, .document-footer-tag { break-after: avoid !important; }
+    .xare-card, blockquote, .code-block, table, tr, .doc-user-prompt { break-inside: avoid !important; }
+    .document-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #0ea5e9; }
+    .header-badge { background: #0f172a; color: #38bdf8; font-size: 8.5pt; font-weight: 800; padding: 4px 12px; border-radius: 6px; display: inline-block; margin-bottom: 10px; }
+    .document-title { font-size: 22pt; font-weight: 800; color: #0f172a; margin: 0 0 12px 0; }
+    .metadata-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 16px; font-size: 9pt; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }
+    .doc-user-prompt { margin: 24px 0 16px 0; padding: 14px 18px; background: #f8fafc; border-left: 4px solid #0f172a; border-radius: 0 8px 8px 0; }
+    .doc-prompt-label { font-size: 8pt; font-weight: 800; color: #0ea5e9; margin-bottom: 4px; }
+    .doc-prompt-text { font-size: 10.5pt; font-weight: 600; color: #0f172a; }
+    .doc-body { margin-bottom: 24px; }
+    .document-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 8.5pt; color: #64748b; }
+  </style>
+</head>
+<body>
+  <header class="document-header">
+    <div class="header-badge">XARE AI EXECUTIVE REPORT</div>
+    <h1 class="document-title">${chatTitle}</h1>
+    <div class="metadata-grid">
+      <div><strong>Prepared For:</strong> ${userName}</div>
+      <div><strong>Date:</strong> ${dateStr}</div>
+      <div><strong>Classification:</strong> Executive Internal</div>
+      <div><strong>System Engine:</strong> Xare V2 Publishing Core</div>
+    </div>
+  </header>
+  <main class="document-content">${messagesHTML}</main>
+  <footer class="document-footer">Generated with Xare AI Engine • Confidential</footer>
+  <script>
+    const images = document.querySelectorAll('img');
+    let loaded = 0;
+    const triggerPrint = () => { setTimeout(window.print, 300); };
+    if (images.length === 0) triggerPrint();
+    else images.forEach(img => {
+      if (img.complete) { loaded++; if (loaded === images.length) triggerPrint(); }
+      else img.onload = img.onerror = () => { loaded++; if (loaded === images.length) triggerPrint(); };
+    });
+  </script>
+</body>
+</html>
     `);
     printWindow.document.close();
   };
