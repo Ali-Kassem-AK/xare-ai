@@ -544,11 +544,10 @@ export const MessageActions = ({
     </div>
   );
 };
-
 // ==========================================
 // --- OPTIMIZED STATIC REGEXP CONSTANTS (0-ALLOCATION PERFORMANCE)
 // ==========================================
-const INLINE_SPLIT_REGEX = /(!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\*\*.*?\*\*|\*.*?\*|`.*?`|\$.*?\$|\\\(.*?\\\))/g;
+const INLINE_SPLIT_REGEX = /(!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\*\*.*?\*\*|\*.*?\*|`[^`\n]+`|\$[^$\n]+\$|\\\([^\\\n]+\\\))/g;
 const MARKDOWN_IMG_REGEX = /^!\[(.*?)\]\((.*?)\)$/;
 const MARKDOWN_LINK_REGEX = /^\[(.*?)\]\((.*?)\)$/;
 const URL_AUTOLINK_REGEX = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
@@ -559,6 +558,7 @@ const SQRT_MATH_REGEX = /\\sqrt\{((?:[^{}]|\{[^{}]*\})*)\}/g;
 const FRAC_MATH_REGEX = /\\frac\{((?:[^{}]|\{[^{}]*\})*)\}\{((?:[^{}]|\{[^{}]*\})*)\}/g;
 const BOXED_MATH_REGEX = /\\boxed\{((?:[^{}]|\{[^{}]*\})*)\}/g;
 
+const SYNTAX_TOKEN_REGEX = /(\/\/.*|\/\*[\s\S]*?\*\/|#.*)|(".*?"|'.*?'|`.*?`)|(\b(?:const|let|var|function|return|if|else|for|while|import|export|from|default|class|extends|async|await|try|catch|new|type|interface|public|private|protected|def|self|print|struct|enum|void|int|float|double|bool|string)\b)|(\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_]\w*(?=\s*\())/g;
 /**
  * Highly upgraded and robust LaTeX math renderer.
  */
@@ -930,17 +930,17 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           // Require at least 2 clean rows OR a header + separator line to form a valid table
           if (cleanRows.length >= 2 || (cleanRows.length >= 1 && hasSeparator)) {
             const parseRow = (r: string) => {
-              const chars = Array.from(r);
               let backtickCount = 0;
               let currentCell = '';
               const cells: string[] = [];
+              const len = r.length;
 
-              for (let i = 0; i < chars.length; i++) {
-                const ch = chars[i];
-                if (ch === '`' && (i === 0 || chars[i - 1] !== '\\')) {
+              for (let i = 0; i < len; i++) {
+                const ch = r[i];
+                if (ch === '`' && (i === 0 || r[i - 1] !== '\\')) {
                   backtickCount++;
                   currentCell += ch;
-                } else if (ch === '|' && (i === 0 || chars[i - 1] !== '\\')) {
+                } else if (ch === '|' && (i === 0 || r[i - 1] !== '\\')) {
                   if (backtickCount % 2 === 0) {
                     // EVEN backticks -> Pipe is a true cell separator!
                     cells.push(currentCell.trim());
