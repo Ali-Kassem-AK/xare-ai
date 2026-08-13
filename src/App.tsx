@@ -727,13 +727,14 @@ const renderInline = (text, isDarkMode) => {
       );
     }
 
-    // 5. Inline Code: `code`
+    // 5. Inline Code: `code` (Supports nested bold/italic formatting e.g. `ev**im**`)
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+      const innerCode = part.slice(1, -1);
       return (
-        <code key={i} className={`px-1.5 py-0.5 mx-0.5 rounded-md text-[0.86em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
-          isDarkMode ? 'bg-slate-800/70 text-slate-200 border-slate-700/60' : 'bg-slate-200/80 text-slate-800 border-slate-300/70'
+        <code key={i} className={`px-1.5 py-0.5 mx-0.5 rounded-md text-[0.88em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
+          isDarkMode ? 'bg-slate-800/80 text-cyan-200 border-slate-700/70' : 'bg-slate-200/90 text-blue-900 border-slate-300/80'
         }`}>
-          {part.slice(1, -1)}
+          {renderInline(innerCode, isDarkMode)}
         </code>
       );
     }
@@ -967,7 +968,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
 
             elements.push(
               <div key={`table-${elements.length}`} className="my-4 overflow-x-auto w-full chat-scroll">
-                <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-full text-sm">
+                <table className="w-full text-left border-collapse min-w-[280px] sm:min-w-full text-sm">
                   <thead>
                     <tr className={`border-b-2 ${isDarkMode ? 'border-slate-700/80' : 'border-slate-300'}`}>
                       {headers.map((h, i) => {
@@ -979,8 +980,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                               isShortIdx 
                                 ? 'w-10 text-center' 
                                 : i === 0 
-                                  ? 'min-w-[170px] w-1/4' 
-                                  : 'min-w-[240px]'
+                                  ? 'min-w-[110px] sm:min-w-[170px] w-1/4' 
+                                  : 'min-w-[130px] sm:min-w-[220px]'
                             } ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}
                           >
                             {renderInline(h, isDarkMode)}
@@ -1001,8 +1002,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                                 cIdx === 0 && isShortIdx
                                   ? `text-center font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
                                   : cIdx === 0
-                                    ? `min-w-[170px] font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
-                                    : `min-w-[240px] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`
+                                    ? `min-w-[110px] sm:min-w-[170px] font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
+                                    : `min-w-[130px] sm:min-w-[220px] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`
                               }`}
                             >
                               {renderInline(cell, isDarkMode)}
@@ -1109,12 +1110,22 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         // 7. Numbered Lists (1., 2., etc.)
         const numListMatch = trimmedLine.match(/^(\d+\.)\s+(.*)/);
         if (numListMatch) {
-          elements.push(
-            <div key={`ol-${lIdx}`} className="flex gap-2.5 ml-2 mt-2 items-baseline">
-              <span className={`font-bold text-xs px-2 py-0.5 rounded-md min-w-[24px] text-center select-none ${isDarkMode ? 'bg-blue-950/80 text-cyan-300 border border-cyan-800/40 shadow-sm' : 'bg-blue-100 text-blue-800'}`}>{numListMatch[1]}</span>
-              <span className="flex-1">{renderInline(numListMatch[2], isDarkMode)}</span>
-            </div>
-          );
+          const isHeaderLike = /^(\*\*.*?\*\*|[A-Z][a-zA-Z0-9\s\-\(\)\/\:\,\.]{3,60})$/.test(numListMatch[2].trim());
+          if (isHeaderLike && numListMatch[2].trim().length > 5) {
+            elements.push(
+              <div key={`ol-h-${lIdx}`} className={`text-base sm:text-lg font-bold mt-5 mb-2 flex items-baseline gap-2 tracking-tight ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-300 to-indigo-200' : 'text-blue-900'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded-md font-mono select-none flex-shrink-0 ${isDarkMode ? 'bg-cyan-950/90 text-cyan-300 border border-cyan-700/60' : 'bg-blue-100 text-blue-800'}`}>{numListMatch[1]}</span>
+                <span className="flex-1">{renderInline(numListMatch[2], isDarkMode)}</span>
+              </div>
+            );
+          } else {
+            elements.push(
+              <div key={`ol-${lIdx}`} className="flex gap-2.5 ml-2 mt-2 items-baseline">
+                <span className={`font-bold text-xs px-2 py-0.5 rounded-md min-w-[24px] text-center select-none ${isDarkMode ? 'bg-blue-950/80 text-cyan-300 border border-cyan-800/40 shadow-sm' : 'bg-blue-100 text-blue-800'}`}>{numListMatch[1]}</span>
+                <span className="flex-1">{renderInline(numListMatch[2], isDarkMode)}</span>
+              </div>
+            );
+          }
           return;
         }
 
