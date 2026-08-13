@@ -3356,7 +3356,7 @@ const AI_PRESETS = [
   // ==========================================
   const processPastedFile = (file: File) => {
     if (file.size > 10 * 1024 * 1024) {
-      showLocalBotMessage("⚠️ **File Size Limit Exceeded**\nThe pasted file exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
+      showLocalBotMessage("**File Size Limit Exceeded**\nThe pasted file exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
       return;
     }
     const reader = new FileReader();
