@@ -942,29 +942,37 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           // Require at least 2 clean rows OR a header + separator line to form a valid table
           if (cleanRows.length >= 2 || (cleanRows.length >= 1 && hasSeparator)) {
             const parseRow = (r: string) => {
-              let clean = r.trim().replace(/^\|/, '').replace(/\|$/, '');
-              return clean.split('|').map(c => c.trim());
+              // Protect pipes inside inline code backticks `...`
+              const protectedRow = r.replace(/`([^`]+)`/g, (match) => match.replace(/\|/g, '__XARE_PIPE__'));
+              const clean = protectedRow.trim().replace(/^\|/, '').replace(/\|$/, '');
+              return clean.split('|').map(c => c.trim().replace(/__XARE_PIPE__/g, '|'));
             };
 
             const headers = parseRow(cleanRows[0]);
-            let bodyRows = cleanRows.slice(1).map(parseRow);
-
             const numColumns = headers.length;
 
-            // Smart auto-repair: If 2-column table has missing middle pipe in body rows (e.g. `STEP` | `WHAT HAPPENS`),
-            // split `code` or identifier token from explanation text to populate both columns cleanly
-            if (numColumns === 2) {
-              bodyRows = bodyRows.map(row => {
-                if (row.length === 1 || (row.length === 2 && !row[1].trim())) {
-                  const fullCell = row[0];
-                  const match = fullCell.match(/^(`[^`]+`|\*\*[^*]+\*\*|[\w\._\-\(\)]+)\s*[:–\-]?\s+(.+)$/s);
-                  if (match) {
-                    return [match[1].trim(), match[2].trim()];
-                  }
+            let bodyRows = cleanRows.slice(1).map(r => {
+              const cells = parseRow(r);
+              // Smart auto-repair: If 2-column table has missing middle pipe
+              if (numColumns === 2 && (cells.length === 1 || (cells.length === 2 && !cells[1].trim()))) {
+                const fullCell = cells[0];
+                const match = fullCell.match(/^(`[^`]+`|\*\*[^*]+\*\*|[\w\._\-\(\)]+)\s*[:–\-]?\s+(.+)$/s);
+                if (match) {
+                  return [match[1].trim(), match[2].trim()];
                 }
-                return row;
-              });
-            }
+              }
+
+              // Normalize column count to match headers strictly
+              if (cells.length < numColumns) {
+                while (cells.length < numColumns) cells.push('');
+                return cells;
+              } else if (cells.length > numColumns) {
+                const head = cells.slice(0, numColumns - 1);
+                const tail = cells.slice(numColumns - 1).join(' | ');
+                return [...head, tail];
+              }
+              return cells;
+            });
 
             elements.push(
               <div key={`table-${elements.length}`} className="my-4 overflow-x-auto w-full chat-scroll">
@@ -3350,8 +3358,27 @@ const AI_PRESETS = [
 
     // 2. Data Tables (| Header 1 | Header 2 |)
     html = html.replace(/^\|(.+)\|\s*\n\|[\s\|:\-]+\|\s*\n((?:\|.+\|\s*\n?)+)/gm, (match, headerRow, bodyContent) => {
-      const headers = headerRow.split('|').map(h => h.trim()).filter(Boolean);
-      const rows = bodyContent.trim().split('\n').map(r => r.split('|').map(c => c.trim()).filter(Boolean));
+      const parsePDFRow = (r: string) => {
+        const protectedRow = r.replace(/`([^`]+)`/g, (m) => m.replace(/\|/g, '__XARE_PIPE__'));
+        const clean = protectedRow.trim().replace(/^\|/, '').replace(/\|$/, '');
+        return clean.split('|').map(c => c.trim().replace(/__XARE_PIPE__/g, '|'));
+      };
+
+      const headers = parsePDFRow(headerRow);
+      const numCols = headers.length;
+      const rawRows = bodyContent.trim().split('\n').map(parsePDFRow);
+
+      const rows = rawRows.map(cells => {
+        if (cells.length < numCols) {
+          while (cells.length < numCols) cells.push('');
+          return cells;
+        } else if (cells.length > numCols) {
+          const head = cells.slice(0, numCols - 1);
+          const tail = cells.slice(numCols - 1).join(' | ');
+          return [...head, tail];
+        }
+        return cells;
+      });
 
       const thHTML = headers.map(h => `<th style="padding: 10px 14px; background: #0f172a; color: #ffffff; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; border-bottom: 2px solid #0284c7;">${h}</th>`).join('');
       const trHTML = rows.map((row, rIdx) => {
