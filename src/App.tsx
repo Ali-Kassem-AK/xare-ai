@@ -673,7 +673,7 @@ const sanitizeUrl = (url: string) => {
 /**
  * Advanced custom Markdown renderer with Image, Link, Bold, Italic, Code, & Math support.
  */
-const renderInline = (text, isDarkMode, isInsideCode = false) => {
+const renderInline = (text, isDarkMode) => {
   if (typeof text !== 'string') return text;
 
   // Regex split to capture Images, Links, Bold, Italics, Code, and LaTeX Inline Math
@@ -709,22 +709,11 @@ const renderInline = (text, isDarkMode, isInsideCode = false) => {
       );
     }
 
-    // 3. Bold Text: **text** (Heavy style with dark blue highlight inside code badges)
+    // 3. Bold Text: **text**
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-      if (isInsideCode) {
-        return (
-          <strong key={i} className={`font-extrabold text-[0.95em] px-1 py-0.5 mx-0.5 rounded border transition-all ${
-            isDarkMode 
-              ? 'bg-blue-950/90 text-blue-300 border-blue-500/70 shadow-[0_0_10px_rgba(59,130,246,0.35)]' 
-              : 'bg-blue-200/90 text-blue-950 border-blue-400/90'
-          }`}>
-            {part.slice(2, -2)}
-          </strong>
-        );
-      }
       return (
-        <strong key={i} className={`font-extrabold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-          {renderInline(part.slice(2, -2), isDarkMode, isInsideCode)}
+        <strong key={i} className={`font-black text-[1.08em] tracking-tight ${isDarkMode ? 'text-cyan-300' : 'text-blue-800'}`}>
+          {renderInline(part.slice(2, -2), isDarkMode)}
         </strong>
       );
     }
@@ -732,8 +721,8 @@ const renderInline = (text, isDarkMode, isInsideCode = false) => {
     // 4. Italic Text: *text*
     if (part.startsWith('*') && part.endsWith('*') && part.length >= 2 && !part.startsWith('**')) {
       return (
-        <em key={i} className={`italic ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-          {renderInline(part.slice(1, -1), isDarkMode, isInsideCode)}
+        <em key={i} className={`italic font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+          {renderInline(part.slice(1, -1), isDarkMode)}
         </em>
       );
     }
@@ -742,10 +731,10 @@ const renderInline = (text, isDarkMode, isInsideCode = false) => {
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       const innerCode = part.slice(1, -1);
       return (
-        <code key={i} className={`px-2 py-0.5 mx-0.5 rounded-md text-[0.88em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
-          isDarkMode ? 'bg-slate-900/90 text-cyan-200 border-slate-700/80' : 'bg-slate-200/90 text-blue-900 border-slate-300/80'
+        <code key={i} className={`px-2 py-0.5 mx-0.5 rounded-md text-[0.95em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
+          isDarkMode ? 'bg-slate-800/90 text-cyan-200 border-slate-700/80' : 'bg-slate-200/90 text-blue-900 border-slate-300/80'
         }`}>
-          {renderInline(innerCode, isDarkMode, true)}
+          {renderInline(innerCode, isDarkMode)}
         </code>
       );
     }
