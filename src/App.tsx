@@ -315,9 +315,11 @@ const callGeminiAPI = async (prompt, systemInstruction = "", isJson = false) => 
 
 /**
  * Utility to strip <think>...</think> blocks from AI model responses.
+ * Fast O(1) short-circuit if no <think tag is present.
  */
-export const cleanThinkTags = (text) => {
+export const cleanThinkTags = (text: any) => {
   if (!text || typeof text !== 'string') return text;
+  if (!text.includes('<think')) return text;
   return text
     .replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, '')
     .replace(/<think\b[^>]*>[\s\S]*$/gi, '')
@@ -666,10 +668,12 @@ const renderMath = (tex: string, isDarkMode: boolean) => {
   return html;
 };
 
+const UNSAFE_URL_REGEX = /^(javascript:|data:|vbscript:)/i;
+
 const sanitizeUrl = (url: string) => {
   if (!url || typeof url !== 'string') return '#';
   const trimmed = url.trim();
-  if (/^(javascript:|data:|vbscript:)/i.test(trimmed)) {
+  if (UNSAFE_URL_REGEX.test(trimmed)) {
     return '#';
   }
   return trimmed;
