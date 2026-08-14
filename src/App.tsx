@@ -62,7 +62,7 @@ export const STREAMING_CONFIG = {
  *                           - 4.5s+       : Slow pace
  */
 export const GLOW_ANIMATION_CONFIG = {
-  textGlowSweepSpeedSec: 1.3, // Glowing light sweep duration in seconds (Default: 1.8s)
+  textGlowSweepSpeedSec: 1.9, // Glowing light sweep duration in seconds (Default: 1.8s)
 };
 
 // ==========================================
@@ -80,7 +80,7 @@ export const TOOL_PHASE_DURATIONS = {
     processingAudio: 6000,        // Time before switching from 'Listening' to 'Processing audio'
   },
   image: {
-    thinking: 8000,               // Time before switching from 'Analyzing image' to 'Thinking'
+    thinking: 9000,               // Time before switching from 'Analyzing image' to 'Thinking'
   },
   document: {
     thinking: 20000,               // Time before switching from 'Analyzing document' to 'Thinking'
