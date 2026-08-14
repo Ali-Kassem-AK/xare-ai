@@ -2980,7 +2980,7 @@ const AI_PRESETS = [
     icon: Brain, 
     label: 'Deep Thinking', 
     action: 'think', 
-    prompt: 'Please use your deep thinking capabilities to answer the following:\n\n', 
+    prompt: 'Please use your deep thinking and reasoning capabilities to answer the following:\n\n', 
     placeholder: 'Ask a complex question...' 
   },
   { 
@@ -3008,7 +3008,7 @@ const AI_PRESETS = [
     icon: Code, 
     label: 'Explain code', 
     action: 'explain', 
-    prompt: 'Please explain what this code does in clear, instructional detail:\n\n', 
+    prompt: 'Please explain what this code does step by step in a clear, beginner-friendly way, explaining the purpose of each part and why it works:\n\n', 
     placeholder: 'Paste code to explain...' 
   },
   { 
