@@ -3337,6 +3337,11 @@ const AI_PRESETS = [
 
     setChatHistory(prev => prev.map(c => c.id === currentChatId ? updatedChat : c));
 
+    if (currentUser && currentUser.id !== 'guest-user' && currentUser.id !== 'preview-user') {
+      const chatRef = doc(db, 'users', currentUser.id, 'chats', currentChatId);
+      setDoc(chatRef, updatedChat).catch(err => console.warn("Firestore edit update blocked:", err));
+    }
+
     sendMessageToBackend(
       newPromptText, 
       updatedMessages[userIdx].image || updatedMessages[userIdx].document || null, 
@@ -3347,7 +3352,7 @@ const AI_PRESETS = [
       null, 
       true // isEditMode = true (prevents duplicate user message bubble)
     );
-  }, [chatHistory, currentChatId]);
+  }, [chatHistory, currentChatId, currentUser]);
 
 
 
@@ -3890,58 +3895,60 @@ const AI_PRESETS = [
     if (finalAction === 'generate_image') updateUsage('imageGenCount');
     if (finalAction === 'search') updateUsage('webSearchCount');
 
-    setChatHistory(prevHistory => {
-      let activeChat = prevHistory.find(c => c.id === targetChatId);
-      if (!activeChat) {
-        activeChat = { id: targetChatId, title: 'New Chat', messages: [], updatedAt: new Date() };
-      }
-
-      let updatedTitle = activeChat.title || 'New Chat';
-      const isFirstUserMsg = (activeChat.messages || []).filter(m => m.sender === 'user').length === 0;
-      
-      if (isFirstUserMsg) {
-        if (attachmentType === 'audio') updatedTitle = 'Voice Note';
-        else if (attachmentType === 'image') updatedTitle = 'Image Attachment';
-        else if (attachmentType === 'document') updatedTitle = 'Document Attachment';
-        else {
-            updatedTitle = msgText.substring(0, 30) + (msgText.length > 30 ? '...' : '');
-            
-            const titlePrompt = `Extract a short 2-4 word title for the message.\n\nMessage: "how do I cook a steak"\nTitle: Cooking a Steak\n\nMessage: "write a python script for scraping"\nTitle: Python Web Scraping\n\nMessage: "${msgText}"\nTitle:`;
-            
-            callGeminiAPI(titlePrompt).then(genTitle => {
-                if (genTitle) {
-                    let cleanTitle = genTitle.split('\n')[0].replace(/^(Title:|Chat Title:|\*|\[System Directives\]:|Task:|Output:|Response:)/gi, '').replace(/["']/g, '').trim();
-                    
-                    if (cleanTitle.toLowerCase().includes("extract a") || cleanTitle.toLowerCase().includes("message:")) {
-                        cleanTitle = msgText.substring(0, 20) + '...';
-                    }
-                    
-                    if (cleanTitle.length > 35) cleanTitle = cleanTitle.substring(0, 35) + '...';
-                    
-                    setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, title: cleanTitle } : c));
-                    
-                    getDoc(chatRef).then(snap => {
-                        if (snap.exists()) setDoc(chatRef, { ...snap.data(), title: cleanTitle }, { merge: true });
-                    });
-                }
-            }).catch(e => console.error("Title generation failed", e));
+    if (!isEditMode) {
+      setChatHistory(prevHistory => {
+        let activeChat = prevHistory.find(c => c.id === targetChatId);
+        if (!activeChat) {
+          activeChat = { id: targetChatId, title: 'New Chat', messages: [], updatedAt: new Date() };
         }
-      }
 
-      const chatToUpdate = {
-        ...activeChat,
-        title: updatedTitle,
-        messages: [...(activeChat.messages || []), newUserMsg],
-        updatedAt: new Date()
-      };
+        let updatedTitle = activeChat.title || 'New Chat';
+        const isFirstUserMsg = (activeChat.messages || []).filter(m => m.sender === 'user').length === 0;
+        
+        if (isFirstUserMsg) {
+          if (attachmentType === 'audio') updatedTitle = 'Voice Note';
+          else if (attachmentType === 'image') updatedTitle = 'Image Attachment';
+          else if (attachmentType === 'document') updatedTitle = 'Document Attachment';
+          else {
+              updatedTitle = msgText.substring(0, 30) + (msgText.length > 30 ? '...' : '');
+              
+              const titlePrompt = `Extract a short 2-4 word title for the message.\n\nMessage: "how do I cook a steak"\nTitle: Cooking a Steak\n\nMessage: "write a python script for scraping"\nTitle: Python Web Scraping\n\nMessage: "${msgText}"\nTitle:`;
+              
+              callGeminiAPI(titlePrompt).then(genTitle => {
+                  if (genTitle) {
+                      let cleanTitle = genTitle.split('\n')[0].replace(/^(Title:|Chat Title:|\*|\[System Directives\]:|Task:|Output:|Response:)/gi, '').replace(/["']/g, '').trim();
+                      
+                      if (cleanTitle.toLowerCase().includes("extract a") || cleanTitle.toLowerCase().includes("message:")) {
+                          cleanTitle = msgText.substring(0, 20) + '...';
+                      }
+                      
+                      if (cleanTitle.length > 35) cleanTitle = cleanTitle.substring(0, 35) + '...';
+                      
+                      setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, title: cleanTitle } : c));
+                      
+                      getDoc(chatRef).then(snap => {
+                          if (snap.exists()) setDoc(chatRef, { ...snap.data(), title: cleanTitle }, { merge: true });
+                      });
+                  }
+              }).catch(e => console.error("Title generation failed", e));
+          }
+        }
 
-      setDoc(chatRef, chatToUpdate).catch(err => console.warn("Firebase message append blocked:", err));
+        const chatToUpdate = {
+          ...activeChat,
+          title: updatedTitle,
+          messages: [...(activeChat.messages || []), newUserMsg],
+          updatedAt: new Date()
+        };
 
-      const exists = prevHistory.some(c => c.id === targetChatId);
-      return exists 
-        ? prevHistory.map(c => c.id === targetChatId ? chatToUpdate : c)
-        : [chatToUpdate, ...prevHistory];
-    });
+        setDoc(chatRef, chatToUpdate).catch(err => console.warn("Firebase message append blocked:", err));
+
+        const exists = prevHistory.some(c => c.id === targetChatId);
+        return exists 
+          ? prevHistory.map(c => c.id === targetChatId ? chatToUpdate : c)
+          : [chatToUpdate, ...prevHistory];
+      });
+    }
 
     setSuggestions([]);
     setIsLoading(true);
