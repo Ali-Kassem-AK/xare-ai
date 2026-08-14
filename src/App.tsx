@@ -3016,7 +3016,7 @@ const AI_PRESETS = [
     label: 'Translate', 
     hasSubMenu: true,
     subItems: [
-      { label: 'Arabic', action: 'translate', prompt: 'Translate the following text into Arabic. Output the complete translation first, followed by a two-column table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
+      { label: 'Arabic', action: 'translate', prompt: 'Translate the following text into Egyptian Arabic. Output the complete translation first, followed by a two-column table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
       { label: 'English', action: 'translate', prompt: 'Translate the following text into English. Output the complete translation first, followed by a two-column table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
       { label: 'Turkish', action: 'translate', prompt: 'Translate the following text into Turkish. Output the complete translation first, followed by a two-column table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
       { label: 'French', action: 'translate', prompt: 'Translate the following text into French. Output the complete translation first, followed by a two-column table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
