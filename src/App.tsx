@@ -238,6 +238,8 @@ const getLatestChatActivityTime = (chat: any): number => {
  * Universal helper to interact directly with the Gemini API.
  * Uses a smart Endpoint Resolver to automatically find the correct internal API string for Gemini 3.1 Flash Lite.
  */
+let CACHED_GEMINI_ENDPOINT: { version: string; id: string } | null = { version: "v1alpha", id: "gemini-3.1-flash-lite" };
+
 const callGeminiAPI = async (prompt, systemInstruction = "", isJson = false) => {
   const apiKey = "AIzaSyA8EzYKrwn5RRpTwShYcqVsPLdfPG-4aRg"; 
   
@@ -254,26 +256,38 @@ const callGeminiAPI = async (prompt, systemInstruction = "", isJson = false) => 
     };
   }
 
-  // Smart Endpoint Resolver: Aggressively tests all possible API variations for Gemini 3.1 Flash Lite
-  // to bypass undocumented 404 errors until it hits the active endpoint.
+  // Active Endpoint Cache: Memorizes the working endpoint to bypass resolution overhead on all subsequent calls
+  if (CACHED_GEMINI_ENDPOINT) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/${CACHED_GEMINI_ENDPOINT.version}/models/${CACHED_GEMINI_ENDPOINT.id}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      }
+    } catch (e) {
+      CACHED_GEMINI_ENDPOINT = null; // Invalidate cache on network error
+    }
+  }
+
+  // Smart Endpoint Resolver: Tests active endpoints in priority order
   const fallbackEndpoints = [
     { version: "v1alpha", id: "gemini-3.1-flash-lite" },
     { version: "v1beta", id: "gemini-3.1-flash-lite" },
-    { version: "v1alpha", id: "gemini-3.1-flash-lite-preview" },
-    { version: "v1beta", id: "gemini-3.1-flash-lite-preview" },
-    { version: "v1alpha", id: "gemini-3.1-flash-lite-001" },
-    { version: "v1beta", id: "gemini-3.1-flash-lite-001" }
+    { version: "v1beta", id: "gemini-1.5-flash" },
+    { version: "v1beta", id: "gemini-2.0-flash" }
   ];
 
   let lastError;
   let delay = 1000;
 
-  // Standard exponential backoff loop for rate limits (429) or server errors (5xx)
   const MAX_RETRIES = 3;
 
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    
-    // Internal loop to test endpoint strings instantly without delaying on 404s
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     for (const config of fallbackEndpoints) {
       const url = `https://generativelanguage.googleapis.com/${config.version}/models/${config.id}:generateContent?key=${apiKey}`;
       
@@ -286,8 +300,6 @@ const callGeminiAPI = async (prompt, systemInstruction = "", isJson = false) => 
         
         if (!res.ok) {
           if (res.status === 404) {
-            console.warn(`[Resolver]: ${config.id} not found on ${config.version}. Trying next variation...`);
-            lastError = new Error(`404 Not Found: ${config.id}`);
             continue; 
           }
           const errorData = await res.json().catch(() => ({}));
@@ -296,12 +308,13 @@ const callGeminiAPI = async (prompt, systemInstruction = "", isJson = false) => 
         }
         
         const data = await res.json();
+        CACHED_GEMINI_ENDPOINT = config; // Cache the successful endpoint
         return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         
-      } catch (err) {
+      } catch (err: any) {
         lastError = err;
-        if (err.message.includes("404")) continue;
-        break; // Break inner loop to trigger exponential backoff on actual server errors
+        if (err.message && err.message.includes("404")) continue;
+        break;
       }
     }
     
@@ -745,7 +758,7 @@ const renderInline = (text: any, isDarkMode: boolean) => {
         <code key={i} className={`px-2 py-0.5 mx-0.5 rounded-md text-[0.95em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
           isDarkMode ? 'bg-slate-800/90 text-cyan-200 border-slate-700/80' : 'bg-slate-200/90 text-blue-900 border-slate-300/80'
         }`}>
-          {renderInline(innerCode, isDarkMode)}
+          {innerCode}
         </code>
       );
     }
@@ -2653,16 +2666,6 @@ export const ChatMessageItem = React.memo(({
     textToRender = streamedTextSnapshot || (vaultData ? vaultData.partialText : "");
   }
 
-  // Isolated Streaming Auto-Scroll: Follows new tokens immediately after DOM paint if user hasn't scrolled up
-  useEffect(() => {
-    if (isCurrentlyStreaming && !GLOBAL_IS_USER_SCROLLED_UP) {
-      const container = document.querySelector('.chat-scroll.overflow-y-auto');
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
-    }
-  }, [textToRender, isCurrentlyStreaming]);
-
   // SAFETY SHIELD FOR EMPTY BOT MESSAGES:
   if (msg.sender === 'bot' && !msg.image && !msg.audio && (!textToRender || !textToRender.trim()) && !isCurrentlyStreaming) {
     textToRender = TOKEN_LIMIT_REDIRECTION_MSG;
@@ -4242,29 +4245,30 @@ const AI_PRESETS = [
         }
 
         if (response.ok && !isResolved) {
-          const blob = await response.blob();
-          const text = await blob.text();
-          let data;
+          const contentType = response.headers.get('content-type') || '';
+          
+          if (contentType.includes('image/')) {
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.onloadend = () => { if (!isResolved) completeBotResponse({ image: reader.result }); };
+            reader.readAsDataURL(blob);
+            return;
+          } else if (contentType.includes('audio/')) {
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.onloadend = () => { if (!isResolved) completeBotResponse({ audio: reader.result }); };
+            reader.readAsDataURL(blob);
+            return;
+          }
+
+          const text = await response.text();
+          let data: any;
           
           try {
               data = JSON.parse(text);
               if (Array.isArray(data) && data.length > 0) data = data[0];
           } catch (e) {
-              // Fallback: If not JSON, check if n8n returned a raw binary image/audio stream
-              const contentType = response.headers.get('content-type') || '';
-              if (contentType.includes('image/')) {
-                  const reader = new FileReader();
-                  reader.onloadend = () => { if (!isResolved) completeBotResponse({ image: reader.result }); };
-                  reader.readAsDataURL(blob);
-                  return; // Stop here, FileReader handles the rest
-              } else if (contentType.includes('audio/')) {
-                  const reader = new FileReader();
-                  reader.onloadend = () => { if (!isResolved) completeBotResponse({ audio: reader.result }); };
-                  reader.readAsDataURL(blob);
-                  return; // Stop here, FileReader handles the rest
-              } else {
-                  data = text; // Treat as raw text
-              }
+              data = text; // Treat as raw text
           }
 
           const isGenericAck = data && data.message && typeof data.message === 'string' && (data.message.toLowerCase().includes("started") || data.message.toLowerCase().includes("received"));
