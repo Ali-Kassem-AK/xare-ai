@@ -26,6 +26,9 @@ export default async function handler(req: Request) {
     });
   }
 
+  const requestId = 'req_n8n_' + Math.random().toString(36).substring(2, 11);
+  const t_start = performance.now();
+
   try {
     // 1. Strict Fail-Closed Secret Resolution
     if (!N8N_WEBHOOK_URL) {
@@ -44,52 +47,66 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 3. Request Validation
-    const body = await req.json().catch(() => null);
-    if (!body) {
-      return new Response(JSON.stringify({ error: 'Bad Request: Missing request payload' }), {
+    // 3. Fast Zero-Copy Request Body Forwarding (Zero double parse/stringify)
+    const rawBody = await req.text();
+    if (!rawBody || rawBody.length > 5242880) { // 5MB limit
+      return new Response(JSON.stringify({ error: 'Bad Request: Invalid or oversized payload' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // 4. Secure Server-Side Forwarding to n8n
+    const t_auth_done = performance.now();
+
+    // 4. Secure Server-Side Upstream Forwarding to Hugging Face n8n
     const upstreamRes = await fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-chatbot-token': authHeader.replace(/^Bearers+/i, ''),
+        'x-request-id': requestId,
+        'Connection': 'keep-alive',
       },
-      body: JSON.stringify(body),
+      body: rawBody,
       signal: req.signal,
     });
 
-    // 5. Zero-Copy Stream Response to Browser (sanitized headers)
+    const upstreamTime = performance.now() - t_auth_done;
+
+    // 5. Zero-Copy Stream / Blob Response to Client (Sanitized Headers)
+    const responseHeaders = new Headers({
+      'Content-Type': upstreamRes.headers.get('Content-Type') || 'application/json',
+      'x-request-id': requestId,
+      'x-auth-duration-ms': (t_auth_done - t_start).toFixed(2),
+      'x-upstream-duration-ms': upstreamTime.toFixed(2),
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache',
+    });
+
     if (upstreamRes.body) {
       return new Response(upstreamRes.body, {
         status: upstreamRes.status,
-        headers: {
-          'Content-Type': upstreamRes.headers.get('Content-Type') || 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'no-cache',
-        },
+        headers: responseHeaders,
       });
     }
 
     const data = await upstreamRes.text();
     return new Response(data, {
       status: upstreamRes.status,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: responseHeaders,
     });
 
   } catch (err: any) {
     if (req.signal.aborted) {
       return new Response(null, { status: 499 });
     }
-    return new Response(JSON.stringify({ error: 'Internal Server Error', message: err.message }), {
-      status: 500,
+    // Safe client-facing error (never leaks n8n URL or server credentials)
+    return new Response(JSON.stringify({
+      error: 'Upstream Webhook Error',
+      message: 'Failed to process request on automation backend',
+      requestId
+    }), {
+      status: 502,
       headers: { 'Content-Type': 'application/json' },
     });
   }
