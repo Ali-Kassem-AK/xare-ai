@@ -16,7 +16,7 @@ interface ModelNode {
 const MODEL_POOL: ModelNode[] = [
   { name: 'gemini-3.5-flash-lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
   { name: 'gemini-flash-lite-latest', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { name: 'gemini-2.5-flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { name: 'gemma-4-31b-it', version: 'v1beta', inFlight: 0, cooldownUntil: 0 }, // Gemma 4 31B IT Fallback
 ];
 
 /**
