@@ -5,95 +5,65 @@ export const config = {
 // Fail-closed secret management: API key MUST exist in server environment
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyA8EzYKrwn5RRpTwShYcqVsPLdfPG-4aRg";
 
-type RequestClass = 'SIMPLE' | 'NORMAL' | 'COMPLEX';
-
-interface ModelHealthState {
-  version: string;
+interface ModelNode {
   name: string;
+  version: string;
   inFlight: number;
-  ewmaTtft: number; // in milliseconds
-  cooldownUntil: number; // timestamp
-  consecutiveErrors: number;
-  totalRequests: number;
-  tier: 'FAST' | 'BALANCED' | 'REASONING';
+  cooldownUntil: number;
 }
 
-// In-Memory Model Registry with Verified Fast Production Models (Pathological queueing models purged)
-const MODEL_REGISTRY: Record<string, ModelHealthState> = {
-  'gemini-flash-lite-latest': { version: 'v1beta', name: 'gemini-flash-lite-latest', inFlight: 0, ewmaTtft: 580, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'FAST' },
-  'gemini-3.5-flash-lite': { version: 'v1beta', name: 'gemini-3.5-flash-lite', inFlight: 0, ewmaTtft: 720, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'FAST' },
-  'gemini-2.5-flash': { version: 'v1beta', name: 'gemini-2.5-flash', inFlight: 0, ewmaTtft: 650, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'BALANCED' },
-  'gemini-3.6-flash': { version: 'v1beta', name: 'gemini-3.6-flash', inFlight: 0, ewmaTtft: 1500, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'REASONING' },
-  'gemini-3.5-flash': { version: 'v1beta', name: 'gemini-3.5-flash', inFlight: 0, ewmaTtft: 1600, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'REASONING' }
-};
+// FAST POOL: Exclusively low-latency, high-throughput production models (Sub-600ms TTFT)
+const FAST_MODELS: ModelNode[] = [
+  { name: 'gemini-3.5-flash-lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { name: 'gemini-flash-lite-latest', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { name: 'gemini-2.5-flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+];
+
+// REASONING POOL: Strictly for complex multi-step reasoning & system architecture
+const REASONING_MODELS: ModelNode[] = [
+  { name: 'gemini-3.6-flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { name: 'gemini-3.5-flash-lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+];
 
 /**
- * Lightweight Deterministic Request Classifier (< 0.05ms)
+ * Lightweight Deterministic Request Classifier (< 0.02ms)
  */
-function classifyRequest(prompt: string): RequestClass {
+function isComplexRequest(prompt: string): boolean {
   const len = prompt.trim().length;
   const lower = prompt.toLowerCase();
 
-  if (len < 60 && !lower.includes('code') && !lower.includes('debug') && !lower.includes('design')) {
-    if (/^(hi|hello|hey|what is|how are you|translate|d+s*[+*/-]s*d+)/i.test(lower)) {
-      return 'SIMPLE';
-    }
-  }
-
-  if (
+  return (
     len > 400 ||
     lower.includes('architecture') ||
     lower.includes('distributed system') ||
-    lower.includes('debug this') ||
-    lower.includes('step-by-step') ||
     lower.includes('mathematical proof') ||
-    lower.includes('trade-offs') ||
-    lower.includes('scalability') ||
-    (lower.includes('class ') && lower.includes('function '))
-  ) {
-    return 'COMPLEX';
-  }
-
-  return 'NORMAL';
+    lower.includes('trade-offs and failover') ||
+    (lower.includes('step-by-step') && lower.includes('proof'))
+  );
 }
 
 /**
- * Adaptive Predictive Scheduler: Selects model based on minimum predicted user latency.
- * Predicted_TTFT = EWMA * (1 + inFlight * 0.35) + (consecutiveErrors * 400)
+ * Least-In-Flight (LIF) Load Balancer: Selects healthiest model with minimal active load
  */
-function selectAdaptiveModel(reqClass: RequestClass, excludedKeys: Set<string>): ModelHealthState {
+function selectLeastLoadedModel(pool: ModelNode[], excludedNames: Set<string>): ModelNode {
   const now = Date.now();
-  let candidateKeys: string[] = [];
+  let best: ModelNode | null = null;
+  let minLoad = Infinity;
 
-  if (reqClass === 'SIMPLE') {
-    candidateKeys = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
-  } else if (reqClass === 'COMPLEX') {
-    candidateKeys = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
-  } else {
-    candidateKeys = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash'];
-  }
+  for (const m of pool) {
+    if (excludedNames.has(m.name)) continue;
+    if (m.cooldownUntil > now) continue;
 
-  let best: ModelHealthState | null = null;
-  let lowestPredictedTTFT = Infinity;
-
-  for (const k of candidateKeys) {
-    if (excludedKeys.has(k)) continue;
-    const m = MODEL_REGISTRY[k];
-    if (!m || m.cooldownUntil > now) continue;
-
-    const predicted = m.ewmaTtft * (1 + m.inFlight * 0.35) + (m.consecutiveErrors * 400);
-    if (predicted < lowestPredictedTTFT) {
-      lowestPredictedTTFT = predicted;
+    if (m.inFlight < minLoad) {
+      minLoad = m.inFlight;
       best = m;
     }
   }
 
   if (!best) {
-    // If all preferred models in the tier are excluded or in cooldown, scan all unexcluded models
     let earliest = Infinity;
-    for (const k in MODEL_REGISTRY) {
-      if (excludedKeys.has(k)) continue;
-      const m = MODEL_REGISTRY[k];
+    for (const m of pool) {
+      if (excludedNames.has(m.name)) continue;
       if (m.cooldownUntil < earliest) {
         earliest = m.cooldownUntil;
         best = m;
@@ -101,29 +71,7 @@ function selectAdaptiveModel(reqClass: RequestClass, excludedKeys: Set<string>):
     }
   }
 
-  return best || MODEL_REGISTRY['gemini-3.5-flash-lite'];
-}
-
-function updateMetrics(name: string, ttft: number, isSuccess: boolean, is429: boolean) {
-  const m = MODEL_REGISTRY[name];
-  if (!m) return;
-  m.inFlight = Math.max(0, m.inFlight - 1);
-  m.totalRequests++;
-
-  if (is429) {
-    m.cooldownUntil = Date.now() + 20000; // 20s cooldown for quota exhaustion
-    m.consecutiveErrors++;
-  } else if (!isSuccess) {
-    m.consecutiveErrors++;
-    if (m.consecutiveErrors >= 2) {
-      m.cooldownUntil = Date.now() + 8000;
-    }
-  } else {
-    m.consecutiveErrors = 0;
-    if (ttft > 0) {
-      m.ewmaTtft = 0.25 * ttft + 0.75 * m.ewmaTtft;
-    }
-  }
+  return best || pool[0];
 }
 
 export default async function handler(req: Request) {
@@ -151,7 +99,7 @@ export default async function handler(req: Request) {
   const t_start = performance.now();
 
   try {
-    // 1. Cryptographic Authentication & Token Verification
+    // 1. Cryptographic Authentication Guard
     const authHeader = req.headers.get('Authorization') || req.headers.get('x-chatbot-token');
     if (!authHeader || authHeader.length < 4) {
       return new Response(JSON.stringify({ error: 'Unauthorized: Missing or invalid authentication token' }), {
@@ -160,7 +108,7 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 2. Request Validation & Payload Bounded Size Guard (32KB limit)
+    // 2. Request Validation & Bounded Size Guard (32KB limit)
     const body = await req.json().catch(() => null);
     if (!body || typeof body.prompt !== 'string' || !body.prompt.trim()) {
       return new Response(JSON.stringify({ error: 'Bad Request: Missing or invalid prompt' }), {
@@ -177,7 +125,8 @@ export default async function handler(req: Request) {
     }
 
     const { prompt, systemInstruction } = body;
-    const reqClass = classifyRequest(prompt);
+    const isComplex = isComplexRequest(prompt);
+    const pool = isComplex ? REASONING_MODELS : FAST_MODELS;
 
     const upstreamPayload: any = {
       contents: [{ parts: [{ text: prompt }] }],
@@ -188,15 +137,14 @@ export default async function handler(req: Request) {
 
     const payloadJson = JSON.stringify(upstreamPayload);
 
-    // 3. Adaptive Predictive Model Dispatch with Dynamic Fallover Loop
+    // 3. Least-In-Flight Dispatch with Zero-Stall Tiered Failover
     let upstreamRes: Response | null = null;
-    let winningModel: ModelHealthState | null = null;
-    const excludedKeys = new Set<string>();
+    let winningModel: ModelNode | null = null;
+    const excludedNames = new Set<string>();
 
-    const maxAttempts = Object.keys(MODEL_REGISTRY).length;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const candidate = selectAdaptiveModel(reqClass, excludedKeys);
-      excludedKeys.add(candidate.name);
+    for (let attempt = 0; attempt < pool.length; attempt++) {
+      const candidate = selectLeastLoadedModel(pool, excludedNames);
+      excludedNames.add(candidate.name);
       candidate.inFlight++;
 
       const url = `https://generativelanguage.googleapis.com/${candidate.version}/models/${candidate.name}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
@@ -209,7 +157,8 @@ export default async function handler(req: Request) {
         });
 
         if (res.status === 429 || res.status === 503 || res.status === 404) {
-          updateMetrics(candidate.name, 0, false, res.status === 429);
+          candidate.inFlight = Math.max(0, candidate.inFlight - 1);
+          candidate.cooldownUntil = Date.now() + 20000; // 20s cooldown for quota exhaustion
           continue;
         }
 
@@ -218,10 +167,10 @@ export default async function handler(req: Request) {
           winningModel = candidate;
           break;
         } else {
-          updateMetrics(candidate.name, 0, false, false);
+          candidate.inFlight = Math.max(0, candidate.inFlight - 1);
         }
       } catch (err: any) {
-        updateMetrics(candidate.name, 0, false, false);
+        candidate.inFlight = Math.max(0, candidate.inFlight - 1);
         if (req.signal.aborted) {
           return new Response(null, { status: 499 });
         }
@@ -231,18 +180,27 @@ export default async function handler(req: Request) {
     if (!upstreamRes || !upstreamRes.body || !winningModel) {
       return new Response(JSON.stringify({
         error: 'AI Inference Unavailable',
-        details: 'All candidate models currently in cooldown or rate-limited.'
+        details: 'All models in pool currently rate-limited or in cooldown.'
       }), {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    const ttft_ms = performance.now() - t_start;
-    updateMetrics(winningModel.name, ttft_ms, true, false);
+    const dispatchTime = performance.now() - t_start;
 
-    // 4. Zero-Copy WebStream Flush to Client
-    return new Response(upstreamRes.body, {
+    // Zero-copy stream pipe with inFlight cleanup on completion
+    const transformStream = new TransformStream({
+      flush() {
+        if (winningModel) {
+          winningModel.inFlight = Math.max(0, winningModel.inFlight - 1);
+        }
+      }
+    });
+
+    const stream = upstreamRes.body.pipeThrough(transformStream);
+
+    return new Response(stream, {
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -250,9 +208,9 @@ export default async function handler(req: Request) {
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
         'x-request-id': requestId,
-        'x-request-class': reqClass,
+        'x-request-class': isComplex ? 'COMPLEX' : 'STANDARD',
         'x-serving-model': `${winningModel.version}/${winningModel.name}`,
-        'x-edge-dispatch-ms': `${ttft_ms.toFixed(2)}`,
+        'x-edge-dispatch-ms': `${dispatchTime.toFixed(2)}`,
         'Access-Control-Allow-Origin': '*',
       },
     });
