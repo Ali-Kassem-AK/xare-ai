@@ -190,18 +190,20 @@ export default async function handler(req: Request) {
     }
 
     const dispatchTime = performance.now() - t_start;
+    let cleanupDone = false;
+    const cleanup = () => {
+      if (!cleanupDone && winningModel) {
+        cleanupDone = true;
+        winningModel.inFlight = Math.max(0, winningModel.inFlight - 1);
+      }
+    };
 
-    // Zero-copy stream pipe with full lifecycle cleanup (flush & cancel)
+    req.signal.addEventListener('abort', cleanup, { once: true });
+
+    // Zero-copy stream pipe with full lifecycle cleanup
     const transformStream = new TransformStream({
       flush() {
-        if (winningModel) {
-          winningModel.inFlight = Math.max(0, winningModel.inFlight - 1);
-        }
-      },
-      cancel() {
-        if (winningModel) {
-          winningModel.inFlight = Math.max(0, winningModel.inFlight - 1);
-        }
+        cleanup();
       }
     });
 
