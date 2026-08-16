@@ -12,46 +12,23 @@ interface ModelNode {
   cooldownUntil: number;
 }
 
-// PRODUCTION HIGH-SPEED INFERENCE POOL: Sub-700ms TTFT across ALL workloads
-const MODEL_POOL: ModelNode[] = [
-  { name: 'gemini-3.5-flash-lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { name: 'gemini-flash-lite-latest', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { name: 'gemma-4-31b-it', version: 'v1beta', inFlight: 0, cooldownUntil: 0 }, // Gemma 4 31B IT Fallback
-];
+// PRIMARY & EXCLUSIVE FALLBACK MODEL DEFINITION
+const PRIMARY_MODEL: ModelNode = { 
+  name: 'gemini-3.5-flash-lite', 
+  version: 'v1beta', 
+  inFlight: 0, 
+  cooldownUntil: 0 
+};
 
-/**
- * Isolate-Safe Least-In-Flight (LIF) Load Balancer:
- * Distributes requests across models with minimum active load.
- * When multiple models share lowest load (e.g. 0 across separate Edge isolates),
- * uses uniform random tie-breaking to prevent concurrency stampedes.
- */
-function selectLeastLoadedModel(pool: ModelNode[], excludedNames: Set<string>): ModelNode {
-  const now = Date.now();
-  const eligible = pool.filter(m => !excludedNames.has(m.name) && m.cooldownUntil <= now);
-  
-  if (eligible.length === 0) {
-    let earliest = Infinity;
-    let fallback = pool[0];
-    for (const m of pool) {
-      if (!excludedNames.has(m.name) && m.cooldownUntil < earliest) {
-        earliest = m.cooldownUntil;
-        fallback = m;
-      }
-    }
-    return fallback;
-  }
+const FALLBACK_MODEL: ModelNode = { 
+  name: 'gemma-4-31b-it', 
+  version: 'v1beta', 
+  inFlight: 0, 
+  cooldownUntil: 0 
+};
 
-  let minLoad = Infinity;
-  for (const m of eligible) {
-    if (m.inFlight < minLoad) {
-      minLoad = m.inFlight;
-    }
-  }
-
-  const bestCandidates = eligible.filter(m => m.inFlight === minLoad);
-  const randomIndex = Math.floor(Math.random() * bestCandidates.length);
-  return bestCandidates[randomIndex];
-}
+// Pipeline order: Try Primary (Gemini 3.5 Flash Lite) -> Fallback ONLY to Gemma 4 31B IT
+const MODEL_PIPELINE: ModelNode[] = [PRIMARY_MODEL, FALLBACK_MODEL];
 
 export default async function handler(req: Request) {
   // CORS Preflight
@@ -122,17 +99,22 @@ export default async function handler(req: Request) {
 
     const payloadJson = JSON.stringify(upstreamPayload);
 
-    // 4. Least-In-Flight Dispatch with Zero-Stall Fast Failover
+    // 4. Primary Dispatch with Direct Failover ONLY to Gemma 4 31B IT
     let upstreamRes: Response | null = null;
     let winningModel: ModelNode | null = null;
-    const excludedNames = new Set<string>();
+    const now = Date.now();
 
-    for (let attempt = 0; attempt < MODEL_POOL.length; attempt++) {
-      const candidate = selectLeastLoadedModel(MODEL_POOL, excludedNames);
-      excludedNames.add(candidate.name);
+    for (let i = 0; i < MODEL_PIPELINE.length; i++) {
+      const candidate = MODEL_PIPELINE[i];
+
+      // If candidate is in active cooldown and we have a fallback, skip to fallback
+      if (candidate.cooldownUntil > now && i < MODEL_PIPELINE.length - 1) {
+        continue;
+      }
+
       candidate.inFlight++;
-
       const url = `https://generativelanguage.googleapis.com/${candidate.version}/models/${candidate.name}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+      
       try {
         const res = await fetch(url, {
           method: 'POST',
@@ -143,8 +125,8 @@ export default async function handler(req: Request) {
 
         if (res.status === 429 || res.status === 503 || res.status === 404) {
           candidate.inFlight = Math.max(0, candidate.inFlight - 1);
-          candidate.cooldownUntil = Date.now() + 20000; // 20s cooldown on quota exhaustion
-          continue;
+          candidate.cooldownUntil = Date.now() + 20000; // 20s cooldown on quota limits
+          continue; // Trigger fallback to Gemma 4 31B IT
         }
 
         if (res.ok) {
@@ -165,7 +147,7 @@ export default async function handler(req: Request) {
     if (!upstreamRes || !upstreamRes.body || !winningModel) {
       return new Response(JSON.stringify({
         error: 'AI Inference Unavailable',
-        details: 'All models in pool currently rate-limited or in cooldown.'
+        details: 'Primary model and Gemma 4 31B fallback are currently rate-limited or unavailable.'
       }), {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
