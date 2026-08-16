@@ -35,7 +35,7 @@ function classifyRequest(prompt: string): RequestClass {
   const lower = prompt.toLowerCase();
 
   if (len < 60 && !lower.includes('code') && !lower.includes('debug') && !lower.includes('design')) {
-    if (/^(hi|hello|hey|what is|how are you|2s*+|d+s*[+-*/]s*d+|translate)/i.test(lower)) {
+    if (/^(hi|hello|hey|what is|how are you|translate|\d+\s*[+*/-]\s*\d+)/i.test(lower)) {
       return 'SIMPLE';
     }
   }
