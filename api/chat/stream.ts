@@ -2,8 +2,8 @@ export const config = {
   runtime: 'edge',
 };
 
-// Fail-closed secret management: API key MUST exist in server environment
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyA8EzYKrwn5RRpTwShYcqVsPLdfPG-4aRg";
+// Fail-closed server-side secret management: Zero hardcoded fallback
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 interface ModelNode {
   name: string;
@@ -12,7 +12,7 @@ interface ModelNode {
   cooldownUntil: number;
 }
 
-// PRODUCTION HIGH-SPEED INFERENCE POOL: Sub-700ms TTFT across ALL workloads (Simple, Normal & Complex)
+// PRODUCTION HIGH-SPEED INFERENCE POOL: Sub-700ms TTFT across ALL workloads
 const MODEL_POOL: ModelNode[] = [
   { name: 'gemini-3.5-flash-lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
   { name: 'gemini-flash-lite-latest', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
@@ -78,7 +78,15 @@ export default async function handler(req: Request) {
   const t_start = performance.now();
 
   try {
-    // 1. Cryptographic Authentication Guard
+    // 1. Strict Fail-Closed Environment Check
+    if (!GEMINI_API_KEY) {
+      return new Response(JSON.stringify({ error: 'Server Configuration Error: Missing GEMINI_API_KEY environment variable' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. Cryptographic Authentication Guard
     const authHeader = req.headers.get('Authorization') || req.headers.get('x-chatbot-token');
     if (!authHeader || authHeader.length < 4) {
       return new Response(JSON.stringify({ error: 'Unauthorized: Missing or invalid authentication token' }), {
@@ -87,7 +95,7 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 2. Request Validation & Bounded Size Guard (32KB limit)
+    // 3. Request Validation & Bounded Size Guard (32KB limit)
     const body = await req.json().catch(() => null);
     if (!body || typeof body.prompt !== 'string' || !body.prompt.trim()) {
       return new Response(JSON.stringify({ error: 'Bad Request: Missing or invalid prompt' }), {
@@ -114,7 +122,7 @@ export default async function handler(req: Request) {
 
     const payloadJson = JSON.stringify(upstreamPayload);
 
-    // 3. Least-In-Flight Dispatch with Zero-Stall Fast Failover
+    // 4. Least-In-Flight Dispatch with Zero-Stall Fast Failover
     let upstreamRes: Response | null = null;
     let winningModel: ModelNode | null = null;
     const excludedNames = new Set<string>();

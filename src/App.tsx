@@ -2001,7 +2001,7 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
 // --- WEBHOOK CONFIGURATION
 // ==========================================
 
-const N8N_WEBHOOK_URL = "https://aliiis-24-7-n8n.hf.space/webhook/9373cba5-102c-4b45-9dbf-5248fd3c40af";
+const N8N_WEBHOOK_URL = "/api/webhook/execute";
 
 // ==========================================
 // --- UTILITY FUNCTIONS
@@ -2141,7 +2141,7 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
   const nextStartTimeRef = useRef(0);
   const animationFrameRef = useRef(null);
 
-  const DEEPGRAM_API_KEY = "4262e8484c78a0aee525521e1be3b65abd58ab5e"; 
+  // Deepgram credential securely handled via /api/voice/token 
   
   const requestWakeLock = async () => {
     if ('wakeLock' in navigator) {
