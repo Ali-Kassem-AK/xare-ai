@@ -3153,19 +3153,14 @@ const AI_PRESETS = [
       const fetchedChats = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        const isOldGreeting = (m: any) => m.sender === 'bot' && m.text && (
-          m.text.includes("I am Xare. How can I assist you today?") ||
-          m.text.includes("How can I assist you today?")
-        );
 
         const messages = (data.messages || [])
-          .filter((msg: any) => !isOldGreeting(msg))
-          .map(msg => {
+          .map((msg: any) => {
             const isStreamingActive = ACTIVELY_STREAMING_IDS.has(msg.id) || msg.id === streamingMessageId;
             const vaultItem = STREAMING_TEXT_VAULT.get(msg.id);
             let effectiveText = msg.text;
             if (isStreamingActive || vaultItem) {
-              effectiveText = vaultItem ? vaultItem.partialText : "";
+              effectiveText = vaultItem ? vaultItem.partialText : (msg.text || "");
             }
             return {
               ...msg,
@@ -3194,9 +3189,29 @@ const AI_PRESETS = [
           fetchedChats.unshift(initChat);
           setCurrentChatId(initChatId);
           hasInitializedRef.current = true;
+          setChatHistory(fetchedChats);
+          return;
       }
 
-      setChatHistory(fetchedChats);
+      setChatHistory(prevChats => {
+        return fetchedChats.map(fetched => {
+          const prev = prevChats.find(p => p.id === fetched.id);
+          if (!prev || !prev.messages) return fetched;
+
+          const fetchedIds = new Set((fetched.messages || []).map((m: any) => m.id));
+          const pendingLocalMessages = (prev.messages || []).filter((m: any) => 
+            !fetchedIds.has(m.id) && (ACTIVELY_STREAMING_IDS.has(m.id) || STREAMING_TEXT_VAULT.has(m.id) || m.id === streamingMessageId || m.sender === 'bot')
+          );
+
+          if (pendingLocalMessages.length > 0) {
+            return {
+              ...fetched,
+              messages: [...fetched.messages, ...pendingLocalMessages]
+            };
+          }
+          return fetched;
+        });
+      });
     }, (error) => {
       console.warn("Chat history listener blocked by rules (ignoring safely):", error);
     });
@@ -3581,6 +3596,25 @@ const AI_PRESETS = [
     streamBotResponse(msgId, text, targetChatId);
   };
 
+  const persistBotMessageToFirestore = useCallback((targetChatId: string, botMsg: any, finalText: string) => {
+    if (!currentUser || currentUser.id === 'guest-user' || currentUser.id === 'preview-user') return;
+    const chatRef = doc(db, 'users', currentUser.id, 'chats', targetChatId);
+    const msgToSave = { ...botMsg, text: finalText };
+
+    getDoc(chatRef).then(latestChatSnap => {
+      if (latestChatSnap.exists()) {
+        const latestChatData = latestChatSnap.data();
+        const existingMsgs = latestChatData.messages || [];
+        const filtered = existingMsgs.filter((m: any) => m.id !== botMsg.id);
+        setDoc(chatRef, { 
+          ...latestChatData, 
+          messages: [...filtered, msgToSave], 
+          updatedAt: new Date() 
+        }, { merge: true }).catch(err => console.warn("Failed to persist bot message:", err));
+      }
+    }).catch(err => console.warn("Failed to fetch chat for bot message sync:", err));
+  }, [currentUser]);
+
   const switchChat = (chatId: string) => {
     if (streamingAnimFrameRef.current) {
       cancelAnimationFrame(streamingAnimFrameRef.current);
@@ -3812,6 +3846,7 @@ const AI_PRESETS = [
 
       streamBotResponse(newGeminiMsg.id, finalAnswer, currentChatId, () => {
         triggerSuggestions(finalAnswer);
+        persistBotMessageToFirestore(currentChatId, newGeminiMsg, finalAnswer);
       });
 
     } catch (err) {
@@ -3819,7 +3854,7 @@ const AI_PRESETS = [
       setIsLoading(false);
       setActiveLoadingChatId(null);
     }
-  }, [chatHistory, currentChatId]);
+  }, [chatHistory, currentChatId, persistBotMessageToFirestore]);
 
   const handleSwitchToXareAPI = useCallback((msgId: string) => {
     setChatModelModes(prev => ({ ...prev, [currentChatId]: 'xare' }));
@@ -3987,6 +4022,7 @@ const AI_PRESETS = [
 
         streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
           triggerSuggestions(finalAnswer);
+          persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
         });
         return;
       } catch (err) {
@@ -4080,6 +4116,7 @@ const AI_PRESETS = [
 
             streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
               triggerSuggestions(finalAnswer);
+              persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
             });
           }).catch(err => {
             console.error("Auto Gemini fallback error:", err);
@@ -4141,31 +4178,17 @@ const AI_PRESETS = [
            setLoadingType(null);
            setIsGeneratingImage(false);
 
-           const syncFinalToFirestore = (finalText: string) => {
-             const finalMsg = { ...newBotMsg, text: finalText };
-             getDoc(chatRef).then(latestChatSnap => {
-               if (latestChatSnap.exists()) {
-                 const latestChatData = latestChatSnap.data();
-                 setDoc(chatRef, { 
-                   ...latestChatData, 
-                   messages: [...(latestChatData.messages || []).filter((m: any) => m.id !== taskId), finalMsg], 
-                   updatedAt: new Date() 
-                 });
-               }
-             });
-           };
-
            if (shouldStream) {
-             streamBotResponse(taskId, rawBotText, targetChatId, () => {
-               triggerSuggestions(rawBotText);
-               syncFinalToFirestore(rawBotText);
-             });
-           } else {
-             if (rawBotText && finalAction !== 'generate_image') {
-               triggerSuggestions(rawBotText);
-             }
-             syncFinalToFirestore(rawBotText);
-           }
+            streamBotResponse(taskId, rawBotText, targetChatId, () => {
+              triggerSuggestions(rawBotText);
+              persistBotMessageToFirestore(targetChatId, newBotMsg, rawBotText);
+            });
+          } else {
+            if (rawBotText && finalAction !== 'generate_image') {
+              triggerSuggestions(rawBotText);
+            }
+            persistBotMessageToFirestore(targetChatId, newBotMsg, rawBotText);
+          }
         }
       };
 
@@ -4276,6 +4299,7 @@ const AI_PRESETS = [
 
         streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
           triggerSuggestions(finalAnswer);
+          persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
         });
       }).catch(err => {
         console.error("Auto Gemini fallback error:", err);
