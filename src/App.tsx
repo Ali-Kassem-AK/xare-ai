@@ -77,7 +77,7 @@ export const GLOW_ANIMATION_CONFIG = {
  * - [toolName].thinking / analyzingPossibilities / readingSources / processingAudio: Durations for subsequent stages.
  */
 export const TOOL_PHASE_DURATIONS = {
-  sendingDurationMs: 1500,         // Time for the initial 'Sending' animation (Default: 600ms)
+  sendingDurationMs: 2500,         // Time for the initial 'Sending' animation (Default: 600ms)
 
   think: {
     analyzingPossibilities: 8000, // Time before switching from 'Thinking deeply' to 'Analyzing possibilities'
