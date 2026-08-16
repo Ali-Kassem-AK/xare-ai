@@ -12,14 +12,14 @@ interface ModelNode {
   cooldownUntil: number;
 }
 
-// FAST POOL: Exclusively low-latency, high-throughput production models (Sub-600ms TTFT)
+// FAST POOL: Verified low-latency GA models (< 600ms TTFT)
 const FAST_MODELS: ModelNode[] = [
   { name: 'gemini-3.5-flash-lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
   { name: 'gemini-flash-lite-latest', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
   { name: 'gemini-2.5-flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
 ];
 
-// REASONING POOL: Strictly for complex multi-step reasoning & system architecture
+// REASONING POOL: Strictly for complex multi-step tasks & system architecture
 const REASONING_MODELS: ModelNode[] = [
   { name: 'gemini-3.6-flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
   { name: 'gemini-3.5-flash-lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
@@ -43,35 +43,37 @@ function isComplexRequest(prompt: string): boolean {
 }
 
 /**
- * Least-In-Flight (LIF) Load Balancer: Selects healthiest model with minimal active load
+ * Isolate-Safe Least-In-Flight (LIF) Load Balancer:
+ * Distributes requests across models with minimum active load.
+ * When multiple models share lowest load (e.g. 0 across separate Edge isolates),
+ * uses uniform random tie-breaking to prevent concurrency stampedes.
  */
 function selectLeastLoadedModel(pool: ModelNode[], excludedNames: Set<string>): ModelNode {
   const now = Date.now();
-  let best: ModelNode | null = null;
-  let minLoad = Infinity;
-
-  for (const m of pool) {
-    if (excludedNames.has(m.name)) continue;
-    if (m.cooldownUntil > now) continue;
-
-    if (m.inFlight < minLoad) {
-      minLoad = m.inFlight;
-      best = m;
-    }
-  }
-
-  if (!best) {
+  const eligible = pool.filter(m => !excludedNames.has(m.name) && m.cooldownUntil <= now);
+  
+  if (eligible.length === 0) {
     let earliest = Infinity;
+    let fallback = pool[0];
     for (const m of pool) {
-      if (excludedNames.has(m.name)) continue;
-      if (m.cooldownUntil < earliest) {
+      if (!excludedNames.has(m.name) && m.cooldownUntil < earliest) {
         earliest = m.cooldownUntil;
-        best = m;
+        fallback = m;
       }
     }
+    return fallback;
   }
 
-  return best || pool[0];
+  let minLoad = Infinity;
+  for (const m of eligible) {
+    if (m.inFlight < minLoad) {
+      minLoad = m.inFlight;
+    }
+  }
+
+  const bestCandidates = eligible.filter(m => m.inFlight === minLoad);
+  const randomIndex = Math.floor(Math.random() * bestCandidates.length);
+  return bestCandidates[randomIndex];
 }
 
 export default async function handler(req: Request) {
@@ -137,7 +139,7 @@ export default async function handler(req: Request) {
 
     const payloadJson = JSON.stringify(upstreamPayload);
 
-    // 3. Least-In-Flight Dispatch with Zero-Stall Tiered Failover
+    // 3. Least-In-Flight Dispatch with Zero-Stall Fast-Tier Failover
     let upstreamRes: Response | null = null;
     let winningModel: ModelNode | null = null;
     const excludedNames = new Set<string>();
@@ -158,7 +160,7 @@ export default async function handler(req: Request) {
 
         if (res.status === 429 || res.status === 503 || res.status === 404) {
           candidate.inFlight = Math.max(0, candidate.inFlight - 1);
-          candidate.cooldownUntil = Date.now() + 20000; // 20s cooldown for quota exhaustion
+          candidate.cooldownUntil = Date.now() + 20000; // 20s cooldown on rate limit
           continue;
         }
 
@@ -189,9 +191,14 @@ export default async function handler(req: Request) {
 
     const dispatchTime = performance.now() - t_start;
 
-    // Zero-copy stream pipe with inFlight cleanup on completion
+    // Zero-copy stream pipe with full lifecycle cleanup (flush & cancel)
     const transformStream = new TransformStream({
       flush() {
+        if (winningModel) {
+          winningModel.inFlight = Math.max(0, winningModel.inFlight - 1);
+        }
+      },
+      cancel() {
         if (winningModel) {
           winningModel.inFlight = Math.max(0, winningModel.inFlight - 1);
         }
