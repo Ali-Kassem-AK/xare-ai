@@ -12,35 +12,12 @@ interface ModelNode {
   cooldownUntil: number;
 }
 
-// FAST POOL: Verified low-latency GA models (< 600ms TTFT)
-const FAST_MODELS: ModelNode[] = [
+// PRODUCTION HIGH-SPEED INFERENCE POOL: Sub-700ms TTFT across ALL workloads (Simple, Normal & Complex)
+const MODEL_POOL: ModelNode[] = [
   { name: 'gemini-3.5-flash-lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
   { name: 'gemini-flash-lite-latest', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
   { name: 'gemini-2.5-flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
 ];
-
-// REASONING POOL: Strictly for complex multi-step tasks & system architecture
-const REASONING_MODELS: ModelNode[] = [
-  { name: 'gemini-3.6-flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { name: 'gemini-3.5-flash-lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-];
-
-/**
- * Lightweight Deterministic Request Classifier (< 0.02ms)
- */
-function isComplexRequest(prompt: string): boolean {
-  const len = prompt.trim().length;
-  const lower = prompt.toLowerCase();
-
-  return (
-    len > 400 ||
-    lower.includes('architecture') ||
-    lower.includes('distributed system') ||
-    lower.includes('mathematical proof') ||
-    lower.includes('trade-offs and failover') ||
-    (lower.includes('step-by-step') && lower.includes('proof'))
-  );
-}
 
 /**
  * Isolate-Safe Least-In-Flight (LIF) Load Balancer:
@@ -127,8 +104,6 @@ export default async function handler(req: Request) {
     }
 
     const { prompt, systemInstruction } = body;
-    const isComplex = isComplexRequest(prompt);
-    const pool = isComplex ? REASONING_MODELS : FAST_MODELS;
 
     const upstreamPayload: any = {
       contents: [{ parts: [{ text: prompt }] }],
@@ -139,13 +114,13 @@ export default async function handler(req: Request) {
 
     const payloadJson = JSON.stringify(upstreamPayload);
 
-    // 3. Least-In-Flight Dispatch with Zero-Stall Fast-Tier Failover
+    // 3. Least-In-Flight Dispatch with Zero-Stall Fast Failover
     let upstreamRes: Response | null = null;
     let winningModel: ModelNode | null = null;
     const excludedNames = new Set<string>();
 
-    for (let attempt = 0; attempt < pool.length; attempt++) {
-      const candidate = selectLeastLoadedModel(pool, excludedNames);
+    for (let attempt = 0; attempt < MODEL_POOL.length; attempt++) {
+      const candidate = selectLeastLoadedModel(MODEL_POOL, excludedNames);
       excludedNames.add(candidate.name);
       candidate.inFlight++;
 
@@ -160,7 +135,7 @@ export default async function handler(req: Request) {
 
         if (res.status === 429 || res.status === 503 || res.status === 404) {
           candidate.inFlight = Math.max(0, candidate.inFlight - 1);
-          candidate.cooldownUntil = Date.now() + 20000; // 20s cooldown on rate limit
+          candidate.cooldownUntil = Date.now() + 20000; // 20s cooldown on quota exhaustion
           continue;
         }
 
@@ -217,7 +192,6 @@ export default async function handler(req: Request) {
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
         'x-request-id': requestId,
-        'x-request-class': isComplex ? 'COMPLEX' : 'STANDARD',
         'x-serving-model': `${winningModel.version}/${winningModel.name}`,
         'x-edge-dispatch-ms': `${dispatchTime.toFixed(2)}`,
         'Access-Control-Allow-Origin': '*',
