@@ -77,7 +77,7 @@ export const GLOW_ANIMATION_CONFIG = {
  * - [toolName].thinking / analyzingPossibilities / readingSources / processingAudio: Durations for subsequent stages.
  */
 export const TOOL_PHASE_DURATIONS = {
-  sendingDurationMs: 600,         // Time for the initial 'Sending' animation (Default: 600ms)
+  sendingDurationMs: 1500,         // Time for the initial 'Sending' animation (Default: 600ms)
 
   think: {
     analyzingPossibilities: 8000, // Time before switching from 'Thinking deeply' to 'Analyzing possibilities'
@@ -86,11 +86,11 @@ export const TOOL_PHASE_DURATIONS = {
     processingAudio: 6000,        // Time before switching from 'Listening' to 'Processing audio'
   },
   image: {
-    analyzingImage: 3500,         // Time before switching from 'Parsing Image' to 'Analyzing image'
+    analyzingImage: 4500,         // Time before switching from 'Parsing Image' to 'Analyzing image'
     thinking: 6000,               // Time before switching from 'Analyzing image' to 'Thinking'
   },
   document: {
-    analyzingDocument: 4000,      // Time before switching from 'Parsing PDF' to 'Analyzing document'
+    analyzingDocument: 5000,      // Time before switching from 'Parsing PDF' to 'Analyzing document'
     thinking: 16000,              // Time before switching from 'Analyzing document' to 'Thinking'
   },
   summarize: {
@@ -3234,21 +3234,21 @@ const AI_PRESETS = [
       timeoutSending = setTimeout(() => {
         switch(loadingType) {
           case 'think':
-            setLoadingPhase('Thinking deeply');
+            setLoadingPhase('Thinking Deeply');
             timeout1 = setTimeout(() => {
-              setLoadingPhase('Analyzing possibilities');
+              setLoadingPhase('Analyzing Possibilities');
             }, TOOL_PHASE_DURATIONS.think.analyzingPossibilities);
             break;
           case 'audio':
-            setLoadingPhase('Listening');
+            setLoadingPhase('Transcribing');
             timeout1 = setTimeout(() => {
-              setLoadingPhase('Processing audio');
+              setLoadingPhase('Processing Audio');
             }, TOOL_PHASE_DURATIONS.audio.processingAudio); 
             break;
           case 'image':
             setLoadingPhase('Parsing Image');
             timeout1 = setTimeout(() => {
-              setLoadingPhase('Analyzing image');
+              setLoadingPhase('Analyzing Image');
               timeout2 = setTimeout(() => {
                 setLoadingPhase('Thinking');
               }, TOOL_PHASE_DURATIONS.image.thinking);
@@ -3257,7 +3257,7 @@ const AI_PRESETS = [
           case 'document':
             setLoadingPhase('Parsing PDF');
             timeout1 = setTimeout(() => {
-              setLoadingPhase('Analyzing document');
+              setLoadingPhase('Analyzing Document');
               timeout2 = setTimeout(() => {
                 setLoadingPhase('Thinking');
               }, TOOL_PHASE_DURATIONS.document.thinking);
@@ -3270,16 +3270,16 @@ const AI_PRESETS = [
             }, TOOL_PHASE_DURATIONS.summarize.thinking);
             break;
           case 'search':
-            setLoadingPhase('Searching web');
+            setLoadingPhase('Searching Web');
             timeout1 = setTimeout(() => {
-              setLoadingPhase('Reading sources');
+              setLoadingPhase('Reading Sources');
               timeout2 = setTimeout(() => {
                 setLoadingPhase('Thinking');
               }, TOOL_PHASE_DURATIONS.search.thinking);
             }, TOOL_PHASE_DURATIONS.search.readingSources);
             break;
           case 'explain':
-            setLoadingPhase('Analyzing code');
+            setLoadingPhase('Analyzing Code');
             timeout1 = setTimeout(() => {
               setLoadingPhase('Thinking');
             }, TOOL_PHASE_DURATIONS.explain.thinking);
@@ -3291,7 +3291,7 @@ const AI_PRESETS = [
             }, TOOL_PHASE_DURATIONS.translate.thinking);
             break;
           case 'fix':
-            setLoadingPhase('Analyzing grammar');
+            setLoadingPhase('Analyzing Grammar');
             timeout1 = setTimeout(() => {
               setLoadingPhase('Thinking');
             }, TOOL_PHASE_DURATIONS.fix.thinking);
