@@ -19,6 +19,14 @@ export default async function handler(req: Request) {
     });
   }
 
+  // Method check
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     // 1. Strict Fail-Closed Secret Resolution
     if (!DEEPGRAM_API_KEY) {
