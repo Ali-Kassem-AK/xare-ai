@@ -20,7 +20,7 @@ import {
 // ==========================================
 // --- TOKEN LIMIT & REDIRECTION CONFIG
 // ==========================================
-export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached their free usage limit. Please try another tool, such as **Deep Thinking**, **Generate Image**, or **Upload Image or PDF**, or try again in a few minutes. Want to continue the conversation immediately? We’ll automatically switch you to **Gemini AI** so you can continue without interruption.`;
+export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached their free usage limit. Please try another tool, such as **Deep Thinking**, **Generate Image**, or **Upload Image or PDF**, or try again in a few minutes. Want to continue the conversation immediately? We’ll automatically switch you to **Gemma 4 31B AI** so you can continue without interruption.`;
 
 // ==========================================
 // --- STREAMING SPEED & TICK INTERVAL CONFIG
@@ -3843,7 +3843,7 @@ const AI_PRESETS = [
       id: generateUniqueId(),
       text: "",
       sender: 'bot',
-      modelEngine: 'gemini',
+      modelEngine: 'gemma-4-31b',
       timestamp: new Date()
     };
 
