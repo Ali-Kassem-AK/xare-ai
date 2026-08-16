@@ -238,101 +238,9 @@ const getLatestChatActivityTime = (chat: any): number => {
  * Universal helper to interact directly with the Gemini API.
  * Uses a smart Endpoint Resolver to automatically find the correct internal API string for Gemini 3.1 Flash Lite.
  */
-let CACHED_GEMINI_ENDPOINT: { version: string; id: string } | null = { version: "v1alpha", id: "gemini-3.1-flash-lite" };
-
-const callGeminiAPI = async (prompt, systemInstruction = "", isJson = false) => {
-  const apiKey = "AIzaSyA8EzYKrwn5RRpTwShYcqVsPLdfPG-4aRg"; 
-  
-  let payload = { contents: [{ parts: [{ text: prompt }] }] };
-  
-  if (systemInstruction) {
-    payload.systemInstruction = { parts: [{ text: systemInstruction }] };
-  }
-  
-  if (isJson) {
-    payload.generationConfig = { 
-        responseMimeType: "application/json",
-        responseSchema: { type: "ARRAY", items: { type: "STRING" } }
-    };
-  }
-
-  // Active Endpoint Cache: Memorizes the working endpoint to bypass resolution overhead on all subsequent calls
-  if (CACHED_GEMINI_ENDPOINT) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/${CACHED_GEMINI_ENDPOINT.version}/models/${CACHED_GEMINI_ENDPOINT.id}:generateContent?key=${apiKey}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      }
-    } catch (e) {
-      CACHED_GEMINI_ENDPOINT = null; // Invalidate cache on network error
-    }
-  }
-
-  // Smart Endpoint Resolver: Tests active endpoints in priority order
-  const fallbackEndpoints = [
-    { version: "v1alpha", id: "gemini-3.1-flash-lite" },
-    { version: "v1beta", id: "gemini-3.1-flash-lite" },
-    { version: "v1beta", id: "gemini-1.5-flash" },
-    { version: "v1beta", id: "gemini-2.0-flash" }
-  ];
-
-  let lastError;
-  let delay = 1000;
-
-  const MAX_RETRIES = 3;
-
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    for (const config of fallbackEndpoints) {
-      const url = `https://generativelanguage.googleapis.com/${config.version}/models/${config.id}:generateContent?key=${apiKey}`;
-      
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        
-        if (!res.ok) {
-          if (res.status === 404) {
-            continue; 
-          }
-          const errorData = await res.json().catch(() => ({}));
-          console.error(`API Error [${config.id}]:`, errorData);
-          throw new Error(`HTTP Error ${res.status}`);
-        }
-        
-        const data = await res.json();
-        CACHED_GEMINI_ENDPOINT = config; // Cache the successful endpoint
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        
-      } catch (err: any) {
-        lastError = err;
-        if (err.message && err.message.includes("404")) continue;
-        break;
-      }
-    }
-    
-    // If all variations throw 404, stop trying to delay. The model is completely offline or gated.
-    if (lastError && lastError.message.includes("404")) {
-      console.error("All Gemini 3.1 Flash Lite endpoint variations returned 404.");
-      throw lastError;
-    }
-
-    await new Promise(r => setTimeout(r, delay));
-    delay *= 2;
-  }
-  throw lastError;
-};
-
 /**
- * Real-time SSE Stream Consumer for Gemini 3.1 Flash Lite.
- * Delivers incremental tokens with sub-second Time To First Token (TTFT < 800ms).
+ * Secure Server-Side Stream Consumer.
+ * Connects to /api/chat/stream on the Vercel Edge runtime with zero client-side credential exposure.
  */
 const callGeminiAPIStream = async (
   prompt: string,
@@ -340,17 +248,18 @@ const callGeminiAPIStream = async (
   systemInstruction = "",
   signal?: AbortSignal
 ): Promise<string> => {
-  const apiKey = "AIzaSyA8EzYKrwn5RRpTwShYcqVsPLdfPG-4aRg";
-  const url = `https://generativelanguage.googleapis.com/v1alpha/models/gemini-3.1-flash-lite:streamGenerateContent?alt=sse&key=${apiKey}`;
-  
-  const payload: any = { contents: [{ parts: [{ text: prompt }] }] };
+  const payload: any = { prompt };
   if (systemInstruction) {
-    payload.systemInstruction = { parts: [{ text: systemInstruction }] };
+    payload.systemInstruction = systemInstruction;
   }
 
-  const res = await fetch(url, {
+  const res = await fetch('/api/chat/stream', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-chatbot-token': 'ali1234',
+      'x-user-id': 'auth_session_user'
+    },
     body: JSON.stringify(payload),
     signal
   });
@@ -360,7 +269,7 @@ const callGeminiAPIStream = async (
   }
 
   const reader = res.body?.getReader();
-  if (!reader) throw new Error("No readable stream");
+  if (!reader) throw new Error("No readable stream available from server proxy");
 
   const decoder = new TextDecoder();
   let accumulated = "";
@@ -386,13 +295,28 @@ const callGeminiAPIStream = async (
             onChunk(accumulated, chunkText);
           }
         } catch (e) {
-          // ignore partial JSON parse
+          // Ignore partial chunk parse
         }
       }
     }
   }
 
   return accumulated;
+};
+
+const callGeminiAPI = async (prompt: string, systemInstruction = "", isJson = false) => {
+  let result = "";
+  try {
+    result = await callGeminiAPIStream(prompt, () => {}, systemInstruction);
+    if (isJson) {
+      const match = result.match(/\[[\s\S]*\]/);
+      if (match) return match[0];
+    }
+    return result;
+  } catch (err) {
+    console.error("Secure API stream failure:", err);
+    throw err;
+  }
 };
 
 // ==========================================
