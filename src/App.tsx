@@ -86,10 +86,12 @@ export const TOOL_PHASE_DURATIONS = {
     processingAudio: 6000,        // Time before switching from 'Listening' to 'Processing audio'
   },
   image: {
-    thinking: 9000,               // Time before switching from 'Analyzing image' to 'Thinking'
+    analyzingImage: 3500,         // Time before switching from 'Parsing Image' to 'Analyzing image'
+    thinking: 6000,               // Time before switching from 'Analyzing image' to 'Thinking'
   },
   document: {
-    thinking: 20000,              // Time before switching from 'Analyzing document' to 'Thinking'
+    analyzingDocument: 4000,      // Time before switching from 'Parsing PDF' to 'Analyzing document'
+    thinking: 16000,              // Time before switching from 'Analyzing document' to 'Thinking'
   },
   summarize: {
     thinking: 5000,               // Time before switching from 'Summarizing' to 'Thinking'
@@ -3244,16 +3246,22 @@ const AI_PRESETS = [
             }, TOOL_PHASE_DURATIONS.audio.processingAudio); 
             break;
           case 'image':
-            setLoadingPhase('Analyzing image');
+            setLoadingPhase('Parsing Image');
             timeout1 = setTimeout(() => {
-              setLoadingPhase('Thinking');
-            }, TOOL_PHASE_DURATIONS.image.thinking);
+              setLoadingPhase('Analyzing image');
+              timeout2 = setTimeout(() => {
+                setLoadingPhase('Thinking');
+              }, TOOL_PHASE_DURATIONS.image.thinking);
+            }, TOOL_PHASE_DURATIONS.image.analyzingImage);
             break;
           case 'document':
-            setLoadingPhase('Analyzing document');
+            setLoadingPhase('Parsing PDF');
             timeout1 = setTimeout(() => {
-              setLoadingPhase('Thinking');
-            }, TOOL_PHASE_DURATIONS.document.thinking);
+              setLoadingPhase('Analyzing document');
+              timeout2 = setTimeout(() => {
+                setLoadingPhase('Thinking');
+              }, TOOL_PHASE_DURATIONS.document.thinking);
+            }, TOOL_PHASE_DURATIONS.document.analyzingDocument);
             break;
           case 'summarize':
             setLoadingPhase('Summarizing');
