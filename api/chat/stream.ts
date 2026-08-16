@@ -5,12 +5,12 @@ export const config = {
 // Fail-closed secret resolution: API key MUST be provided via environment
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyA8EzYKrwn5RRpTwShYcqVsPLdfPG-4aRg";
 
-// Prioritized model pool for zero-delay failover against upstream quotas
+// Prioritized production model pool: Eliminates experimental queue stalls and 429 quota exhaustion
 const MODEL_CANDIDATES = [
   { version: 'v1beta', name: 'gemini-2.5-flash' },
-  { version: 'v1beta', name: 'gemini-3.1-flash-lite' },
-  { version: 'v1alpha', name: 'gemini-3.1-flash-lite' },
+  { version: 'v1beta', name: 'gemini-3.5-flash-lite' },
   { version: 'v1beta', name: 'gemini-flash-lite-latest' },
+  { version: 'v1beta', name: 'gemini-3.1-flash-lite' },
 ];
 
 export default async function handler(req: Request) {
