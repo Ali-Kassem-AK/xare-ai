@@ -24,7 +24,8 @@ const MODEL_REGISTRY: Record<string, ModelHealthState> = {
   'gemini-3.5-flash-lite': { version: 'v1beta', name: 'gemini-3.5-flash-lite', inFlight: 0, ewmaTtft: 720, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'FAST' },
   'gemini-2.5-flash': { version: 'v1beta', name: 'gemini-2.5-flash', inFlight: 0, ewmaTtft: 650, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'BALANCED' },
   'gemini-3.6-flash': { version: 'v1beta', name: 'gemini-3.6-flash', inFlight: 0, ewmaTtft: 1500, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'REASONING' },
-  'gemini-3.5-flash': { version: 'v1beta', name: 'gemini-3.5-flash', inFlight: 0, ewmaTtft: 1600, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'REASONING' }
+  'gemini-3.5-flash': { version: 'v1beta', name: 'gemini-3.5-flash', inFlight: 0, ewmaTtft: 1600, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'REASONING' },
+  'gemini-3.1-flash-lite': { version: 'v1beta', name: 'gemini-3.1-flash-lite', inFlight: 0, ewmaTtft: 1200, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'BALANCED' }
 };
 
 /**
@@ -35,7 +36,7 @@ function classifyRequest(prompt: string): RequestClass {
   const lower = prompt.toLowerCase();
 
   if (len < 60 && !lower.includes('code') && !lower.includes('debug') && !lower.includes('design')) {
-    if (/^(hi|hello|hey|what is|how are you|translate|\d+\s*[+*/-]\s*\d+)/i.test(lower)) {
+    if (/^(hi|hello|hey|what is|how are you|translate|d+s*[+*/-]s*d+)/i.test(lower)) {
       return 'SIMPLE';
     }
   }
@@ -61,23 +62,23 @@ function classifyRequest(prompt: string): RequestClass {
  * Adaptive Predictive Scheduler: Selects model based on minimum predicted user latency.
  * Predicted_TTFT = EWMA * (1 + inFlight * 0.35) + (consecutiveErrors * 400)
  */
-function selectAdaptiveModel(reqClass: RequestClass, excludeName = ''): ModelHealthState {
+function selectAdaptiveModel(reqClass: RequestClass, excludedKeys: Set<string>): ModelHealthState {
   const now = Date.now();
   let candidateKeys: string[] = [];
 
   if (reqClass === 'SIMPLE') {
-    candidateKeys = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
+    candidateKeys = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'];
   } else if (reqClass === 'COMPLEX') {
-    candidateKeys = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite'];
+    candidateKeys = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
   } else {
-    candidateKeys = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash'];
+    candidateKeys = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'];
   }
 
   let best: ModelHealthState | null = null;
   let lowestPredictedTTFT = Infinity;
 
   for (const k of candidateKeys) {
-    if (k === excludeName) continue;
+    if (excludedKeys.has(k)) continue;
     const m = MODEL_REGISTRY[k];
     if (!m || m.cooldownUntil > now) continue;
 
@@ -89,9 +90,10 @@ function selectAdaptiveModel(reqClass: RequestClass, excludeName = ''): ModelHea
   }
 
   if (!best) {
+    // If all preferred models in the tier are excluded or in cooldown, scan all unexcluded models
     let earliest = Infinity;
     for (const k in MODEL_REGISTRY) {
-      if (k === excludeName) continue;
+      if (excludedKeys.has(k)) continue;
       const m = MODEL_REGISTRY[k];
       if (m.cooldownUntil < earliest) {
         earliest = m.cooldownUntil;
@@ -110,12 +112,12 @@ function updateMetrics(name: string, ttft: number, isSuccess: boolean, is429: bo
   m.totalRequests++;
 
   if (is429) {
-    m.cooldownUntil = Date.now() + 25000; // 25s cooldown for quota exhaustion
+    m.cooldownUntil = Date.now() + 20000; // 20s cooldown for quota exhaustion
     m.consecutiveErrors++;
   } else if (!isSuccess) {
     m.consecutiveErrors++;
     if (m.consecutiveErrors >= 2) {
-      m.cooldownUntil = Date.now() + 10000;
+      m.cooldownUntil = Date.now() + 8000;
     }
   } else {
     m.consecutiveErrors = 0;
@@ -187,67 +189,47 @@ export default async function handler(req: Request) {
 
     const payloadJson = JSON.stringify(upstreamPayload);
 
-    // 3. Adaptive Predictive Model Dispatch
-    let chosenModel = selectAdaptiveModel(reqClass);
-    chosenModel.inFlight++;
-
+    // 3. Adaptive Predictive Model Dispatch with Dynamic Fallover Loop
     let upstreamRes: Response | null = null;
-    let hedgeTriggered = false;
+    let winningModel: ModelHealthState | null = null;
+    const excludedKeys = new Set<string>();
 
-    // Speculative Micro-Hedging for SIMPLE traffic (Threshold: 950ms)
-    const primaryController = new AbortController();
-    const hedgeController = new AbortController();
+    const maxAttempts = Object.keys(MODEL_REGISTRY).length;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const candidate = selectAdaptiveModel(reqClass, excludedKeys);
+      excludedKeys.add(candidate.name);
+      candidate.inFlight++;
 
-    const fetchPrimary = async () => {
-      const url = `https://generativelanguage.googleapis.com/${chosenModel.version}/models/${chosenModel.name}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payloadJson,
-        signal: primaryController.signal,
-      });
-      return { res, model: chosenModel };
-    };
-
-    const attemptDispatch = async () => {
+      const url = `https://generativelanguage.googleapis.com/${candidate.version}/models/${candidate.name}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
       try {
-        const { res, model } = await fetchPrimary();
-        if (res.ok) {
-          upstreamRes = res;
-          chosenModel = model;
-          return;
-        } else {
-          updateMetrics(model.name, 0, false, res.status === 429);
-        }
-      } catch (e: any) {
-        updateMetrics(chosenModel.name, 0, false, false);
-      }
-
-      // Fallback probe
-      const fallbackModel = selectAdaptiveModel(reqClass, chosenModel.name);
-      fallbackModel.inFlight++;
-      try {
-        const url = `https://generativelanguage.googleapis.com/${fallbackModel.version}/models/${fallbackModel.name}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: payloadJson,
           signal: req.signal,
         });
+
+        if (res.status === 429 || res.status === 503 || res.status === 404) {
+          updateMetrics(candidate.name, 0, false, res.status === 429);
+          continue;
+        }
+
         if (res.ok) {
           upstreamRes = res;
-          chosenModel = fallbackModel;
+          winningModel = candidate;
+          break;
         } else {
-          updateMetrics(fallbackModel.name, 0, false, res.status === 429);
+          updateMetrics(candidate.name, 0, false, false);
         }
-      } catch(e) {
-        updateMetrics(fallbackModel.name, 0, false, false);
+      } catch (err: any) {
+        updateMetrics(candidate.name, 0, false, false);
+        if (req.signal.aborted) {
+          return new Response(null, { status: 499 });
+        }
       }
-    };
+    }
 
-    await attemptDispatch();
-
-    if (!upstreamRes || !upstreamRes.body) {
+    if (!upstreamRes || !upstreamRes.body || !winningModel) {
       return new Response(JSON.stringify({
         error: 'AI Inference Unavailable',
         details: 'All candidate models currently in cooldown or rate-limited.'
@@ -258,7 +240,7 @@ export default async function handler(req: Request) {
     }
 
     const ttft_ms = performance.now() - t_start;
-    updateMetrics(chosenModel.name, ttft_ms, true, false);
+    updateMetrics(winningModel.name, ttft_ms, true, false);
 
     // 4. Zero-Copy WebStream Flush to Client
     return new Response(upstreamRes.body, {
@@ -270,7 +252,7 @@ export default async function handler(req: Request) {
         'X-Accel-Buffering': 'no',
         'x-request-id': requestId,
         'x-request-class': reqClass,
-        'x-serving-model': `${chosenModel.version}/${chosenModel.name}`,
+        'x-serving-model': `${winningModel.version}/${winningModel.name}`,
         'x-edge-dispatch-ms': `${ttft_ms.toFixed(2)}`,
         'Access-Control-Allow-Origin': '*',
       },
