@@ -18,14 +18,13 @@ interface ModelHealthState {
   tier: 'FAST' | 'BALANCED' | 'REASONING';
 }
 
-// In-Memory Model Registry with Google Production Models
+// In-Memory Model Registry with Verified Fast Production Models (Pathological queueing models purged)
 const MODEL_REGISTRY: Record<string, ModelHealthState> = {
   'gemini-flash-lite-latest': { version: 'v1beta', name: 'gemini-flash-lite-latest', inFlight: 0, ewmaTtft: 580, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'FAST' },
   'gemini-3.5-flash-lite': { version: 'v1beta', name: 'gemini-3.5-flash-lite', inFlight: 0, ewmaTtft: 720, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'FAST' },
   'gemini-2.5-flash': { version: 'v1beta', name: 'gemini-2.5-flash', inFlight: 0, ewmaTtft: 650, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'BALANCED' },
   'gemini-3.6-flash': { version: 'v1beta', name: 'gemini-3.6-flash', inFlight: 0, ewmaTtft: 1500, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'REASONING' },
-  'gemini-3.5-flash': { version: 'v1beta', name: 'gemini-3.5-flash', inFlight: 0, ewmaTtft: 1600, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'REASONING' },
-  'gemini-3.1-flash-lite': { version: 'v1beta', name: 'gemini-3.1-flash-lite', inFlight: 0, ewmaTtft: 1200, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'BALANCED' }
+  'gemini-3.5-flash': { version: 'v1beta', name: 'gemini-3.5-flash', inFlight: 0, ewmaTtft: 1600, cooldownUntil: 0, consecutiveErrors: 0, totalRequests: 0, tier: 'REASONING' }
 };
 
 /**
@@ -67,11 +66,11 @@ function selectAdaptiveModel(reqClass: RequestClass, excludedKeys: Set<string>):
   let candidateKeys: string[] = [];
 
   if (reqClass === 'SIMPLE') {
-    candidateKeys = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'];
+    candidateKeys = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
   } else if (reqClass === 'COMPLEX') {
     candidateKeys = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
   } else {
-    candidateKeys = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-3.1-flash-lite'];
+    candidateKeys = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash'];
   }
 
   let best: ModelHealthState | null = null;
