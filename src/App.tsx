@@ -70,9 +70,15 @@ export const GLOW_ANIMATION_CONFIG = {
 // ==========================================
 /**
  * Control how long each loading animation/phase lasts before switching to the next step.
- * All values are in milliseconds (e.g. 5000 = 5 seconds, 3000 = 3 seconds).
+ * All values are in milliseconds (e.g. 500 = 0.5s, 1000 = 1s, 5000 = 5s).
+ * 
+ * ⏱️ QUICK TIME CONTROLS:
+ * - sendingDurationMs: Duration of the initial "Sending" animation before transitioning to the specific tool phase.
+ * - [toolName].thinking / analyzingPossibilities / readingSources / processingAudio: Durations for subsequent stages.
  */
 export const TOOL_PHASE_DURATIONS = {
+  sendingDurationMs: 600,         // Time for the initial 'Sending' animation (Default: 600ms)
+
   think: {
     analyzingPossibilities: 8000, // Time before switching from 'Thinking deeply' to 'Analyzing possibilities'
   },
@@ -83,7 +89,7 @@ export const TOOL_PHASE_DURATIONS = {
     thinking: 9000,               // Time before switching from 'Analyzing image' to 'Thinking'
   },
   document: {
-    thinking: 20000,               // Time before switching from 'Analyzing document' to 'Thinking'
+    thinking: 20000,              // Time before switching from 'Analyzing document' to 'Thinking'
   },
   summarize: {
     thinking: 5000,               // Time before switching from 'Summarizing' to 'Thinking'
@@ -2660,11 +2666,6 @@ export const ChatMessageItem = React.memo(({
     textToRender = TOKEN_LIMIT_REDIRECTION_MSG;
   }
 
-  // PURGE OLD INITIAL GREETING MESSAGE TOTALLY:
-  if (msg.sender === 'bot' && textToRender && (textToRender.includes("I am Xare. How can I assist you today?") || textToRender.includes("How can I assist you today?"))) {
-    return null;
-  }
-
   const handleSaveEdit = () => {
     if (editText.trim() && onEditPrompt) {
       onEditPrompt(msg.id, editText.trim());
@@ -3220,72 +3221,81 @@ const AI_PRESETS = [
   }, [currentUser]);
 
   useEffect(() => {
-    let timeout1, timeout2, timeout3;
+    let timeoutSending: any, timeout1: any, timeout2: any, timeout3: any;
     if (isLoading) {
-      switch(loadingType) {
-        case 'think':
-          setLoadingPhase('Thinking deeply');
-          timeout1 = setTimeout(() => {
-            setLoadingPhase('Analyzing possibilities');
-          }, TOOL_PHASE_DURATIONS.think.analyzingPossibilities);
-          break;
-        case 'audio':
-          setLoadingPhase('Listening');
-          timeout1 = setTimeout(() => {
-            setLoadingPhase('Processing audio');
-          }, TOOL_PHASE_DURATIONS.audio.processingAudio); 
-          break;
-        case 'image':
-          setLoadingPhase('Analyzing image');
-          timeout1 = setTimeout(() => {
-            setLoadingPhase('Thinking');
-          }, TOOL_PHASE_DURATIONS.image.thinking);
-          break;
-        case 'document':
-          setLoadingPhase('Analyzing document');
-          timeout1 = setTimeout(() => {
-            setLoadingPhase('Thinking');
-          }, TOOL_PHASE_DURATIONS.document.thinking);
-          break;
-        case 'summarize':
-          setLoadingPhase('Summarizing');
-          timeout1 = setTimeout(() => {
-            setLoadingPhase('Thinking');
-          }, TOOL_PHASE_DURATIONS.summarize.thinking);
-          break;
-        case 'search':
-          setLoadingPhase('Searching web');
-          timeout1 = setTimeout(() => {
-            setLoadingPhase('Reading sources');
-            timeout2 = setTimeout(() => {
+      // 1. Immediately start with "Sending" animation
+      setLoadingPhase('Sending');
+
+      const sendingMs = TOOL_PHASE_DURATIONS.sendingDurationMs || 600;
+
+      // 2. Transition from "Sending" to the specific tool phase
+      timeoutSending = setTimeout(() => {
+        switch(loadingType) {
+          case 'think':
+            setLoadingPhase('Thinking deeply');
+            timeout1 = setTimeout(() => {
+              setLoadingPhase('Analyzing possibilities');
+            }, TOOL_PHASE_DURATIONS.think.analyzingPossibilities);
+            break;
+          case 'audio':
+            setLoadingPhase('Listening');
+            timeout1 = setTimeout(() => {
+              setLoadingPhase('Processing audio');
+            }, TOOL_PHASE_DURATIONS.audio.processingAudio); 
+            break;
+          case 'image':
+            setLoadingPhase('Analyzing image');
+            timeout1 = setTimeout(() => {
               setLoadingPhase('Thinking');
-            }, TOOL_PHASE_DURATIONS.search.thinking);
-          }, TOOL_PHASE_DURATIONS.search.readingSources);
-          break;
-        case 'explain':
-          setLoadingPhase('Analyzing code');
-          timeout1 = setTimeout(() => {
+            }, TOOL_PHASE_DURATIONS.image.thinking);
+            break;
+          case 'document':
+            setLoadingPhase('Analyzing document');
+            timeout1 = setTimeout(() => {
+              setLoadingPhase('Thinking');
+            }, TOOL_PHASE_DURATIONS.document.thinking);
+            break;
+          case 'summarize':
+            setLoadingPhase('Summarizing');
+            timeout1 = setTimeout(() => {
+              setLoadingPhase('Thinking');
+            }, TOOL_PHASE_DURATIONS.summarize.thinking);
+            break;
+          case 'search':
+            setLoadingPhase('Searching web');
+            timeout1 = setTimeout(() => {
+              setLoadingPhase('Reading sources');
+              timeout2 = setTimeout(() => {
+                setLoadingPhase('Thinking');
+              }, TOOL_PHASE_DURATIONS.search.thinking);
+            }, TOOL_PHASE_DURATIONS.search.readingSources);
+            break;
+          case 'explain':
+            setLoadingPhase('Analyzing code');
+            timeout1 = setTimeout(() => {
+              setLoadingPhase('Thinking');
+            }, TOOL_PHASE_DURATIONS.explain.thinking);
+            break;
+          case 'translate':
+            setLoadingPhase('Translating');
+            timeout1 = setTimeout(() => {
+              setLoadingPhase('Thinking');
+            }, TOOL_PHASE_DURATIONS.translate.thinking);
+            break;
+          case 'fix':
+            setLoadingPhase('Analyzing grammar');
+            timeout1 = setTimeout(() => {
+              setLoadingPhase('Thinking');
+            }, TOOL_PHASE_DURATIONS.fix.thinking);
+            break;
+          default:
             setLoadingPhase('Thinking');
-          }, TOOL_PHASE_DURATIONS.explain.thinking);
-          break;
-        case 'translate':
-          setLoadingPhase('Translating');
-          timeout1 = setTimeout(() => {
-            setLoadingPhase('Thinking');
-          }, TOOL_PHASE_DURATIONS.translate.thinking);
-          break;
-        case 'fix':
-          setLoadingPhase('Analyzing grammar');
-          timeout1 = setTimeout(() => {
-            setLoadingPhase('Thinking');
-          }, TOOL_PHASE_DURATIONS.fix.thinking);
-          break;
-        default:
-          setLoadingPhase('Thinking');
-          break;
-      }
+            break;
+        }
+      }, sendingMs);
     }
     return () => {
+      clearTimeout(timeoutSending);
       clearTimeout(timeout1);
       clearTimeout(timeout2);
       clearTimeout(timeout3);
