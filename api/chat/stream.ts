@@ -5,9 +5,32 @@ export const config = {
 // Fail-closed server-side secret management
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// EXCLUSIVE MODEL: Gemma 4 31B IT (Single Dedicated Model)
-const MODEL_NAME = 'gemma-4-31b-it';
-const MODEL_VERSION = 'v1beta';
+interface ModelNode {
+  name: string;
+  displayName: string;
+  version: string;
+  inFlight: number;
+  cooldownUntil: number;
+}
+
+// PRIMARY: Gemini 3.5 Flash Lite | FALLBACK: Gemini 3.1 Flash Lite
+const PRIMARY_MODEL: ModelNode = { 
+  name: 'gemini-3.5-flash-lite', 
+  displayName: 'Gemini 3.5 Flash Lite',
+  version: 'v1beta', 
+  inFlight: 0, 
+  cooldownUntil: 0 
+};
+
+const FALLBACK_MODEL: ModelNode = { 
+  name: 'gemini-3.1-flash-lite', 
+  displayName: 'Gemini 3.1 Flash Lite',
+  version: 'v1beta', 
+  inFlight: 0, 
+  cooldownUntil: 0 
+};
+
+const MODEL_PIPELINE: ModelNode[] = [PRIMARY_MODEL, FALLBACK_MODEL];
 
 export default async function handler(req: Request) {
   // CORS Preflight
@@ -30,7 +53,7 @@ export default async function handler(req: Request) {
     });
   }
 
-  const requestId = 'req_gemma_' + Math.random().toString(36).substring(2, 11);
+  const requestId = 'req_' + Math.random().toString(36).substring(2, 11);
   const t_start = performance.now();
 
   try {
@@ -78,32 +101,82 @@ export default async function handler(req: Request) {
 
     const payloadJson = JSON.stringify(upstreamPayload);
 
-    // 4. Dispatch ONLY to Gemma 4 31B IT
-    const url = `https://generativelanguage.googleapis.com/${MODEL_VERSION}/models/${MODEL_NAME}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+    // 4. Dispatch Pipeline: Primary (Gemini 3.5 Flash Lite) -> Fallback (Gemini 3.1 Flash Lite)
+    let upstreamRes: Response | null = null;
+    let winningModel: ModelNode | null = null;
+    const now = Date.now();
 
-    const upstreamRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payloadJson,
-      signal: req.signal,
-    });
+    for (let i = 0; i < MODEL_PIPELINE.length; i++) {
+      const candidate = MODEL_PIPELINE[i];
 
-    if (!upstreamRes.ok) {
-      const errorText = await upstreamRes.text().catch(() => 'Unknown upstream error');
+      // If candidate is in active cooldown and we have a fallback, try next
+      if (candidate.cooldownUntil > now && i < MODEL_PIPELINE.length - 1) {
+        continue;
+      }
+
+      candidate.inFlight++;
+      const url = `https://generativelanguage.googleapis.com/${candidate.version}/models/${candidate.name}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payloadJson,
+          signal: req.signal,
+        });
+
+        if (res.status === 429 || res.status === 503 || res.status === 404) {
+          candidate.inFlight = Math.max(0, candidate.inFlight - 1);
+          candidate.cooldownUntil = Date.now() + 20000; // 20s cooldown
+          continue; // Trigger fallback to Gemini 3.1 Flash Lite
+        }
+
+        if (res.ok) {
+          upstreamRes = res;
+          winningModel = candidate;
+          break;
+        } else {
+          candidate.inFlight = Math.max(0, candidate.inFlight - 1);
+        }
+      } catch (err: any) {
+        candidate.inFlight = Math.max(0, candidate.inFlight - 1);
+        if (req.signal.aborted) {
+          return new Response(null, { status: 499 });
+        }
+      }
+    }
+
+    if (!upstreamRes || !upstreamRes.body || !winningModel) {
       return new Response(JSON.stringify({
-        error: 'Gemma 4 31B Inference Error',
-        status: upstreamRes.status,
-        details: errorText
+        error: 'AI Inference Unavailable',
+        details: 'Gemini 3.5 Flash Lite and Gemini 3.1 Flash Lite are currently rate-limited or unavailable.'
       }), {
-        status: upstreamRes.status,
+        status: 503,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
     const dispatchTime = performance.now() - t_start;
+    let cleanupDone = false;
+    const cleanup = () => {
+      if (!cleanupDone && winningModel) {
+        cleanupDone = true;
+        winningModel.inFlight = Math.max(0, winningModel.inFlight - 1);
+      }
+    };
 
-    // Zero-copy stream pipe directly to browser
-    return new Response(upstreamRes.body, {
+    req.signal.addEventListener('abort', cleanup, { once: true });
+
+    // Zero-copy stream pipe with full lifecycle cleanup
+    const transformStream = new TransformStream({
+      flush() {
+        cleanup();
+      }
+    });
+
+    const stream = upstreamRes.body.pipeThrough(transformStream);
+
+    return new Response(stream, {
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -111,16 +184,14 @@ export default async function handler(req: Request) {
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
         'x-request-id': requestId,
-        'x-serving-model': `${MODEL_VERSION}/${MODEL_NAME}`,
+        'x-serving-model': `${winningModel.version}/${winningModel.name}`,
+        'x-serving-display': winningModel.displayName,
         'x-edge-dispatch-ms': `${dispatchTime.toFixed(2)}`,
         'Access-Control-Allow-Origin': '*',
       },
     });
 
   } catch (err: any) {
-    if (req.signal.aborted) {
-      return new Response(null, { status: 499 });
-    }
     return new Response(JSON.stringify({ error: 'Internal Server Error', message: err.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
