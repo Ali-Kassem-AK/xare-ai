@@ -2298,7 +2298,21 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
       streamRef.current = stream;
 
       setAgentStatus('Connecting...');
-      const ws = new WebSocket("wss://agent.deepgram.com/v1/agent/converse", ['token', DEEPGRAM_API_KEY]);
+      let token = '';
+      let wsUrl = 'wss://agent.deepgram.com/v1/agent/converse';
+      try {
+        const tokenRes = await fetch('/api/voice/token', {
+          headers: { 'x-chatbot-token': 'ali1234' }
+        });
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json();
+          token = tokenData.token;
+          if (tokenData.wsUrl) wsUrl = tokenData.wsUrl;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch voice token:', err);
+      }
+      const ws = new WebSocket(wsUrl, ['token', token]);
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
 
