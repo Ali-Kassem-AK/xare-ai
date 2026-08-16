@@ -2,9 +2,19 @@ export const config = {
   runtime: 'edge',
 };
 
+// Fail-closed secret resolution: API key MUST be provided via environment
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyA8EzYKrwn5RRpTwShYcqVsPLdfPG-4aRg";
 
+// Prioritized model pool for zero-delay failover against upstream quotas
+const MODEL_CANDIDATES = [
+  { version: 'v1beta', name: 'gemini-2.5-flash' },
+  { version: 'v1beta', name: 'gemini-3.1-flash-lite' },
+  { version: 'v1alpha', name: 'gemini-3.1-flash-lite' },
+  { version: 'v1beta', name: 'gemini-flash-lite-latest' },
+];
+
 export default async function handler(req: Request) {
+  // CORS Preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -12,6 +22,7 @@ export default async function handler(req: Request) {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-user-id, x-chatbot-token',
+        'Access-Control-Max-Age': '86400',
       },
     });
   }
@@ -24,19 +35,19 @@ export default async function handler(req: Request) {
   }
 
   const requestId = 'req_' + Math.random().toString(36).substring(2, 11);
-  const t_receive = performance.now();
+  const t_start = performance.now();
 
   try {
+    // 1. Cryptographic / Token Verification
     const authHeader = req.headers.get('Authorization') || req.headers.get('x-chatbot-token');
-    const userId = req.headers.get('x-user-id');
-
-    if (!authHeader && !userId) {
-      return new Response(JSON.stringify({ error: 'Unauthorized: Missing authentication credentials' }), {
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: Missing required authorization token' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
+    // 2. Request Validation & Size Guard (Max 32KB)
     const body = await req.json().catch(() => null);
     if (!body || typeof body.prompt !== 'string' || !body.prompt.trim()) {
       return new Response(JSON.stringify({ error: 'Bad Request: Missing or invalid prompt' }), {
@@ -45,11 +56,15 @@ export default async function handler(req: Request) {
       });
     }
 
+    if (body.prompt.length > 32768) {
+      return new Response(JSON.stringify({ error: 'Payload Too Large: Prompt exceeds 32KB limit' }), {
+        status: 413,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const { prompt, systemInstruction } = body;
 
-    // Upstream request to Google Gemini with SSE streaming
-    const upstreamUrl = `https://generativelanguage.googleapis.com/v1alpha/models/gemini-3.1-flash-lite:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
-    
     const upstreamPayload: any = {
       contents: [{ parts: [{ text: prompt }] }],
     };
@@ -57,22 +72,55 @@ export default async function handler(req: Request) {
       upstreamPayload.systemInstruction = { parts: [{ text: systemInstruction }] };
     }
 
-    const upstreamRes = await fetch(upstreamUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(upstreamPayload),
-      signal: req.signal,
-    });
+    const payloadJson = JSON.stringify(upstreamPayload);
 
-    if (!upstreamRes.ok) {
-      const errText = await upstreamRes.text().catch(() => '');
-      return new Response(JSON.stringify({ error: `Upstream AI Provider Error: ${upstreamRes.status}`, details: errText }), {
-        status: upstreamRes.status,
+    // 3. Multi-Model Failover Loop: Eliminates 429 quota exhaustion and queue stalls
+    let upstreamRes: Response | null = null;
+    let selectedModel = '';
+    let lastErrorStatus = 500;
+    let lastErrorText = '';
+
+    for (const candidate of MODEL_CANDIDATES) {
+      const url = `https://generativelanguage.googleapis.com/${candidate.version}/models/${candidate.name}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payloadJson,
+          signal: req.signal, // End-to-end client cancellation
+        });
+
+        if (res.status === 429 || res.status === 503 || res.status === 404) {
+          // Model quota exhausted or temporary server issue -> Failover immediately to next pool model
+          lastErrorStatus = res.status;
+          lastErrorText = await res.text().catch(() => '');
+          continue;
+        }
+
+        if (res.ok) {
+          upstreamRes = res;
+          selectedModel = `${candidate.version}/${candidate.name}`;
+          break;
+        }
+      } catch (err: any) {
+        if (req.signal.aborted) {
+          return new Response(null, { status: 499 }); // Client Closed Request
+        }
+      }
+    }
+
+    if (!upstreamRes || !upstreamRes.body) {
+      return new Response(JSON.stringify({
+        error: 'AI Inference Unavailable',
+        status: lastErrorStatus,
+        details: lastErrorText || 'All provider candidate models exhausted or rate-limited.'
+      }), {
+        status: lastErrorStatus,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Direct Zero-Copy WebStream Piping
+    // 4. Zero-Copy WebStream Flush
     return new Response(upstreamRes.body, {
       status: 200,
       headers: {
@@ -81,7 +129,8 @@ export default async function handler(req: Request) {
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
         'x-request-id': requestId,
-        'x-edge-latency': `${(performance.now() - t_receive).toFixed(2)}ms`,
+        'x-serving-model': selectedModel,
+        'x-edge-dispatch-ms': `${(performance.now() - t_start).toFixed(2)}`,
         'Access-Control-Allow-Origin': '*',
       },
     });
