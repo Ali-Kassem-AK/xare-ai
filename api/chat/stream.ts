@@ -24,6 +24,7 @@ export default async function handler(req: Request) {
   }
 
   const requestId = 'req_' + Math.random().toString(36).substring(2, 11);
+  const t_receive = performance.now();
 
   try {
     const authHeader = req.headers.get('Authorization') || req.headers.get('x-chatbot-token');
@@ -56,13 +57,11 @@ export default async function handler(req: Request) {
       upstreamPayload.systemInstruction = { parts: [{ text: systemInstruction }] };
     }
 
-    const controller = new AbortController();
-    
     const upstreamRes = await fetch(upstreamUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(upstreamPayload),
-      signal: controller.signal,
+      signal: req.signal,
     });
 
     if (!upstreamRes.ok) {
@@ -73,44 +72,16 @@ export default async function handler(req: Request) {
       });
     }
 
-    const upstreamReader = upstreamRes.body?.getReader();
-    if (!upstreamReader) {
-      return new Response(JSON.stringify({ error: 'Upstream stream unavailable' }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Pipe the SSE stream cleanly with client disconnect abortion
-    const stream = new ReadableStream({
-      async start(controllerStream) {
-        try {
-          while (true) {
-            const { done, value } = await upstreamReader.read();
-            if (done) {
-              controllerStream.close();
-              break;
-            }
-            controllerStream.enqueue(value);
-          }
-        } catch (err: any) {
-          controller.abort();
-          controllerStream.error(err);
-        }
-      },
-      cancel() {
-        controller.abort();
-      },
-    });
-
-    return new Response(stream, {
+    // Direct Zero-Copy WebStream Piping
+    return new Response(upstreamRes.body, {
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
+        'Cache-Control': 'no-cache, no-transform, no-buffer',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
         'x-request-id': requestId,
+        'x-edge-latency': `${(performance.now() - t_receive).toFixed(2)}ms`,
         'Access-Control-Allow-Origin': '*',
       },
     });
