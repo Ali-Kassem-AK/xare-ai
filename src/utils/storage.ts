@@ -5,6 +5,8 @@
  * using Signed Upload URLs, keeping raw binaries completely outside of n8n webhooks.
  */
 
+import { getAuth } from 'firebase/auth';
+
 export interface UploadResult {
   fileId: string;
   fileUrl: string;
@@ -45,7 +47,7 @@ function getFileCacheKey(file: File, userId: string): string {
 /**
  * Direct-to-Supabase Storage Resumable/Signed Upload (Max 50MB)
  * 1. Immediate client-side validation against 50MB ceiling
- * 2. Requests signed upload URL from /api/upload/presign
+ * 2. Requests signed upload URL from /api/upload/presign with authenticated JWT
  * 3. Streams the binary directly to Supabase Storage using XMLHttpRequest with progress tracking
  * 4. Returns the signed download URL for n8n to process
  */
@@ -61,7 +63,8 @@ export async function uploadFileDirectly(
     throw new Error(`File too large. Maximum supported size is ${maxMb}MB. (Provided: ${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
   }
 
-  const currentUserId = options.userId || 'guest_user';
+  const auth = getAuth();
+  const currentUserId = options.userId || auth.currentUser?.uid || 'guest_user';
 
   // 2. Check in-memory cache for instant zero-overhead retry
   const cacheKey = getFileCacheKey(file, currentUserId);
@@ -76,13 +79,25 @@ export async function uploadFileDirectly(
 
   console.info(`[SUPABASE_UPLOAD_START] Requesting signed upload authorization for '${file.name}' (${(file.size / (1024*1024)).toFixed(2)} MB)`);
 
-  // 3. Request Signed Upload Authorization from backend
+  // 3. Obtain ID token from current Firebase Auth session if logged in
+  let authHeaderValue = 'Bearer anonymous_guest';
+  try {
+    if (auth.currentUser) {
+      const idToken = await auth.currentUser.getIdToken();
+      if (idToken) authHeaderValue = `Bearer ${idToken}`;
+    }
+  } catch (e) {
+    console.warn('[AUTH_TOKEN_FETCH_WARN]', e);
+  }
+
+  // 4. Request Signed Upload Authorization from backend
   let presignData: any;
   try {
     const presignRes = await fetch('/api/upload/presign', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': authHeaderValue,
         'x-chatbot-token': 'ali1234',
         'x-user-id': currentUserId
       },
@@ -115,7 +130,7 @@ export async function uploadFileDirectly(
 
   console.info(`[SUPABASE_DIRECT_STREAM] Signed upload URL obtained. Streaming binary directly to Supabase Storage...`);
 
-  // 4. Perform Direct Streaming Upload to Supabase Storage using XMLHttpRequest
+  // 5. Perform Direct Streaming Upload to Supabase Storage using XMLHttpRequest
   return new Promise<UploadResult>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let isSettled = false;

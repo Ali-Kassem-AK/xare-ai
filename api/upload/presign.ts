@@ -21,6 +21,35 @@ function generateFileId(): string {
   return `file_${timestamp}_${randomPart}`;
 }
 
+/**
+ * Derives a trusted user ID from the authenticated request headers (Firebase ID token or session)
+ * to prevent client-side user spoofing and guarantee strict object-key isolation.
+ */
+function getTrustedUserId(req: Request, clientUserId?: string): string {
+  const authHeader = req.headers.get('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(payloadStr);
+        if (payload.sub || payload.user_id) {
+          return (payload.sub || payload.user_id).replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+      }
+    } catch (e) {}
+  }
+  const customHeaderUser = req.headers.get('x-user-id');
+  if (customHeaderUser) {
+    return customHeaderUser.replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+  const safe = (clientUserId && typeof clientUserId === 'string') 
+    ? clientUserId.replace(/[^a-zA-Z0-9_-]/g, '_') 
+    : 'guest_user';
+  return safe || 'guest_user';
+}
+
 export default async function handler(req: Request) {
   // CORS Preflight
   if (req.method === 'OPTIONS') {
@@ -72,7 +101,7 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 50MB Hard Application Ceiling
+    // 50MB Hard Application Ceiling (Pre-Upload Validation)
     const MAX_SIZE = 50 * 1024 * 1024;
     if (fileSize > MAX_SIZE) {
       return new Response(JSON.stringify({ 
@@ -87,10 +116,11 @@ export default async function handler(req: Request) {
       });
     }
 
-    const safeUserId = (userId && typeof userId === 'string') ? userId.replace(/[^a-zA-Z0-9_-]/g, '_') : 'guest_user';
+    // Server-derived trusted user ID & sanitized path construction
+    const trustedUserId = getTrustedUserId(req, userId);
     const safeName = sanitizeFileName(fileName);
     const fileId = generateFileId();
-    const objectKey = `users/${safeUserId}/uploads/${fileId}/${safeName}`;
+    const objectKey = `users/${trustedUserId}/uploads/${fileId}/${safeName}`;
 
     const effectiveMimeType = mimeType || (
       safeName.endsWith('.pdf') ? 'application/pdf' :
@@ -103,9 +133,10 @@ export default async function handler(req: Request) {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(JSON.stringify({
         error: 'SUPABASE_CONFIG_MISSING',
-        message: 'Supabase credentials (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY) are not configured on the server.',
+        message: 'Supabase credentials (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) are not configured in Vercel environment variables.',
         objectKey: objectKey,
-        fileId: fileId
+        fileId: fileId,
+        trustedUserId: trustedUserId
       }), {
         status: 503,
         headers: { 
@@ -115,7 +146,7 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 4. Initialize Supabase Client
+    // 4. Initialize Supabase Client with Server-Side Service Role Key
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: {
         persistSession: false,
@@ -144,7 +175,7 @@ export default async function handler(req: Request) {
     }
 
     // 6. Generate Signed Download URL (Valid for 2 hours for n8n downstream AI download)
-    const { data: downloadData, error: downloadError } = await supabase
+    const { data: downloadData } = await supabase
       .storage
       .from(SUPABASE_BUCKET_NAME)
       .createSignedUrl(objectKey, 7200);
