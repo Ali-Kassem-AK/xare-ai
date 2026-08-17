@@ -3966,7 +3966,7 @@ const AI_PRESETS = [
           setIsLoading(false);
           setActiveLoadingChatId(null);
           setLoadingType(null);
-          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to Cloudflare R2.'}\n\nPlease check your network connection and retry.`);
+          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to Supabase Storage.'}\n\nPlease check your network connection and retry.`);
           return;
         }
       }
@@ -4163,8 +4163,8 @@ const AI_PRESETS = [
         payload.file_size = uploadedFileSize;
         payload.mimeType = uploadedMimeType;
         payload.mime_type = uploadedMimeType;
-        payload.storageProvider = 'cloudflare-r2';
-        payload.storage_provider = 'cloudflare-r2';
+        payload.storageProvider = 'supabase';
+        payload.storage_provider = 'supabase';
         payload.message = {
           text: finalMessageText,
           caption: msgText,
@@ -4178,6 +4178,8 @@ const AI_PRESETS = [
           fileSize: uploadedFileSize,
           mime_type: uploadedMimeType,
           mimeType: uploadedMimeType,
+          storage_provider: 'supabase',
+          storageProvider: 'supabase',
           chat: { id: targetChatId }
         };
         if (attachmentType === 'audio') payload.message.voice = { file_url: uploadedFileUrl, fileUrl: uploadedFileUrl };
@@ -4457,8 +4459,8 @@ const AI_PRESETS = [
     const toolLabel = activeTool ? activeTool.label : null;
 
     if (pendingAttachment) {
-      if (pendingAttachment.size && pendingAttachment.size > 100 * 1024 * 1024) {
-        showLocalBotMessage("**File Size Limit Exceeded**\nThe attached file exceeds the maximum allowed limit of 100 MB. Message was not sent.");
+      if (pendingAttachment.size && pendingAttachment.size > 50 * 1024 * 1024) {
+        showLocalBotMessage("**File Size Limit Exceeded**\nThe attached file exceeds the maximum allowed limit of 50 MB. Message was not sent.");
         setPendingAttachment(null);
         return;
       }
@@ -5265,7 +5267,7 @@ const AI_PRESETS = [
                         <div className="flex items-center justify-between text-xs text-blue-400 mb-1 font-medium">
                           <span className="flex items-center gap-1.5 truncate max-w-[80%]">
                             <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
-                            Uploading {uploadingFileName || 'file'} directly to Cloudflare R2...
+                            Uploading {uploadingFileName || 'file'} directly to Supabase Storage...
                           </span>
                           <span className="font-semibold text-blue-300">{uploadProgress}%</span>
                         </div>

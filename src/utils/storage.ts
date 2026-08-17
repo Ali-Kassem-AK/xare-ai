@@ -1,9 +1,8 @@
 /**
- * Cloudflare R2 Direct Large File Upload Utility
+ * Supabase Storage Direct Large File Upload Utility (Max 50MB)
  *
- * Replaces Firebase Storage with zero-cost Cloudflare R2 object storage.
- * Files are uploaded directly from the browser to Cloudflare R2 via presigned PUT URLs,
- * completely bypassing Vercel/n8n proxies.
+ * Uploads large binary files directly from the browser to Supabase Storage
+ * using Signed Upload URLs, keeping raw binaries completely outside of n8n webhooks.
  */
 
 export interface UploadResult {
@@ -13,7 +12,7 @@ export interface UploadResult {
   fileSize: number;
   mimeType: string;
   storagePath: string;
-  storageProvider: 'cloudflare-r2';
+  storageProvider: 'supabase';
   uploadedAt: string;
 }
 
@@ -30,7 +29,7 @@ export interface UploadOptions {
   onTaskCreated?: (task: UploadTaskHandle) => void;
 }
 
-const MAX_FILE_SIZE_DEFAULT = 100 * 1024 * 1024; // 100 MB default max
+export const MAX_FILE_SIZE_DEFAULT = 50 * 1024 * 1024; // 50 MB hard maximum application ceiling
 const DEFAULT_TIMEOUT_MS = 60000; // 60s timeout for large file upload chunking
 
 // In-memory cache to prevent re-uploading the exact same file during prompt retries
@@ -44,37 +43,40 @@ function getFileCacheKey(file: File, userId: string): string {
 }
 
 /**
- * Direct-to-Cloudflare R2 Upload
- * 1. Requests a presigned PUT URL from /api/upload/presign
- * 2. Streams the binary directly to Cloudflare R2 using XMLHttpRequest with progress tracking
- * 3. Returns the presigned download URL for n8n to process
+ * Direct-to-Supabase Storage Resumable/Signed Upload (Max 50MB)
+ * 1. Immediate client-side validation against 50MB ceiling
+ * 2. Requests signed upload URL from /api/upload/presign
+ * 3. Streams the binary directly to Supabase Storage using XMLHttpRequest with progress tracking
+ * 4. Returns the signed download URL for n8n to process
  */
 export async function uploadFileDirectly(
   file: File,
   options: UploadOptions = {}
 ): Promise<UploadResult> {
   const maxBytes = options.maxSizeBytes || MAX_FILE_SIZE_DEFAULT;
+  
+  // 1. Strict Immediate 50MB Validation
   if (file.size > maxBytes) {
     const maxMb = Math.round(maxBytes / (1024 * 1024));
-    throw new Error(`File size (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the maximum allowed limit of ${maxMb} MB.`);
+    throw new Error(`File too large. Maximum supported size is ${maxMb}MB. (Provided: ${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
   }
 
   const currentUserId = options.userId || 'guest_user';
 
-  // 1. Check in-memory cache for instant zero-overhead retry
+  // 2. Check in-memory cache for instant zero-overhead retry
   const cacheKey = getFileCacheKey(file, currentUserId);
   const cached = uploadCache.get(cacheKey);
   if (cached && cached.fileUrl && cached.fileUrl.startsWith('http')) {
-    console.info(`[R2_CACHE_HIT] Reusing existing R2 upload for '${file.name}'`);
+    console.info(`[SUPABASE_CACHE_HIT] Reusing existing Supabase upload for '${file.name}'`);
     if (options.onProgress) {
       options.onProgress(100);
     }
     return cached;
   }
 
-  console.info(`[R2_UPLOAD_START] Requesting presigned authorization for '${file.name}' (${(file.size / (1024*1024)).toFixed(2)} MB)`);
+  console.info(`[SUPABASE_UPLOAD_START] Requesting signed upload authorization for '${file.name}' (${(file.size / (1024*1024)).toFixed(2)} MB)`);
 
-  // 2. Request Presigned Upload Authorization from backend
+  // 3. Request Signed Upload Authorization from backend
   let presignData: any;
   try {
     const presignRes = await fetch('/api/upload/presign', {
@@ -94,23 +96,26 @@ export async function uploadFileDirectly(
 
     if (!presignRes.ok) {
       const errJson = await presignRes.json().catch(() => ({}));
-      if (errJson.error === 'R2_CONFIG_MISSING') {
-        throw new Error(`Cloudflare R2 is not configured: ${errJson.message}`);
+      if (errJson.error === 'SUPABASE_CONFIG_MISSING') {
+        throw new Error(`Supabase Storage is not configured: ${errJson.message}`);
+      }
+      if (errJson.error === 'FILE_TOO_LARGE') {
+        throw new Error(errJson.message || 'File too large. Maximum supported size is 50MB.');
       }
       throw new Error(errJson.error || errJson.message || `Presign failed with HTTP ${presignRes.status}`);
     }
 
     presignData = await presignRes.json();
   } catch (authErr: any) {
-    console.error('[R2_PRESIGN_ERROR]', authErr);
+    console.error('[SUPABASE_PRESIGN_ERROR]', authErr);
     throw new Error(`Upload authorization failed: ${authErr.message}`);
   }
 
   const { uploadUrl, downloadUrl, fileId, objectKey, mimeType } = presignData;
 
-  console.info(`[R2_DIRECT_STREAM] Presigned URL obtained. Streaming binary directly to Cloudflare R2...`);
+  console.info(`[SUPABASE_DIRECT_STREAM] Signed upload URL obtained. Streaming binary directly to Supabase Storage...`);
 
-  // 3. Perform Direct Streaming Upload to Cloudflare R2 using XMLHttpRequest
+  // 4. Perform Direct Streaming Upload to Supabase Storage using XMLHttpRequest
   return new Promise<UploadResult>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let isSettled = false;
@@ -123,7 +128,7 @@ export async function uploadFileDirectly(
       options.onTaskCreated({
         cancel: () => {
           if (!isSettled) {
-            console.warn(`[R2_UPLOAD_CANCELED] User canceled upload for '${file.name}'`);
+            console.warn(`[SUPABASE_UPLOAD_CANCELED] User canceled upload for '${file.name}'`);
             xhr.abort();
             cleanup();
             reject(new Error('Upload was canceled.'));
@@ -137,7 +142,7 @@ export async function uploadFileDirectly(
       if (isSettled) return;
       if (event.lengthComputable && event.total > 0) {
         const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
-        console.info(`[R2_PROGRESS] ${file.name}: ${percent}% (${event.loaded}/${event.total} bytes)`);
+        console.info(`[SUPABASE_PROGRESS] ${file.name}: ${percent}% (${event.loaded}/${event.total} bytes)`);
         if (options.onProgress) {
           options.onProgress(percent);
         }
@@ -149,7 +154,7 @@ export async function uploadFileDirectly(
       cleanup();
 
       if (xhr.status >= 200 && xhr.status < 300) {
-        console.info(`[R2_UPLOAD_SUCCESS] Upload complete for '${file.name}'!`);
+        console.info(`[SUPABASE_UPLOAD_SUCCESS] Upload complete for '${file.name}'!`);
         if (options.onProgress) {
           options.onProgress(100);
         }
@@ -161,7 +166,7 @@ export async function uploadFileDirectly(
           fileSize: file.size,
           mimeType: mimeType || file.type || 'application/octet-stream',
           storagePath: objectKey,
-          storageProvider: 'cloudflare-r2',
+          storageProvider: 'supabase',
           uploadedAt: new Date().toISOString()
         };
 
@@ -169,22 +174,22 @@ export async function uploadFileDirectly(
         uploadCache.set(cacheKey, result);
         resolve(result);
       } else {
-        console.error(`[R2_UPLOAD_FAILED] HTTP ${xhr.status}: ${xhr.statusText}`);
-        reject(new Error(`Direct R2 upload failed with HTTP ${xhr.status}: ${xhr.statusText || 'Storage error'}`));
+        console.error(`[SUPABASE_UPLOAD_FAILED] HTTP ${xhr.status}: ${xhr.statusText}`);
+        reject(new Error(`Direct Supabase upload failed with HTTP ${xhr.status}: ${xhr.statusText || 'Storage error'}`));
       }
     };
 
     xhr.onerror = () => {
       if (isSettled) return;
       cleanup();
-      console.error(`[R2_NETWORK_ERROR] Network connection failed during upload.`);
+      console.error(`[SUPABASE_NETWORK_ERROR] Network connection failed during upload.`);
       reject(new Error('Network error during file upload. Please check your internet connection and retry.'));
     };
 
     xhr.ontimeout = () => {
       if (isSettled) return;
       cleanup();
-      console.error(`[R2_TIMEOUT_ERROR] Upload timed out.`);
+      console.error(`[SUPABASE_TIMEOUT_ERROR] Upload timed out.`);
       reject(new Error('Upload timed out. Please try again with a faster network connection.'));
     };
 
@@ -198,12 +203,13 @@ export async function uploadFileDirectly(
     xhr.timeout = timeoutMs;
 
     try {
+      // Supabase Signed Upload URLs accept PUT with the binary file
       xhr.open('PUT', uploadUrl, true);
       xhr.setRequestHeader('Content-Type', mimeType || file.type || 'application/octet-stream');
       xhr.send(file);
     } catch (sendErr: any) {
       cleanup();
-      console.error('[R2_SEND_ERROR]', sendErr);
+      console.error('[SUPABASE_SEND_ERROR]', sendErr);
       reject(new Error(`Failed to initiate PUT request: ${sendErr.message}`));
     }
   });

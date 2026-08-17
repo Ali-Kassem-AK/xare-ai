@@ -1,13 +1,13 @@
+import { createClient } from '@supabase/supabase-js';
+
 export const config = {
   runtime: 'edge', // Using Vercel Edge runtime for lightning-fast sub-10ms response
 };
 
 // Fail-closed server-side secret management
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'xare-uploads';
-const R2_PUBLIC_DOMAIN = process.env.R2_PUBLIC_DOMAIN;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const SUPABASE_BUCKET_NAME = process.env.SUPABASE_BUCKET_NAME || 'xare-files';
 
 function sanitizeFileName(name: string): string {
   const base = name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -19,103 +19,6 @@ function generateFileId(): string {
   const timestamp = Date.now().toString(36);
   const randomPart = Math.random().toString(36).substring(2, 10);
   return `file_${timestamp}_${randomPart}`;
-}
-
-async function hmacSha256(key: string | ArrayBuffer, message: string): Promise<ArrayBuffer> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    typeof key === 'string' ? new TextEncoder().encode(key) : key,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  return await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message));
-}
-
-async function sha256Hex(message: string): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(message));
-  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function hmacSha256Hex(key: ArrayBuffer, message: string): Promise<string> {
-  const sigBuffer = await hmacSha256(key, message);
-  return Array.from(new Uint8Array(sigBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function generateR2PresignedUrl({
-  accountId,
-  accessKeyId,
-  secretAccessKey,
-  bucketName,
-  objectKey,
-  method = 'PUT',
-  expiresIn = 1800,
-}: {
-  accountId: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  bucketName: string;
-  objectKey: string;
-  method?: string;
-  expiresIn?: number;
-}): Promise<string> {
-  const host = `${accountId}.r2.cloudflarestorage.com`;
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-  const datestamp = amzDate.substring(0, 8);
-  const region = 'auto';
-  const service = 's3';
-  const credentialScope = `${datestamp}/${region}/${service}/aws4_request`;
-
-  // Encode URI path
-  const canonicalUri = `/${bucketName}/${encodeURIComponent(objectKey).replace(/%2F/g, '/')}`;
-
-  // Query parameters must be sorted alphabetically
-  const queryParams: Record<string, string> = {
-    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-    'X-Amz-Credential': `${accessKeyId}/${credentialScope}`,
-    'X-Amz-Date': amzDate,
-    'X-Amz-Expires': expiresIn.toString(),
-    'X-Amz-SignedHeaders': 'host',
-  };
-
-  const canonicalQueryString = Object.keys(queryParams)
-    .sort()
-    .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(queryParams[k])}`)
-    .join('&');
-
-  const canonicalHeaders = `host:${host}\n`;
-  const signedHeaders = 'host';
-  const payloadHash = 'UNSIGNED-PAYLOAD';
-
-  const canonicalRequest = [
-    method,
-    canonicalUri,
-    canonicalQueryString,
-    canonicalHeaders,
-    signedHeaders,
-    payloadHash,
-  ].join('\n');
-
-  const canonicalRequestHash = await sha256Hex(canonicalRequest);
-
-  const stringToSign = [
-    'AWS4-HMAC-SHA256',
-    amzDate,
-    credentialScope,
-    canonicalRequestHash,
-  ].join('\n');
-
-  // Derive signing key
-  const kDate = await hmacSha256('AWS4' + secretAccessKey, datestamp);
-  const kRegion = await hmacSha256(kDate, region);
-  const kService = await hmacSha256(kRegion, service);
-  const kSigning = await hmacSha256(kService, 'aws4_request');
-
-  // Calculate signature
-  const signature = await hmacSha256Hex(kSigning, stringToSign);
-
-  return `https://${host}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
 }
 
 export default async function handler(req: Request) {
@@ -169,10 +72,13 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 100MB Hard Ceiling
-    const MAX_SIZE = 100 * 1024 * 1024;
+    // 50MB Hard Application Ceiling
+    const MAX_SIZE = 50 * 1024 * 1024;
     if (fileSize > MAX_SIZE) {
-      return new Response(JSON.stringify({ error: `File size exceeds the 100 MB limit (${(fileSize / (1024 * 1024)).toFixed(1)} MB)` }), {
+      return new Response(JSON.stringify({ 
+        error: 'FILE_TOO_LARGE',
+        message: `File too large. Maximum supported size is 50MB. (Provided: ${(fileSize / (1024 * 1024)).toFixed(1)} MB)` 
+      }), {
         status: 413,
         headers: { 
           'Content-Type': 'application/json',
@@ -193,12 +99,11 @@ export default async function handler(req: Request) {
       'application/octet-stream'
     );
 
-    // 3. Verify Server-Side R2 Configuration
-    if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-      // Diagnostic mode if R2 credentials are not yet entered in Vercel environment variables
+    // 3. Verify Server-Side Supabase Configuration
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(JSON.stringify({
-        error: 'R2_CONFIG_MISSING',
-        message: 'Cloudflare R2 credentials (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY) are not configured on the server.',
+        error: 'SUPABASE_CONFIG_MISSING',
+        message: 'Supabase credentials (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY) are not configured on the server.',
         objectKey: objectKey,
         fileId: fileId
       }), {
@@ -210,43 +115,59 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 4. Generate Presigned PUT URL (Valid for 30 minutes for browser direct upload)
-    const uploadUrl = await generateR2PresignedUrl({
-      accountId: R2_ACCOUNT_ID,
-      accessKeyId: R2_ACCESS_KEY_ID,
-      secretAccessKey: R2_SECRET_ACCESS_KEY,
-      bucketName: R2_BUCKET_NAME,
-      objectKey: objectKey,
-      method: 'PUT',
-      expiresIn: 1800,
+    // 4. Initialize Supabase Client
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      }
     });
 
-    // 5. Generate Presigned GET URL (Valid for 2 hours for n8n downstream automation download)
-    let downloadUrl: string;
-    if (R2_PUBLIC_DOMAIN) {
-      downloadUrl = `https://${R2_PUBLIC_DOMAIN}/${objectKey}`;
-    } else {
-      downloadUrl = await generateR2PresignedUrl({
-        accountId: R2_ACCOUNT_ID,
-        accessKeyId: R2_ACCESS_KEY_ID,
-        secretAccessKey: R2_SECRET_ACCESS_KEY,
-        bucketName: R2_BUCKET_NAME,
-        objectKey: objectKey,
-        method: 'GET',
-        expiresIn: 7200,
+    // 5. Generate Signed Upload URL (Valid for 30 minutes for direct browser upload)
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from(SUPABASE_BUCKET_NAME)
+      .createSignedUploadUrl(objectKey);
+
+    if (uploadError || !uploadData) {
+      console.error('Supabase Signed Upload URL Error:', uploadError);
+      return new Response(JSON.stringify({
+        error: 'SUPABASE_UPLOAD_SIGN_FAILED',
+        message: uploadError?.message || 'Could not generate signed upload URL from Supabase Storage.'
+      }), {
+        status: 500,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
       });
     }
 
+    // 6. Generate Signed Download URL (Valid for 2 hours for n8n downstream AI download)
+    const { data: downloadData, error: downloadError } = await supabase
+      .storage
+      .from(SUPABASE_BUCKET_NAME)
+      .createSignedUrl(objectKey, 7200);
+
+    const downloadUrl = downloadData?.signedUrl || `${SUPABASE_URL}/storage/v1/object/sign/${SUPABASE_BUCKET_NAME}/${objectKey}`;
+
+    // Full Upload URL
+    const fullUploadUrl = uploadData.signedUrl.startsWith('http') 
+      ? uploadData.signedUrl 
+      : `${SUPABASE_URL}/storage/v1/${uploadData.signedUrl.replace(/^\//, '')}`;
+
     return new Response(JSON.stringify({
       success: true,
-      uploadUrl,
-      downloadUrl,
-      fileId,
-      objectKey,
+      uploadUrl: fullUploadUrl,
+      downloadUrl: downloadUrl,
+      token: uploadData.token,
+      path: uploadData.path || objectKey,
+      fileId: fileId,
+      objectKey: objectKey,
       fileName: safeName,
-      fileSize,
+      fileSize: fileSize,
       mimeType: effectiveMimeType,
-      storageProvider: 'cloudflare-r2',
+      storageProvider: 'supabase',
       expiresIn: 1800,
     }), {
       status: 200,
@@ -258,9 +179,9 @@ export default async function handler(req: Request) {
     });
 
   } catch (err: any) {
-    console.error('R2 Presign Endpoint Error:', err);
+    console.error('Supabase Presign Endpoint Error:', err);
     return new Response(JSON.stringify({
-      error: 'Failed to generate upload authorization',
+      error: 'Failed to generate Supabase upload authorization',
       message: err.message,
     }), {
       status: 500,
