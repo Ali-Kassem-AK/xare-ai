@@ -4662,6 +4662,7 @@ const AI_PRESETS = [
   const handleSendMessage = (e) => {
     if (e) e.preventDefault();
     if (!inputValue.trim() && !pendingAttachment) return;
+    if (pendingAttachment?.isUploading) return;
 
     isUserScrolledUpRef.current = false;
     setIsUserScrolledUp(false);
@@ -4860,6 +4861,7 @@ const AI_PRESETS = [
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (pendingAttachment?.isUploading) return;
       handleSendMessage();
     }
   };
@@ -5630,11 +5632,15 @@ const AI_PRESETS = [
                     {inputValue.trim() || pendingAttachment ? (
                       <button
                         type="submit"
-                        disabled={isLoading}
-                        title="Send Message"
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-950/50 active:scale-95 disabled:opacity-50 flex-shrink-0 cursor-pointer"
+                        disabled={isLoading || Boolean(pendingAttachment?.isUploading)}
+                        title={pendingAttachment?.isUploading ? "Uploading file..." : "Send Message"}
+                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                          pendingAttachment?.isUploading
+                            ? 'bg-[#183670] text-[#7d99cc] cursor-not-allowed shadow-none'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-950/50 active:scale-95 disabled:opacity-50 cursor-pointer'
+                        }`}
                       >
-                        <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
+                        <ArrowUp className={`w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5] ${pendingAttachment?.isUploading ? 'text-[#7d99cc]' : 'text-white'}`} />
                       </button>
                     ) : (
                       <button
