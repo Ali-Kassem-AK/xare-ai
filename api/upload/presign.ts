@@ -4,9 +4,9 @@ export const config = {
   runtime: 'edge', // Using Vercel Edge runtime for lightning-fast sub-10ms response
 };
 
-// Fail-closed server-side secret management
+// Fail-closed server-side secret management (Supports new Secret key & legacy Service Role key)
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 const SUPABASE_BUCKET_NAME = process.env.SUPABASE_BUCKET_NAME || 'xare-files';
 
 function sanitizeFileName(name: string): string {
