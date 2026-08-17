@@ -16,7 +16,6 @@ import {
 import { 
   getFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment 
 } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 import { uploadFileDirectly, uploadFileDirect } from './utils/storage';
 
 // ==========================================
@@ -135,7 +134,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 // ==========================================
 // --- LOCAL STORAGE (IndexedDB) FOR LARGE FILES
@@ -3968,7 +3966,7 @@ const AI_PRESETS = [
           setIsLoading(false);
           setActiveLoadingChatId(null);
           setLoadingType(null);
-          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to storage.'}\n\n*Note: For files larger than 5MB, Firebase Storage must be enabled in the Firebase Console (Project: \`xare-5bc49\`).*`);
+          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to Cloudflare R2.'}\n\nPlease check your network connection and retry.`);
           return;
         }
       }
@@ -4165,6 +4163,8 @@ const AI_PRESETS = [
         payload.file_size = uploadedFileSize;
         payload.mimeType = uploadedMimeType;
         payload.mime_type = uploadedMimeType;
+        payload.storageProvider = 'cloudflare-r2';
+        payload.storage_provider = 'cloudflare-r2';
         payload.message = {
           text: finalMessageText,
           caption: msgText,
@@ -5265,7 +5265,7 @@ const AI_PRESETS = [
                         <div className="flex items-center justify-between text-xs text-blue-400 mb-1 font-medium">
                           <span className="flex items-center gap-1.5 truncate max-w-[80%]">
                             <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
-                            Uploading {uploadingFileName || 'file'} directly to secure storage...
+                            Uploading {uploadingFileName || 'file'} directly to Cloudflare R2...
                           </span>
                           <span className="font-semibold text-blue-300">{uploadProgress}%</span>
                         </div>
