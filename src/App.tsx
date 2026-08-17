@@ -24,6 +24,132 @@ import { uploadFileDirectly, uploadFileDirect } from './utils/storage';
 export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached their free usage limit. Please try another tool, such as **Deep Thinking**, **Generate Image**, or **Upload Image or PDF**, or try again in a few minutes. Want to continue the conversation immediately? We’ll automatically switch you to **Gemini 3.5 Flash Lite** so you can continue without interruption.`;
 
 // ==========================================
+// --- REQUEST TIMEOUT & ERROR CLASSIFICATION
+// ==========================================
+export const N8N_REQUEST_TIMEOUT_MS = 60000; // 60s timeout for n8n processing (ample headroom for 50MB PDFs & media)
+
+export type RequestFailureType =
+  | 'quota'
+  | 'timeout'
+  | 'network'
+  | 'server'
+  | 'auth'
+  | 'canceled'
+  | 'empty'
+  | 'unknown';
+
+export interface ClassifiedError {
+  type: RequestFailureType;
+  message: string;
+  isQuota: boolean;
+  httpStatus?: number;
+}
+
+export function classifyRequestError(err: any, status?: number): ClassifiedError {
+  if (status === 429) {
+    return {
+      type: 'quota',
+      message: TOKEN_LIMIT_REDIRECTION_MSG,
+      isQuota: true,
+      httpStatus: status
+    };
+  }
+
+  const errStr = typeof err === 'string' 
+    ? err 
+    : (err?.message || err?.error || (typeof err === 'object' ? JSON.stringify(err) : ''));
+  const lower = errStr.toLowerCase();
+
+  // Explicit quota / rate limit detection
+  if (
+    lower.includes('rate limit') ||
+    lower.includes('quota') ||
+    lower.includes('resource_exhausted') ||
+    lower.includes('free usage limit') ||
+    lower.includes('model limit') ||
+    lower.includes('exhausted free tier') ||
+    lower.includes('429')
+  ) {
+    return {
+      type: 'quota',
+      message: TOKEN_LIMIT_REDIRECTION_MSG,
+      isQuota: true,
+      httpStatus: status
+    };
+  }
+
+  // Timeout / Abort detection
+  if (
+    err?.name === 'AbortError' ||
+    lower.includes('abort') ||
+    lower.includes('timeout') ||
+    lower.includes('timed out') ||
+    lower.includes('took too long') ||
+    status === 504
+  ) {
+    return {
+      type: 'timeout',
+      message: 'The request is taking longer than expected. Please wait a moment and try again.',
+      isQuota: false,
+      httpStatus: status || 504
+    };
+  }
+
+  // Network / Connection drop
+  if (
+    lower.includes('failed to fetch') ||
+    lower.includes('network error') ||
+    lower.includes('network connection') ||
+    lower.includes('offline') ||
+    lower.includes('econnrefused')
+  ) {
+    return {
+      type: 'network',
+      message: 'Network connection error. Please check your internet connection and try again.',
+      isQuota: false,
+      httpStatus: status
+    };
+  }
+
+  // Authentication / Token error
+  if (status === 401 || status === 403 || lower.includes('unauthorized') || lower.includes('forbidden')) {
+    return {
+      type: 'auth',
+      message: 'Authentication error. Please refresh the page and try again.',
+      isQuota: false,
+      httpStatus: status
+    };
+  }
+
+  // Server error
+  if ((status && status >= 500) || lower.includes('internal server error') || lower.includes('bad gateway')) {
+    return {
+      type: 'server',
+      message: 'The AI processing service encountered a temporary error. Please try again in a few moments.',
+      isQuota: false,
+      httpStatus: status
+    };
+  }
+
+  // Empty response
+  if (lower.includes('empty response') || lower.includes('no response')) {
+    return {
+      type: 'empty',
+      message: 'No response was received from the server. Please retry your request.',
+      isQuota: false,
+      httpStatus: status
+    };
+  }
+
+  return {
+    type: 'unknown',
+    message: errStr || 'An unexpected error occurred. Please try again.',
+    isQuota: false,
+    httpStatus: status
+  };
+}
+
+// ==========================================
 // --- STREAMING SPEED & TICK INTERVAL CONFIG
 // ==========================================
 /**
@@ -2672,7 +2798,7 @@ export const ChatMessageItem = React.memo(({
 
   // SAFETY SHIELD FOR EMPTY BOT MESSAGES:
   if (msg.sender === 'bot' && !msg.image && !msg.audio && (!textToRender || !textToRender.trim()) && !isCurrentlyStreaming) {
-    textToRender = TOKEN_LIMIT_REDIRECTION_MSG;
+    textToRender = msg.text || '';
   }
 
   const handleSaveEdit = () => {
@@ -3269,6 +3395,9 @@ const AI_PRESETS = [
               setLoadingPhase('Analyzing Document');
               timeout2 = setTimeout(() => {
                 setLoadingPhase('Thinking');
+                timeout3 = setTimeout(() => {
+                  setLoadingPhase('Still processing your file...');
+                }, 8000);
               }, TOOL_PHASE_DURATIONS.document.thinking);
             }, TOOL_PHASE_DURATIONS.document.analyzingDocument);
             break;
@@ -4198,8 +4327,8 @@ const AI_PRESETS = [
       let unsubscribeTask = () => {};
       let fallbackTimeout; 
 
-      // MADE ASYNC TO SYNCHRONIZE IndexedDB BEFORE RENDER
-      const completeBotResponse = async (responseData: any, isError = false) => {
+      // Centralized response completion with strict error classification
+      const completeBotResponse = async (responseData: any, errorInfo?: ClassifiedError | boolean) => {
         if (isResolved) return;
         isResolved = true;
         unsubscribeTask();
@@ -4256,9 +4385,43 @@ const AI_PRESETS = [
           });
         };
 
-        if (isError) {
-           triggerAutoGeminiFallback(TOKEN_LIMIT_REDIRECTION_MSG);
-           return;
+        // Classify the error if present
+        let classified: ClassifiedError | null = null;
+        if (errorInfo && typeof errorInfo === 'object' && 'isQuota' in errorInfo) {
+          classified = errorInfo;
+        } else if (errorInfo === true) {
+          classified = classifyRequestError(responseData);
+        }
+
+        if (classified) {
+          if (classified.isQuota) {
+            // ONLY trigger Gemini fallback on genuine quota / rate-limit failures!
+            triggerAutoGeminiFallback(classified.message);
+            return;
+          } else {
+            // For timeouts, network errors, server errors: display truthful neutral message without false quota warning
+            const errorMsgText = classified.message;
+            newBotMsg = {
+              id: taskId,
+              text: errorMsgText,
+              sender: 'bot',
+              timestamp: new Date()
+            };
+
+            setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+              ...c,
+              messages: [...c.messages, newBotMsg],
+              updatedAt: new Date()
+            } : c));
+
+            setIsLoading(false);
+            setActiveLoadingChatId(null);
+            setLoadingType(null);
+            setIsGeneratingImage(false);
+
+            persistBotMessageToFirestore(targetChatId, newBotMsg, errorMsgText);
+            return;
+          }
         } else {
            const parsedData = parsePayloadData(responseData);
            rawBotText = parsedData.text || "";
@@ -4266,10 +4429,15 @@ const AI_PRESETS = [
            let botImage = parsedData.image;
            let botAudio = parsedData.audio;
 
-           // Fallback for empty text responses or rate limits
+           // Fallback for empty text responses or rate limits in payload
            if ((!rawBotText || !rawBotText.trim()) && !botImage && !botAudio) {
-               triggerAutoGeminiFallback(TOKEN_LIMIT_REDIRECTION_MSG);
-               return;
+               const checkQuota = classifyRequestError(responseData);
+               if (checkQuota.isQuota) {
+                 triggerAutoGeminiFallback(TOKEN_LIMIT_REDIRECTION_MSG);
+                 return;
+               } else {
+                 rawBotText = "No response content was received from the server. Please try again.";
+               }
            }
 
            if (botImage && botImage.length > 5000) { 
@@ -4321,23 +4489,32 @@ const AI_PRESETS = [
         }
       };
 
+      // Watchdog timeout to prevent indefinite hanging (configured to 65s, slightly above N8N_REQUEST_TIMEOUT_MS)
       fallbackTimeout = setTimeout(() => {
          if (!isResolved) {
-             completeBotResponse("Request timed out. The server took too long to respond.", true);
+             const timeoutErr = classifyRequestError('timeout', 504);
+             completeBotResponse(timeoutErr.message, timeoutErr);
          }
-      }, 500000);
+      }, N8N_REQUEST_TIMEOUT_MS + 5000);
 
       unsubscribeTask = onSnapshot(taskDocRef, (snapshot) => {
         if (isResolved) return; 
         if (snapshot.exists()) {
           const taskData = snapshot.data();
           if (taskData.status === 'completed') completeBotResponse(taskData.payload || taskData.response || taskData.result || taskData.text || taskData);
-          else if (taskData.status === 'error') completeBotResponse(taskData.error || taskData.message || 'An unknown error occurred during processing.', true);
+          else if (taskData.status === 'error') {
+            const errClassified = classifyRequestError(taskData.error || taskData.message || 'An error occurred during processing.');
+            completeBotResponse(errClassified.message, errClassified);
+          }
         }
       });
 
       const controller = new AbortController();
-      const fetchTimeout = setTimeout(() => controller.abort(), 300000);
+      const fetchTimeout = setTimeout(() => {
+        controller.abort();
+      }, N8N_REQUEST_TIMEOUT_MS);
+
+      const requestStartTime = Date.now();
 
       try {
         const response = await fetch(N8N_WEBHOOK_URL, {
@@ -4347,9 +4524,20 @@ const AI_PRESETS = [
           signal: controller.signal
         });
         clearTimeout(fetchTimeout);
+        const durationMs = Date.now() - requestStartTime;
+        console.info(`[N8N_REQUEST_COMPLETE] Status: ${response.status} in ${durationMs}ms`);
 
         if (!response.ok) {
-            throw new Error(`HTTP Error ${response.status}`);
+            let errBody = '';
+            try {
+              errBody = await response.text();
+            } catch (e) {}
+            const classified = classifyRequestError(errBody || `HTTP Error ${response.status}`, response.status);
+            console.warn(`[N8N_HTTP_ERROR] Status: ${response.status}, Type: ${classified.type}`, classified);
+            if (!isResolved) {
+              completeBotResponse(classified.message, classified);
+            }
+            return;
         }
 
         if (response.ok && !isResolved) {
@@ -4383,61 +4571,80 @@ const AI_PRESETS = [
           const isEmpty = !data || (typeof data === 'object' && Object.keys(data).length === 0) || (typeof data === 'string' && !data.trim());
 
           if ((isEmpty || isGenericAck) && !isResolved) {
-            await completeBotResponse(TOKEN_LIMIT_REDIRECTION_MSG);
+            console.info(`[N8N_ASYNC_WAIT] Awaiting asynchronous task result from Firestore for task: ${taskId}`);
           } else if (!isResolved) {
             await completeBotResponse(data.payload || data.response || data.result || data.text || data);
           }
         }
       } catch (err: any) {
         clearTimeout(fetchTimeout);
-        console.log("Fetch dropped or HTTP error:", err);
+        const durationMs = Date.now() - requestStartTime;
+        const isAbort = err?.name === 'AbortError' || controller.signal.aborted;
+        const classified = isAbort
+          ? { type: 'timeout', message: 'The request is taking longer than expected. Please wait a moment and try again.', isQuota: false, httpStatus: 504 } as ClassifiedError
+          : classifyRequestError(err);
+
+        console.warn(`[N8N_FETCH_FAILED] in ${durationMs}ms, Type: ${classified.type}`, classified);
         if (!isResolved) {
-          completeBotResponse(TOKEN_LIMIT_REDIRECTION_MSG, true);
+          completeBotResponse(classified.message, classified);
         }
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("[ERROR]:", error);
-      const noticeMsg = { id: generateUniqueId(), text: TOKEN_LIMIT_REDIRECTION_MSG, sender: 'bot', timestamp: new Date() };
-      setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, noticeMsg], updatedAt: new Date() } : c));
-      
-      setChatModelModes(prev => ({ ...prev, [targetChatId]: 'gemini' }));
-      
-      callGeminiAPI(finalMessageText).then(geminiRes => {
-        const finalAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
-        const newGeminiMsg = {
+      const classified = classifyRequestError(error);
+      if (classified.isQuota) {
+        const noticeMsg = { id: generateUniqueId(), text: TOKEN_LIMIT_REDIRECTION_MSG, sender: 'bot', timestamp: new Date() };
+        setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, noticeMsg], updatedAt: new Date() } : c));
+        setChatModelModes(prev => ({ ...prev, [targetChatId]: 'gemini' }));
+        callGeminiAPI(finalMessageText).then(geminiRes => {
+          const finalAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
+          const newGeminiMsg = {
+            id: generateUniqueId(),
+            text: "",
+            sender: 'bot',
+            modelEngine: 'gemini',
+            timestamp: new Date()
+          };
+          STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
+          setStreamingMessageId(newGeminiMsg.id);
+          setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+            ...c,
+            messages: [...c.messages, newGeminiMsg],
+            updatedAt: new Date()
+          } : c));
+          setIsLoading(false);
+          setActiveLoadingChatId(null);
+          setLoadingType(null);
+          setIsGeneratingImage(false);
+          streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
+            triggerSuggestions(finalAnswer);
+            persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
+          });
+        }).catch(err => {
+          console.error("Auto Gemini fallback error:", err);
+          setIsLoading(false);
+          setActiveLoadingChatId(null);
+          setLoadingType(null);
+          setIsGeneratingImage(false);
+        });
+      } else {
+        const errBotMsg = {
           id: generateUniqueId(),
-          text: "",
+          text: classified.message,
           sender: 'bot',
-          modelEngine: 'gemini',
           timestamp: new Date()
         };
-
-        STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
-        setStreamingMessageId(newGeminiMsg.id);
-
         setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
           ...c,
-          messages: [...c.messages, newGeminiMsg],
+          messages: [...c.messages, errBotMsg],
           updatedAt: new Date()
         } : c));
-
         setIsLoading(false);
         setActiveLoadingChatId(null);
         setLoadingType(null);
         setIsGeneratingImage(false);
-
-        streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
-          triggerSuggestions(finalAnswer);
-          persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
-        });
-      }).catch(err => {
-        console.error("Auto Gemini fallback error:", err);
-        setIsLoading(false);
-        setActiveLoadingChatId(null);
-        setLoadingType(null);
-        setIsGeneratingImage(false);
-      });
+      }
     }
   };
 
