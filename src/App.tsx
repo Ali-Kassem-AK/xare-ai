@@ -5496,21 +5496,34 @@ const AI_PRESETS = [
                     )}
                   </div>
                 )}
-                <button
+                {(() => {
+                  const isToolOrAttachmentActive = Boolean(pendingAttachment || activeTool);
+                  return (
+                    <button
                       type="button"
+                      disabled={isToolOrAttachmentActive || isLoading}
                       onClick={() => {
+                        if (isToolOrAttachmentActive || isLoading) return;
                         setShowAttachMenu(!showAttachMenu);
                         if (showAttachMenu) setActiveSubMenu(null);
                       }}
                       className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
-                        showAttachMenu
-                        ? (isDarkMode ? 'bg-slate-800 text-white border border-slate-700' : 'bg-slate-200 text-slate-800')
-                        : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')
+                        isToolOrAttachmentActive || isLoading
+                          ? 'opacity-30 cursor-not-allowed text-slate-500'
+                          : showAttachMenu
+                            ? (isDarkMode ? 'bg-slate-800 text-white border border-slate-700' : 'bg-slate-200 text-slate-800')
+                            : (isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer')
                       }`}
-                      title="Add attachment or preset tool"
+                      title={
+                        isToolOrAttachmentActive
+                          ? "Only one tool or attachment is allowed per message. Remove the current one first."
+                          : "Add attachment or preset tool"
+                      }
                     >
-                      <Plus className={`w-5 h-5 transition-transform duration-300 ${showAttachMenu ? 'rotate-45' : 'rotate-0'}`} />
+                      <Plus className={`w-5 h-5 transition-transform duration-300 ${showAttachMenu && !isToolOrAttachmentActive ? 'rotate-45' : 'rotate-0'}`} />
                     </button>
+                  );
+                })()}
                   </div>
 
                   <div className="relative flex-1 flex flex-col justify-end min-w-0">
