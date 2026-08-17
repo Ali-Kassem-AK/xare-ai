@@ -16,6 +16,8 @@ import {
 import { 
   getFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment 
 } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+import { uploadFileDirectly, uploadFileDirect } from './utils/storage';
 
 // ==========================================
 // --- TOKEN LIMIT & REDIRECTION CONFIG
@@ -133,6 +135,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // ==========================================
 // --- LOCAL STORAGE (IndexedDB) FOR LARGE FILES
@@ -2966,7 +2969,9 @@ export function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
-  const [pendingAttachment, setPendingAttachment] = useState(null); 
+  const [pendingAttachment, setPendingAttachment] = useState<any>(null); 
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadingFileName, setUploadingFileName] = useState<string>('');
   const [activeTool, setActiveTool] = useState(null); 
   const [activeSubMenu, setActiveSubMenu] = useState(null); 
 
@@ -3399,38 +3404,35 @@ const AI_PRESETS = [
   // --- DIRECT CLIPBOARD PASTE (IMAGES & PDFS)
   // ==========================================
   const processPastedFile = (file: File) => {
-    if (file.size > 10 * 1024 * 1024) {
-      showLocalBotMessage("**File Size Limit Exceeded**\nThe pasted file exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
+    if (file.size > 100 * 1024 * 1024) {
+      showLocalBotMessage("**File Size Limit Exceeded**\nThe pasted file exceeds the maximum allowed size of 100 MB. Please choose a smaller file.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64Data = event.target?.result as string;
-      
-      if (file.type.startsWith('image/')) {
+    const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
+    if (file.size < 5 * 1024 * 1024) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64Data = event.target?.result as string;
         setPendingAttachment({
-          type: 'image',
-          data: base64Data,
-          name: file.name || `pasted_image_${Date.now()}.png`,
-          size: file.size
-        });
-      } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-        setPendingAttachment({
-          type: 'document',
-          data: base64Data,
-          name: file.name || `pasted_document_${Date.now()}.pdf`,
-          size: file.size
-        });
-      } else {
-        setPendingAttachment({
-          type: 'document',
-          data: base64Data,
+          type: file.type.startsWith('image/') ? 'image' : 'document',
+          file: file,
+          data: previewUrl || base64Data,
           name: file.name || `pasted_file_${Date.now()}`,
-          size: file.size
+          size: file.size,
+          mimeType: file.type
         });
-      }
-    };
-    reader.readAsDataURL(file);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPendingAttachment({
+        type: file.type.startsWith('image/') ? 'image' : 'document',
+        file: file,
+        data: previewUrl,
+        name: file.name || `pasted_file_${Date.now()}`,
+        size: file.size,
+        mimeType: file.type
+      });
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -3905,7 +3907,8 @@ const AI_PRESETS = [
     toolAction = null, 
     toolLabel = null,
     targetBotMsgId = null,
-    isEditMode = false
+    isEditMode = false,
+    attachmentFile: File | null = null
   ) => {
     if (!currentUser) return;
     setScrolledUpLock(false);
@@ -3933,11 +3936,46 @@ const AI_PRESETS = [
       setCurrentChatId(targetChatId);
     }
 
+    let uploadedFileUrl: string | null = null;
+    let uploadedMimeType: string | null = null;
+    let uploadedFileName: string | null = null;
+    let uploadedFileSize: number | null = null;
+    let uploadedFileId: string | null = null;
+
+    if (attachmentFile instanceof File) {
+      try {
+        setUploadingFileName(attachmentFile.name);
+        setUploadProgress(0);
+        const uploadRes = await uploadFileDirectly(attachmentFile, {
+          userId: currentUser.id,
+          onProgress: (p) => setUploadProgress(p)
+        });
+        uploadedFileUrl = uploadRes.fileUrl;
+        uploadedMimeType = uploadRes.mimeType;
+        uploadedFileName = uploadRes.fileName;
+        uploadedFileSize = uploadRes.fileSize;
+        uploadedFileId = uploadRes.fileId;
+        setUploadProgress(null);
+      } catch (uploadErr: any) {
+        console.error("Direct storage upload failed:", uploadErr);
+        setUploadProgress(null);
+        setIsLoading(false);
+        setActiveLoadingChatId(null);
+        setLoadingType(null);
+        showLocalBotMessage(`⚠️ **Upload Failed**\n${uploadErr.message || 'Could not upload file to storage. Please try again.'}`);
+        return;
+      }
+    }
+
     let firestoreImage = null;
     let firestoreDocument = null;
     let firestoreAudio = null;
 
-    if (attachmentType === 'image' && attachmentData) {
+    if (uploadedFileUrl) {
+      if (attachmentType === 'image') firestoreImage = uploadedFileUrl;
+      else if (attachmentType === 'document') firestoreDocument = uploadedFileUrl;
+      else if (attachmentType === 'audio') firestoreAudio = uploadedFileUrl;
+    } else if (attachmentType === 'image' && attachmentData) {
       const localId = 'localdb_' + generateUniqueId();
       await saveToLocalDB(localId, attachmentData);
       firestoreImage = localId;
@@ -4099,18 +4137,50 @@ const AI_PRESETS = [
       else setIsGeneratingImage(false);
 
       const taskId = generateUniqueId();
-      const payload = {
+      const payload: any = {
         taskId: taskId, 
         sessionId: targetChatId,
         userId: currentUser.id,
         username: currentUser.username,
         message: finalMessageText,
-        action: finalAction 
+        action: finalAction,
+        timestamp: new Date().toISOString()
       };
 
-      if (attachmentType === 'audio') payload.message = { voice: { file_id: attachmentData } };
-      else if (attachmentType === 'image') payload.message = { photo: [{ file_id: attachmentData }], caption: msgText };
-      else if (attachmentType === 'document') payload.message = { document: { file_id: attachmentData }, caption: msgText };
+      if (uploadedFileUrl) {
+        payload.fileId = uploadedFileId;
+        payload.file_id = uploadedFileId;
+        payload.fileUrl = uploadedFileUrl;
+        payload.file_url = uploadedFileUrl;
+        payload.fileName = uploadedFileName;
+        payload.file_name = uploadedFileName;
+        payload.fileSize = uploadedFileSize;
+        payload.file_size = uploadedFileSize;
+        payload.mimeType = uploadedMimeType;
+        payload.mime_type = uploadedMimeType;
+        payload.message = {
+          text: finalMessageText,
+          caption: msgText,
+          file_url: uploadedFileUrl,
+          fileUrl: uploadedFileUrl,
+          file_id: uploadedFileId,
+          fileId: uploadedFileId,
+          file_name: uploadedFileName,
+          fileName: uploadedFileName,
+          file_size: uploadedFileSize,
+          fileSize: uploadedFileSize,
+          mime_type: uploadedMimeType,
+          mimeType: uploadedMimeType,
+          chat: { id: targetChatId }
+        };
+        if (attachmentType === 'audio') payload.message.voice = { file_url: uploadedFileUrl, fileUrl: uploadedFileUrl };
+        else if (attachmentType === 'image') payload.message.photo = [{ file_url: uploadedFileUrl, fileUrl: uploadedFileUrl }];
+        else if (attachmentType === 'document') payload.message.document = { file_url: uploadedFileUrl, fileUrl: uploadedFileUrl };
+      } else {
+        if (attachmentType === 'audio') payload.message = { voice: { file_id: attachmentData } };
+        else if (attachmentType === 'image') payload.message = { photo: [{ file_id: attachmentData }], caption: msgText };
+        else if (attachmentType === 'document') payload.message = { document: { file_id: attachmentData }, caption: msgText };
+      }
 
       const taskDocRef = doc(db, 'users', currentUser.id, 'ai_tasks', taskId);
       setDoc(taskDocRef, { taskId: taskId, sessionId: targetChatId, prompt: finalMessageText, status: "processing", createdAt: new Date() }).catch(e => console.warn(e));
@@ -4380,12 +4450,12 @@ const AI_PRESETS = [
     const toolLabel = activeTool ? activeTool.label : null;
 
     if (pendingAttachment) {
-      if (pendingAttachment.size && pendingAttachment.size > 10 * 1024 * 1024) {
-        showLocalBotMessage("**File Size Limit Exceeded**\nThe attached file exceeds the maximum allowed limit of 10 MB. Message was not sent.");
+      if (pendingAttachment.size && pendingAttachment.size > 100 * 1024 * 1024) {
+        showLocalBotMessage("**File Size Limit Exceeded**\nThe attached file exceeds the maximum allowed limit of 100 MB. Message was not sent.");
         setPendingAttachment(null);
         return;
       }
-      sendMessageToBackend(baseText, pendingAttachment.data, pendingAttachment.type, hiddenPrompt, toolAction, toolLabel);
+      sendMessageToBackend(baseText, pendingAttachment.data, pendingAttachment.type, hiddenPrompt, toolAction, toolLabel, null, false, pendingAttachment.file);
       setPendingAttachment(null);
     } else {
       sendMessageToBackend(baseText, null, null, hiddenPrompt, toolAction, toolLabel);
@@ -4409,19 +4479,23 @@ const AI_PRESETS = [
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      showLocalBotMessage("**File Size Limit Exceeded**\nThe selected image exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
+    if (file.size > 100 * 1024 * 1024) {
+      showLocalBotMessage("**File Size Limit Exceeded**\nThe selected image exceeds the maximum allowed size of 100 MB. Please choose a smaller file.");
       e.target.value = '';
       setShowAttachMenu(false);
       return;
     }
     
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onloadend = () => {
-        setPendingAttachment({ type: 'image', data: reader.result, name: file.name, size: file.size });
-      };
+      const previewUrl = URL.createObjectURL(file);
+      setPendingAttachment({ 
+        type: 'image', 
+        file, 
+        data: previewUrl, 
+        name: file.name, 
+        size: file.size, 
+        mimeType: file.type || 'image/jpeg' 
+      });
     } catch (error) {
       console.error("Failed to process image:", error);
       showLocalBotMessage("⚠️ **Image Error**\nCould not process the selected image. Please try a different one.");
@@ -4435,16 +4509,28 @@ const AI_PRESETS = [
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      showLocalBotMessage("**File Size Limit Exceeded**\nThe selected PDF document exceeds the maximum allowed size of 10 MB. Please choose a smaller file.");
+    if (file.size > 100 * 1024 * 1024) {
+      showLocalBotMessage("**File Size Limit Exceeded**\nThe selected document exceeds the maximum allowed size of 100 MB. Please choose a smaller file.");
       e.target.value = '';
       setShowAttachMenu(false);
       return;
     }
     
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onloadend = () => setPendingAttachment({ type: 'document', data: reader.result, name: file.name, size: file.size });
+    try {
+      const previewUrl = URL.createObjectURL(file);
+      setPendingAttachment({ 
+        type: 'document', 
+        file, 
+        data: previewUrl, 
+        name: file.name, 
+        size: file.size, 
+        mimeType: file.type || 'application/pdf' 
+      });
+    } catch (error) {
+      console.error("Failed to process document:", error);
+      showLocalBotMessage("⚠️ **Document Error**\nCould not process the selected document. Please try a different one.");
+    }
+    
     e.target.value = '';
     setShowAttachMenu(false);
   };
@@ -4464,12 +4550,9 @@ const AI_PRESETS = [
       mediaRecorder.onstop = () => {
         const mimeType = mediaRecorder.mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
-          updateUsage('voiceMessagesCount');
-          sendMessageToBackend("🎤 Voice Message", reader.result, 'audio');
-        }
+        const voiceFile = new File([audioBlob], 'voice_message.webm', { type: mimeType });
+        updateUsage('voiceMessagesCount');
+        sendMessageToBackend("🎤 Voice Message", null, 'audio', "", null, null, null, false, voiceFile);
         if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach(track => track.stop());
       };
 
@@ -5170,21 +5253,45 @@ const AI_PRESETS = [
                       </div>
                     )}
 
+                    {uploadProgress !== null && (
+                      <div className="px-3 pt-2 pb-1.5 border-b border-blue-500/20 bg-blue-500/5 rounded-t-xl">
+                        <div className="flex items-center justify-between text-xs text-blue-400 mb-1 font-medium">
+                          <span className="flex items-center gap-1.5 truncate max-w-[80%]">
+                            <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
+                            Uploading {uploadingFileName || 'file'} directly to secure storage...
+                          </span>
+                          <span className="font-semibold text-blue-300">{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full bg-slate-700/50 h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400 h-full rounded-full transition-all duration-150 ease-out" 
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     {pendingAttachment && (
                       <div className="px-2 pt-2 pb-1">
-                        <div className="relative inline-block group">
+                        <div className={`relative inline-flex items-center gap-2 p-1.5 pr-3 rounded-xl border shadow-sm group ${isDarkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-100 border-slate-200'}`}>
                           {pendingAttachment.type === 'image' ? (
-                            <img src={pendingAttachment.data} alt="preview" className={`h-14 w-14 object-cover rounded-xl border shadow-sm ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} />
+                            <img src={pendingAttachment.data} alt="preview" className={`h-10 w-10 object-cover rounded-lg border ${isDarkMode ? 'border-slate-700' : 'border-slate-300'}`} />
                           ) : (
-                            <div className={`h-14 w-14 rounded-xl border flex flex-col items-center justify-center text-purple-500 overflow-hidden ${isDarkMode ? 'bg-purple-900/20 border-purple-800/50' : 'bg-purple-50 border-purple-100'}`}>
-                              <FileText className="w-5 h-5 mb-1" />
-                              <span className="text-[8px] truncate w-full px-1 text-center font-medium">{pendingAttachment.name}</span>
+                            <div className={`h-10 w-10 rounded-lg border flex items-center justify-center flex-shrink-0 ${isDarkMode ? 'bg-blue-900/20 border-blue-800/50 text-blue-400' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                              <FileText className="w-5 h-5" />
                             </div>
                           )}
+                          <div className="flex flex-col max-w-[160px] sm:max-w-[220px]">
+                            <span className={`text-[12px] font-medium truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{pendingAttachment.name}</span>
+                            <span className="text-[10px] text-slate-400">
+                              {pendingAttachment.size ? (pendingAttachment.size / (1024 * 1024)).toFixed(1) + ' MB' : ''}
+                            </span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => setPendingAttachment(null)}
-                            className="absolute -top-2 -right-2 w-5 h-5 bg-slate-800 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-slate-700"
+                            className="ml-1 w-5 h-5 bg-slate-700 hover:bg-slate-600 text-white rounded-full flex items-center justify-center transition-all shadow-sm"
+                            title="Remove attachment"
                           >
                             <X className="w-3 h-3" />
                           </button>
