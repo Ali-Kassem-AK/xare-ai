@@ -3947,7 +3947,7 @@ const AI_PRESETS = [
         setUploadingFileName(attachmentFile.name);
         setUploadProgress(0);
         const uploadRes = await uploadFileDirectly(attachmentFile, {
-          userId: currentUser.id,
+          userId: currentUser?.id,
           onProgress: (p) => setUploadProgress(p)
         });
         uploadedFileUrl = uploadRes.fileUrl;
@@ -3959,11 +3959,18 @@ const AI_PRESETS = [
       } catch (uploadErr: any) {
         console.error("Direct storage upload failed:", uploadErr);
         setUploadProgress(null);
-        setIsLoading(false);
-        setActiveLoadingChatId(null);
-        setLoadingType(null);
-        showLocalBotMessage(`⚠️ **Upload Failed**\n${uploadErr.message || 'Could not upload file to storage. Please try again.'}`);
-        return;
+
+        // For files <= 5MB, fallback to inline delivery so small files are never blocked
+        if (attachmentFile.size <= 5 * 1024 * 1024 && attachmentData) {
+          console.info("Falling back to inline delivery for small file (<= 5MB)");
+          uploadedFileUrl = null;
+        } else {
+          setIsLoading(false);
+          setActiveLoadingChatId(null);
+          setLoadingType(null);
+          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to storage.'}\n\n*Note: For files larger than 5MB, Firebase Storage must be enabled in the Firebase Console (Project: \`xare-5bc49\`).*`);
+          return;
+        }
       }
     }
 
