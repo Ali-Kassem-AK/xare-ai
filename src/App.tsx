@@ -16,7 +16,7 @@ import {
 import { 
   getFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment 
 } from 'firebase/firestore';
-import { uploadFileDirectly, uploadFileDirect } from './utils/storage';
+import { uploadFileDirectly, uploadFileDirect, UploadResult } from './utils/storage';
 
 // ==========================================
 // --- TOKEN LIMIT & REDIRECTION CONFIG
@@ -3531,35 +3531,12 @@ const AI_PRESETS = [
   // --- DIRECT CLIPBOARD PASTE (IMAGES & PDFS)
   // ==========================================
   const processPastedFile = (file: File) => {
-    if (file.size > 100 * 1024 * 1024) {
-      showLocalBotMessage("**File Size Limit Exceeded**\nThe pasted file exceeds the maximum allowed size of 100 MB. Please choose a smaller file.");
+    if (file.size > 50 * 1024 * 1024) {
+      showLocalBotMessage("**File Size Limit Exceeded**\nThe pasted file exceeds the maximum allowed size of 50 MB. Please choose a smaller file.");
       return;
     }
-    const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
-    if (file.size < 5 * 1024 * 1024) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64Data = event.target?.result as string;
-        setPendingAttachment({
-          type: file.type.startsWith('image/') ? 'image' : 'document',
-          file: file,
-          data: previewUrl || base64Data,
-          name: file.name || `pasted_file_${Date.now()}`,
-          size: file.size,
-          mimeType: file.type
-        });
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setPendingAttachment({
-        type: file.type.startsWith('image/') ? 'image' : 'document',
-        file: file,
-        data: previewUrl,
-        name: file.name || `pasted_file_${Date.now()}`,
-        size: file.size,
-        mimeType: file.type
-      });
-    }
+    const type = file.type.startsWith('image/') ? 'image' : 'document';
+    startBackgroundUpload(file, type);
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -4035,7 +4012,9 @@ const AI_PRESETS = [
     toolLabel = null,
     targetBotMsgId = null,
     isEditMode = false,
-    attachmentFile: File | null = null
+    attachmentFile: File | null = null,
+    preUploadPromise: Promise<UploadResult> | null = null,
+    preUploadResult: UploadResult | null = null
   ) => {
     if (!currentUser) return;
     setScrolledUpLock(false);
@@ -4069,7 +4048,39 @@ const AI_PRESETS = [
     let uploadedFileSize: number | null = null;
     let uploadedFileId: string | null = null;
 
-    if (attachmentFile instanceof File) {
+    if (preUploadResult) {
+      // 🚀 Instant pre-upload was already completed in the background before clicking send!
+      uploadedFileUrl = preUploadResult.fileUrl;
+      uploadedMimeType = preUploadResult.mimeType;
+      uploadedFileName = preUploadResult.fileName;
+      uploadedFileSize = preUploadResult.fileSize;
+      uploadedFileId = preUploadResult.fileId;
+    } else if (preUploadPromise) {
+      // ⏳ Background pre-upload is currently in flight: await the existing promise!
+      try {
+        setUploadingFileName(attachmentFile?.name || 'File');
+        const uploadRes = await preUploadPromise;
+        uploadedFileUrl = uploadRes.fileUrl;
+        uploadedMimeType = uploadRes.mimeType;
+        uploadedFileName = uploadRes.fileName;
+        uploadedFileSize = uploadRes.fileSize;
+        uploadedFileId = uploadRes.fileId;
+        setUploadProgress(null);
+      } catch (uploadErr: any) {
+        console.error("In-flight storage upload failed:", uploadErr);
+        setUploadProgress(null);
+        if (attachmentFile && attachmentFile.size <= 5 * 1024 * 1024 && attachmentData) {
+          uploadedFileUrl = null;
+        } else {
+          setIsLoading(false);
+          setActiveLoadingChatId(null);
+          setLoadingType(null);
+          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to Supabase Storage.'}\n\nPlease check your network connection and retry.`);
+          return;
+        }
+      }
+    } else if (attachmentFile instanceof File) {
+      // Standard upload fallback
       try {
         setUploadingFileName(attachmentFile.name);
         setUploadProgress(0);
@@ -4671,8 +4682,21 @@ const AI_PRESETS = [
         setPendingAttachment(null);
         return;
       }
-      sendMessageToBackend(baseText, pendingAttachment.data, pendingAttachment.type, hiddenPrompt, toolAction, toolLabel, null, false, pendingAttachment.file);
+      const att = pendingAttachment;
       setPendingAttachment(null);
+      sendMessageToBackend(
+        baseText, 
+        att.data, 
+        att.type, 
+        hiddenPrompt, 
+        toolAction, 
+        toolLabel, 
+        null, 
+        false, 
+        att.file,
+        att.uploadPromise,
+        att.uploadResult
+      );
     } else {
       sendMessageToBackend(baseText, null, null, hiddenPrompt, toolAction, toolLabel);
     }
@@ -4691,27 +4715,70 @@ const AI_PRESETS = [
     }
   };
 
+  // ==========================================
+  // --- OPTIMISTIC BACKGROUND PRE-UPLOAD
+  // ==========================================
+  const startBackgroundUpload = (file: File, type: 'image' | 'document') => {
+    const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
+    
+    let uploadTaskHandle: any = null;
+    const uploadPromise = uploadFileDirectly(file, {
+      userId: currentUser?.id,
+      onProgress: (percent) => {
+        setPendingAttachment((prev: any) => {
+          if (!prev || prev.file !== file) return prev;
+          return { ...prev, uploadProgress: percent };
+        });
+      },
+      onTaskCreated: (handle) => {
+        uploadTaskHandle = handle;
+      }
+    });
+
+    const initialAttachment = {
+      type,
+      file,
+      data: previewUrl || '',
+      name: file.name,
+      size: file.size,
+      mimeType: file.type || (type === 'image' ? 'image/jpeg' : 'application/pdf'),
+      uploadPromise,
+      uploadTaskHandle,
+      uploadProgress: 0,
+      uploadResult: null,
+      uploadError: null,
+      isUploading: true
+    };
+
+    uploadPromise.then((result) => {
+      setPendingAttachment((prev: any) => {
+        if (!prev || prev.file !== file) return prev;
+        return { ...prev, uploadResult: result, uploadProgress: 100, isUploading: false };
+      });
+    }).catch((err) => {
+      console.error("Background pre-upload error:", err);
+      setPendingAttachment((prev: any) => {
+        if (!prev || prev.file !== file) return prev;
+        return { ...prev, uploadError: err, isUploading: false };
+      });
+    });
+
+    setPendingAttachment(initialAttachment);
+  };
+
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 100 * 1024 * 1024) {
-      showLocalBotMessage("**File Size Limit Exceeded**\nThe selected image exceeds the maximum allowed size of 100 MB. Please choose a smaller file.");
+    if (file.size > 50 * 1024 * 1024) {
+      showLocalBotMessage("**File Size Limit Exceeded**\nThe selected image exceeds the maximum allowed size of 50 MB. Please choose a smaller file.");
       e.target.value = '';
       setShowAttachMenu(false);
       return;
     }
     
     try {
-      const previewUrl = URL.createObjectURL(file);
-      setPendingAttachment({ 
-        type: 'image', 
-        file, 
-        data: previewUrl, 
-        name: file.name, 
-        size: file.size, 
-        mimeType: file.type || 'image/jpeg' 
-      });
+      startBackgroundUpload(file, 'image');
     } catch (error) {
       console.error("Failed to process image:", error);
       showLocalBotMessage("⚠️ **Image Error**\nCould not process the selected image. Please try a different one.");
@@ -4725,23 +4792,15 @@ const AI_PRESETS = [
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 100 * 1024 * 1024) {
-      showLocalBotMessage("**File Size Limit Exceeded**\nThe selected document exceeds the maximum allowed size of 100 MB. Please choose a smaller file.");
+    if (file.size > 50 * 1024 * 1024) {
+      showLocalBotMessage("**File Size Limit Exceeded**\nThe selected document exceeds the maximum allowed size of 50 MB. Please choose a smaller file.");
       e.target.value = '';
       setShowAttachMenu(false);
       return;
     }
     
     try {
-      const previewUrl = URL.createObjectURL(file);
-      setPendingAttachment({ 
-        type: 'document', 
-        file, 
-        data: previewUrl, 
-        name: file.name, 
-        size: file.size, 
-        mimeType: file.type || 'application/pdf' 
-      });
+      startBackgroundUpload(file, 'document');
     } catch (error) {
       console.error("Failed to process document:", error);
       showLocalBotMessage("⚠️ **Document Error**\nCould not process the selected document. Please try a different one.");
@@ -5499,13 +5558,32 @@ const AI_PRESETS = [
                           )}
                           <div className="flex flex-col max-w-[160px] sm:max-w-[220px]">
                             <span className={`text-[12px] font-medium truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{pendingAttachment.name}</span>
-                            <span className="text-[10px] text-slate-400">
-                              {pendingAttachment.size ? (pendingAttachment.size / (1024 * 1024)).toFixed(1) + ' MB' : ''}
-                            </span>
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                              {pendingAttachment.isUploading ? (
+                                <span className="text-blue-400 font-medium flex items-center gap-1">
+                                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                  Uploading {pendingAttachment.uploadProgress || 0}%
+                                </span>
+                              ) : pendingAttachment.uploadResult ? (
+                                <span className="text-emerald-400 font-medium flex items-center gap-1">
+                                  <CheckCircle className="w-2.5 h-2.5 text-emerald-400" />
+                                  Ready • {pendingAttachment.size ? (pendingAttachment.size / (1024 * 1024)).toFixed(1) + ' MB' : ''}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">
+                                  {pendingAttachment.size ? (pendingAttachment.size / (1024 * 1024)).toFixed(1) + ' MB' : ''}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <button
                             type="button"
-                            onClick={() => setPendingAttachment(null)}
+                            onClick={() => {
+                              if (pendingAttachment?.uploadTaskHandle?.cancel) {
+                                pendingAttachment.uploadTaskHandle.cancel();
+                              }
+                              setPendingAttachment(null);
+                            }}
                             className="ml-1 w-5 h-5 bg-slate-700 hover:bg-slate-600 text-white rounded-full flex items-center justify-center transition-all shadow-sm"
                             title="Remove attachment"
                           >
