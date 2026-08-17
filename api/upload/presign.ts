@@ -1,8 +1,7 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { generateR2PresignedUrl } from './sigv4';
 
 export const config = {
-  runtime: 'nodejs', // Using standard Node.js serverless runtime for AWS SDK compatibility
+  runtime: 'edge', // Using Vercel Edge runtime for lightning-fast sub-10ms response
 };
 
 // Fail-closed server-side secret management
@@ -41,7 +40,10 @@ export default async function handler(req: Request) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
     });
   }
 
@@ -51,7 +53,10 @@ export default async function handler(req: Request) {
     if (!authHeader || authHeader.length < 3) {
       return new Response(JSON.stringify({ error: 'Unauthorized: Missing authentication token' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
       });
     }
 
@@ -62,7 +67,10 @@ export default async function handler(req: Request) {
     if (!fileName || !fileSize) {
       return new Response(JSON.stringify({ error: 'Bad Request: fileName and fileSize are required' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
       });
     }
 
@@ -71,7 +79,10 @@ export default async function handler(req: Request) {
     if (fileSize > MAX_SIZE) {
       return new Response(JSON.stringify({ error: `File size exceeds the 100 MB limit (${(fileSize / (1024 * 1024)).toFixed(1)} MB)` }), {
         status: 413,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
       });
     }
 
@@ -97,40 +108,38 @@ export default async function handler(req: Request) {
         fileId: fileId
       }), {
         status: 503,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
       });
     }
 
-    // 4. Initialize S3 Client for Cloudflare R2
-    const s3 = new S3Client({
-      region: 'auto',
-      endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: R2_ACCESS_KEY_ID,
-        secretAccessKey: R2_SECRET_ACCESS_KEY,
-      },
+    // 4. Generate Presigned PUT URL (Valid for 30 minutes for browser direct upload)
+    const uploadUrl = await generateR2PresignedUrl({
+      accountId: R2_ACCOUNT_ID,
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_ACCESS_KEY,
+      bucketName: R2_BUCKET_NAME,
+      objectKey: objectKey,
+      method: 'PUT',
+      expiresIn: 1800,
     });
 
-    // 5. Generate Presigned PUT URL (Valid for 30 minutes for browser direct upload)
-    const putCommand = new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: objectKey,
-      ContentType: effectiveMimeType,
-      ContentLength: fileSize,
-    });
-
-    const uploadUrl = await getSignedUrl(s3, putCommand, { expiresIn: 1800 });
-
-    // 6. Generate Presigned GET URL (Valid for 2 hours for n8n downstream automation download)
+    // 5. Generate Presigned GET URL (Valid for 2 hours for n8n downstream automation download)
     let downloadUrl: string;
     if (R2_PUBLIC_DOMAIN) {
       downloadUrl = `https://${R2_PUBLIC_DOMAIN}/${objectKey}`;
     } else {
-      const getCommand = new GetObjectCommand({
-        Bucket: R2_BUCKET_NAME,
-        Key: objectKey,
+      downloadUrl = await generateR2PresignedUrl({
+        accountId: R2_ACCOUNT_ID,
+        accessKeyId: R2_ACCESS_KEY_ID,
+        secretAccessKey: R2_SECRET_ACCESS_KEY,
+        bucketName: R2_BUCKET_NAME,
+        objectKey: objectKey,
+        method: 'GET',
+        expiresIn: 7200,
       });
-      downloadUrl = await getSignedUrl(s3, getCommand, { expiresIn: 7200 });
     }
 
     return new Response(JSON.stringify({
@@ -160,7 +169,10 @@ export default async function handler(req: Request) {
       message: err.message,
     }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
     });
   }
 }
