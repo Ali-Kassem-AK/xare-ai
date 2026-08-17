@@ -87,10 +87,89 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 2. Parse & Validate Payload
+    // 2. Parse Payload
     const body = await req.json();
-    const { fileName, mimeType, fileSize, userId } = body;
+    const { action, objectKey, fileName, mimeType, fileSize, userId } = body;
 
+    // Verify Server-Side Supabase Configuration
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return new Response(JSON.stringify({
+        error: 'SUPABASE_CONFIG_MISSING',
+        message: 'Supabase credentials (SUPABASE_URL, SUPABASE_SECRET_KEY / SUPABASE_SERVICE_ROLE_KEY) are not configured in Vercel environment variables.',
+      }), {
+        status: 503,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+      });
+    }
+
+    // Initialize Supabase Client with Server-Side Secret Key
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      }
+    });
+
+    const trustedUserId = getTrustedUserId(req, userId);
+
+    // =========================================================================
+    // ACTION: sign-download (Generates verified signed download URL with token)
+    // =========================================================================
+    if (action === 'sign-download' || action === 'download') {
+      if (!objectKey || typeof objectKey !== 'string') {
+        return new Response(JSON.stringify({ error: 'Bad Request: objectKey is required for sign-download' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+
+      // Security check: verify path belongs to trusted user
+      if (!objectKey.startsWith(`users/${trustedUserId}/`) && trustedUserId !== 'guest_user') {
+        return new Response(JSON.stringify({ error: 'Forbidden: Access denied to object path' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+
+      const { data: downloadData, error: downloadError } = await supabase
+        .storage
+        .from(SUPABASE_BUCKET_NAME)
+        .createSignedUrl(objectKey, 7200);
+
+      if (downloadError || !downloadData || !downloadData.signedUrl) {
+        console.error('Supabase Signed Download URL Error:', downloadError);
+        return new Response(JSON.stringify({
+          error: 'SUPABASE_DOWNLOAD_SIGN_FAILED',
+          message: downloadError?.message || 'Failed to generate signed download URL.'
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+
+      const fullDownloadUrl = downloadData.signedUrl.startsWith('http')
+        ? downloadData.signedUrl
+        : `${SUPABASE_URL}/storage/v1/${downloadData.signedUrl.replace(/^\//, '')}`;
+
+      return new Response(JSON.stringify({
+        success: true,
+        downloadUrl: fullDownloadUrl,
+        fileUrl: fullDownloadUrl,
+        objectKey: objectKey,
+        hasToken: fullDownloadUrl.includes('token='),
+        expiresIn: 7200
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
+      });
+    }
+
+    // =========================================================================
+    // ACTION: upload presign (Default: Generates signed upload URL for browser)
+    // =========================================================================
     if (!fileName || !fileSize) {
       return new Response(JSON.stringify({ error: 'Bad Request: fileName and fileSize are required' }), {
         status: 400,
@@ -116,11 +195,9 @@ export default async function handler(req: Request) {
       });
     }
 
-    // Server-derived trusted user ID & sanitized path construction
-    const trustedUserId = getTrustedUserId(req, userId);
     const safeName = sanitizeFileName(fileName);
     const fileId = generateFileId();
-    const objectKey = `users/${trustedUserId}/uploads/${fileId}/${safeName}`;
+    const generatedObjectKey = `users/${trustedUserId}/uploads/${fileId}/${safeName}`;
 
     const effectiveMimeType = mimeType || (
       safeName.endsWith('.pdf') ? 'application/pdf' :
@@ -129,36 +206,11 @@ export default async function handler(req: Request) {
       'application/octet-stream'
     );
 
-    // 3. Verify Server-Side Supabase Configuration
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return new Response(JSON.stringify({
-        error: 'SUPABASE_CONFIG_MISSING',
-        message: 'Supabase credentials (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) are not configured in Vercel environment variables.',
-        objectKey: objectKey,
-        fileId: fileId,
-        trustedUserId: trustedUserId
-      }), {
-        status: 503,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-      });
-    }
-
-    // 4. Initialize Supabase Client with Server-Side Service Role Key
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      }
-    });
-
-    // 5. Generate Signed Upload URL (Valid for 30 minutes for direct browser upload)
+    // Generate Signed Upload URL (Valid for 30 minutes for direct browser upload)
     const { data: uploadData, error: uploadError } = await supabase
       .storage
       .from(SUPABASE_BUCKET_NAME)
-      .createSignedUploadUrl(objectKey);
+      .createSignedUploadUrl(generatedObjectKey);
 
     if (uploadError || !uploadData) {
       console.error('Supabase Signed Upload URL Error:', uploadError);
@@ -174,13 +226,16 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 6. Generate Signed Download URL (Valid for 2 hours for n8n downstream AI download)
+    // Attempt Signed Download URL generation
     const { data: downloadData } = await supabase
       .storage
       .from(SUPABASE_BUCKET_NAME)
-      .createSignedUrl(objectKey, 7200);
+      .createSignedUrl(generatedObjectKey, 7200);
 
-    const downloadUrl = downloadData?.signedUrl || `${SUPABASE_URL}/storage/v1/object/sign/${SUPABASE_BUCKET_NAME}/${objectKey}`;
+    let initialDownloadUrl = downloadData?.signedUrl || '';
+    if (initialDownloadUrl && !initialDownloadUrl.startsWith('http')) {
+      initialDownloadUrl = `${SUPABASE_URL}/storage/v1/${initialDownloadUrl.replace(/^\//, '')}`;
+    }
 
     // Full Upload URL
     const fullUploadUrl = uploadData.signedUrl.startsWith('http') 
@@ -190,11 +245,11 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({
       success: true,
       uploadUrl: fullUploadUrl,
-      downloadUrl: downloadUrl,
+      downloadUrl: initialDownloadUrl,
       token: uploadData.token,
-      path: uploadData.path || objectKey,
+      path: uploadData.path || generatedObjectKey,
       fileId: fileId,
-      objectKey: objectKey,
+      objectKey: generatedObjectKey,
       fileName: safeName,
       fileSize: fileSize,
       mimeType: effectiveMimeType,

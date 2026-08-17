@@ -49,7 +49,8 @@ function getFileCacheKey(file: File, userId: string): string {
  * 1. Immediate client-side validation against 50MB ceiling
  * 2. Requests signed upload URL from /api/upload/presign with authenticated JWT
  * 3. Streams the binary directly to Supabase Storage using XMLHttpRequest with progress tracking
- * 4. Returns the signed download URL for n8n to process
+ * 4. Generates a verified, tokenized signed download URL after upload completes
+ * 5. Returns the complete signed download URL for n8n to download the file
  */
 export async function uploadFileDirectly(
   file: File,
@@ -69,7 +70,7 @@ export async function uploadFileDirectly(
   // 2. Check in-memory cache for instant zero-overhead retry
   const cacheKey = getFileCacheKey(file, currentUserId);
   const cached = uploadCache.get(cacheKey);
-  if (cached && cached.fileUrl && cached.fileUrl.startsWith('http')) {
+  if (cached && cached.fileUrl && cached.fileUrl.startsWith('http') && cached.fileUrl.includes('token=')) {
     console.info(`[SUPABASE_CACHE_HIT] Reusing existing Supabase upload for '${file.name}'`);
     if (options.onProgress) {
       options.onProgress(100);
@@ -164,19 +165,49 @@ export async function uploadFileDirectly(
       }
     };
 
-    xhr.onload = () => {
+    xhr.onload = async () => {
       if (isSettled) return;
       cleanup();
 
       if (xhr.status >= 200 && xhr.status < 300) {
-        console.info(`[SUPABASE_UPLOAD_SUCCESS] Upload complete for '${file.name}'!`);
+        console.info(`[SUPABASE_UPLOAD_SUCCESS] Upload complete for '${file.name}'! Fetching verified download URL with signed token...`);
         if (options.onProgress) {
           options.onProgress(100);
         }
 
+        let verifiedDownloadUrl = downloadUrl;
+
+        // Obtain verified signed download token now that the object exists in Supabase Storage
+        try {
+          const signRes = await fetch('/api/upload/presign', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': authHeaderValue,
+              'x-chatbot-token': 'ali1234',
+              'x-user-id': currentUserId
+            },
+            body: JSON.stringify({
+              action: 'sign-download',
+              objectKey: objectKey,
+              userId: currentUserId
+            })
+          });
+
+          if (signRes.ok) {
+            const signData = await signRes.json();
+            if (signData.downloadUrl) {
+              verifiedDownloadUrl = signData.downloadUrl;
+              console.info(`[SUPABASE_SIGNED_DOWNLOAD_VERIFIED] Token attached successfully (length: ${verifiedDownloadUrl.length})`);
+            }
+          }
+        } catch (signErr) {
+          console.warn('[SUPABASE_SIGN_DOWNLOAD_WARN]', signErr);
+        }
+
         const result: UploadResult = {
           fileId: fileId,
-          fileUrl: downloadUrl,
+          fileUrl: verifiedDownloadUrl,
           fileName: file.name,
           fileSize: file.size,
           mimeType: mimeType || file.type || 'application/octet-stream',
