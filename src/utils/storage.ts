@@ -4,7 +4,7 @@
  * Uploads large binary files directly from the browser to Supabase Storage
  * using Signed Upload URLs, keeping raw binaries completely outside of n8n webhooks.
  *
- * Engineered with 100% Mobile WebKit / iOS Safari resilience.
+ * Engineered with 100% Mobile WebKit / iOS Safari resilience and realistic dynamic progress interpolation.
  */
 
 import { getAuth } from 'firebase/auth';
@@ -34,7 +34,6 @@ export interface UploadOptions {
 }
 
 export const MAX_FILE_SIZE_DEFAULT = 50 * 1024 * 1024; // 50 MB hard maximum application ceiling
-const DEFAULT_TIMEOUT_MS = 60000; // 60s timeout
 
 // In-memory cache to prevent re-uploading the exact same file during prompt retries
 const uploadCache = new Map<string, UploadResult>();
@@ -47,11 +46,69 @@ function getFileCacheKey(file: File, userId: string): string {
 }
 
 /**
+ * Helper class for realistic, organic upload progress simulation
+ */
+class ProgressSimulator {
+  private currentProgress = 5;
+  private timer: any = null;
+  private onProgress?: (percent: number) => void;
+
+  constructor(onProgress?: (percent: number) => void) {
+    this.onProgress = onProgress;
+    if (this.onProgress) {
+      this.onProgress(this.currentProgress);
+    }
+  }
+
+  start() {
+    this.stop();
+    this.timer = setInterval(() => {
+      if (this.currentProgress < 30) {
+        // Fast initial ramp (presigning / connection)
+        this.currentProgress += Math.floor(Math.random() * 5) + 3;
+      } else if (this.currentProgress < 75) {
+        // Steady streaming
+        this.currentProgress += Math.floor(Math.random() * 4) + 2;
+      } else if (this.currentProgress < 92) {
+        // Gentle easing while awaiting server confirmation
+        this.currentProgress += Math.random() > 0.4 ? 1 : 0;
+      }
+      this.currentProgress = Math.min(92, this.currentProgress);
+      if (this.onProgress) {
+        this.onProgress(this.currentProgress);
+      }
+    }, 90);
+  }
+
+  stepTo(target: number) {
+    this.currentProgress = Math.max(this.currentProgress, target);
+    if (this.onProgress) {
+      this.onProgress(this.currentProgress);
+    }
+  }
+
+  finish() {
+    this.stop();
+    this.currentProgress = 100;
+    if (this.onProgress) {
+      this.onProgress(100);
+    }
+  }
+
+  stop() {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  }
+}
+
+/**
  * Direct-to-Supabase Storage Resumable/Signed Upload (Max 50MB)
  * 1. Immediate client-side validation against 50MB ceiling
- * 2. Immediately reads binary into memory (prevents iOS Safari async file descriptor sandbox drops)
+ * 2. Immediately reads binary into memory (prevents Mobile Safari file descriptor revocation)
  * 3. Requests signed upload URL from /api/upload/presign with authenticated JWT
- * 4. Streams the binary directly to Supabase Storage using native Fetch with multipart FormData
+ * 4. Streams the binary directly to Supabase Storage using native Fetch with dynamic realistic progress
  * 5. Generates a verified, tokenized signed download URL after upload completes
  * 6. Returns the complete signed download URL for n8n to download the file
  */
@@ -82,7 +139,10 @@ export async function uploadFileDirectly(
   }
 
   console.info(`[SUPABASE_UPLOAD_START] Requesting signed upload authorization for '${file.name}' (${(file.size / (1024*1024)).toFixed(2)} MB)`);
-  if (options.onProgress) options.onProgress(10);
+  
+  // Start realistic smooth progress ticker
+  const progressSim = new ProgressSimulator(options.onProgress);
+  progressSim.start();
 
   // 3. Convert File to in-memory ArrayBuffer / Blob immediately (prevents Mobile Safari file descriptor revocation)
   let fileBlob: Blob = file;
@@ -124,6 +184,7 @@ export async function uploadFileDirectly(
     });
 
     if (!presignRes.ok) {
+      progressSim.stop();
       const errJson = await presignRes.json().catch(() => ({}));
       if (errJson.error === 'SUPABASE_CONFIG_MISSING') {
         throw new Error(`Supabase Storage is not configured: ${errJson.message}`);
@@ -136,6 +197,7 @@ export async function uploadFileDirectly(
 
     presignData = await presignRes.json();
   } catch (authErr: any) {
+    progressSim.stop();
     console.error('[SUPABASE_PRESIGN_ERROR]', authErr);
     throw new Error(`Upload authorization failed: ${authErr.message}`);
   }
@@ -143,12 +205,15 @@ export async function uploadFileDirectly(
   const { uploadUrl, downloadUrl, fileId, objectKey, mimeType } = presignData;
 
   console.info(`[SUPABASE_DIRECT_STREAM] Upload URL obtained. Streaming binary directly to Supabase Storage...`);
-  if (options.onProgress) options.onProgress(35);
+  progressSim.stepTo(25);
 
   const controller = new AbortController();
   if (options.onTaskCreated) {
     options.onTaskCreated({
-      cancel: () => controller.abort()
+      cancel: () => {
+        progressSim.stop();
+        controller.abort();
+      }
     });
   }
 
@@ -158,8 +223,6 @@ export async function uploadFileDirectly(
     formData.append('cacheControl', '3600');
     formData.append('', fileBlob, file.name);
 
-    if (options.onProgress) options.onProgress(60);
-
     const uploadRes = await fetch(uploadUrl, {
       method: 'PUT',
       body: formData,
@@ -167,11 +230,12 @@ export async function uploadFileDirectly(
     });
 
     if (!uploadRes.ok) {
+      progressSim.stop();
       const errText = await uploadRes.text().catch(() => '');
       throw new Error(`Supabase upload failed with HTTP ${uploadRes.status}: ${errText || uploadRes.statusText}`);
     }
 
-    if (options.onProgress) options.onProgress(85);
+    progressSim.stepTo(94);
     console.info(`[SUPABASE_UPLOAD_SUCCESS] Upload complete for '${file.name}'! Fetching verified download URL...`);
 
     let verifiedDownloadUrl = downloadUrl;
@@ -204,7 +268,8 @@ export async function uploadFileDirectly(
       console.warn('[SUPABASE_SIGN_DOWNLOAD_WARN]', signErr);
     }
 
-    if (options.onProgress) options.onProgress(100);
+    // Complete smooth progress to 100%
+    progressSim.finish();
 
     const result: UploadResult = {
       fileId: fileId,
@@ -222,6 +287,7 @@ export async function uploadFileDirectly(
     return result;
 
   } catch (uploadErr: any) {
+    progressSim.stop();
     if (controller.signal.aborted) {
       throw new Error('Upload was canceled.');
     }
