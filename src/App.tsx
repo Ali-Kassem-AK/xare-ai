@@ -4183,7 +4183,19 @@ const AI_PRESETS = [
         setUploadProgress(null);
 
         // For files <= 5MB, fallback to inline delivery so small files are never blocked
-        if (attachmentFile.size <= 5 * 1024 * 1024 && attachmentData) {
+        if (attachmentFile.size <= 5 * 1024 * 1024) {
+          if (!attachmentData) {
+            try {
+              attachmentData = await new Promise<string>((res, rej) => {
+                const r = new FileReader();
+                r.onload = () => res(r.result as string);
+                r.onerror = rej;
+                r.readAsDataURL(attachmentFile);
+              });
+            } catch (e) {
+              console.warn("Failed to read file as base64 fallback:", e);
+            }
+          }
           console.info("Falling back to inline delivery for small file (<= 5MB)");
           uploadedFileUrl = null;
         } else {
@@ -4771,7 +4783,7 @@ const AI_PRESETS = [
       setPendingAttachment(null);
       sendMessageToBackend(
         baseText, 
-        att.data, 
+        att.fallbackBase64 || att.data, 
         att.type, 
         hiddenPrompt, 
         toolAction, 

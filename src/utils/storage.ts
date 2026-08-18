@@ -225,8 +225,72 @@ export async function uploadFileDirectly(
       }
     };
 
-    xhr.onerror = () => {
+    xhr.onerror = async () => {
       if (isSettled) return;
+      console.warn(`[SUPABASE_XHR_RETRY] XHR encountered a network issue; retrying via standard fetch API...`);
+      
+      try {
+        const formData = new FormData();
+        formData.append('cacheControl', '3600');
+        formData.append('', file);
+
+        const fetchUploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: formData
+        });
+
+        if (fetchUploadRes.ok) {
+          console.info(`[SUPABASE_FETCH_UPLOAD_SUCCESS] Upload succeeded via native fetch fallback!`);
+          cleanup();
+          if (options.onProgress) options.onProgress(100);
+
+          let verifiedDownloadUrl = downloadUrl;
+          try {
+            const signRes = await fetch('/api/upload/presign', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authHeaderValue,
+                'x-chatbot-token': 'ali1234',
+                'x-user-id': currentUserId
+              },
+              body: JSON.stringify({
+                action: 'sign-download',
+                objectKey: objectKey,
+                userId: currentUserId
+              })
+            });
+
+            if (signRes.ok) {
+              const signData = await signRes.json();
+              if (signData.downloadUrl) {
+                verifiedDownloadUrl = signData.downloadUrl;
+                console.info(`[SUPABASE_SIGNED_DOWNLOAD_VERIFIED] Token attached successfully (length: ${verifiedDownloadUrl.length})`);
+              }
+            }
+          } catch (signErr) {
+            console.warn('[SUPABASE_SIGN_DOWNLOAD_WARN]', signErr);
+          }
+
+          const result: UploadResult = {
+            fileId: fileId,
+            fileUrl: verifiedDownloadUrl,
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: mimeType || file.type || 'application/octet-stream',
+            storagePath: objectKey,
+            storageProvider: 'supabase',
+            uploadedAt: new Date().toISOString()
+          };
+
+          uploadCache.set(cacheKey, result);
+          resolve(result);
+          return;
+        }
+      } catch (fetchErr) {
+        console.warn(`[SUPABASE_FETCH_RETRY_FAILED] Native fetch fallback error:`, fetchErr);
+      }
+
       cleanup();
       console.error(`[SUPABASE_NETWORK_ERROR] Network connection failed during upload.`);
       reject(new Error('Network error during file upload. Please check your internet connection and retry.'));
