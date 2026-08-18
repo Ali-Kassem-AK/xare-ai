@@ -204,37 +204,60 @@ export const GLOW_ANIMATION_CONFIG = {
  * - [toolName].thinking / analyzingPossibilities / readingSources / processingAudio: Durations for subsequent stages.
  */
 export const TOOL_PHASE_DURATIONS = {
-  sendingDurationMs: 3000,         // Time for the initial 'Sending' animation (Default: 600ms)
+  sendingDurationMs: 1500,         // Time for the initial 'Sending' animation
 
   think: {
-    analyzingPossibilities: 8000, // Time before switching from 'Thinking deeply' to 'Analyzing possibilities'
+    deconstructing: 4500,          // 'Thinking Deeply' -> 'Deconstructing Complexities'
+    analyzingPossibilities: 5500,  // -> 'Analyzing Possibilities'
+    formulatingProofs: 7000,       // -> 'Formulating Logical Proofs'
+    synthesizing: 8000,            // -> 'Synthesizing Output'
   },
   audio: {
-    processingAudio: 6000,        // Time before switching from 'Listening' to 'Processing audio'
+    transcribing: 4500,            // 'Transcribing Audio'
+    processingAudio: 5500,         // -> 'Processing Voice Nuances'
+    synthesizing: 7000,            // -> 'Synthesizing Conversational Response'
   },
   image: {
-    analyzingImage: 4500,         // Time before switching from 'Parsing Image' to 'Analyzing image'
-    thinking: 6000,               // Time before switching from 'Analyzing image' to 'Thinking'
+    parsingImage: 3500,            // 'Parsing Image'
+    analyzingImage: 4500,          // -> 'Analyzing Image'
+    extractingFeatures: 5500,      // -> 'Extracting Visual Features'
+    interpretingContext: 6500,     // -> 'Interpreting Visual Context'
+    thinking: 7500,                // -> 'Thinking'
   },
   document: {
-    analyzingDocument: 5000,      // Time before switching from 'Parsing PDF' to 'Analyzing document'
-    thinking: 16000,              // Time before switching from 'Analyzing document' to 'Thinking'
+    parsingPdf: 3500,              // 'Parsing PDF'
+    extractingOcr: 4500,           // -> 'Extracting Text & OCR'
+    analyzingDocument: 5500,       // -> 'Analyzing Document Structure'
+    deconstructingVisuals: 6500,   // -> 'Deconstructing Visuals & Diagrams'
+    synthesizingInsights: 7500,    // -> 'Synthesizing Insights'
+    thinking: 9000,                // -> 'Thinking'
   },
   summarize: {
-    thinking: 5000,               // Time before switching from 'Summarizing' to 'Thinking'
+    readingContent: 3500,          // 'Reading Content'
+    extractingPoints: 4500,        // -> 'Extracting Key Takeaways'
+    summarizing: 5500,             // -> 'Summarizing'
+    thinking: 6000,                // -> 'Thinking'
   },
   search: {
-    readingSources: 7000,         // Time before switching from 'Searching web' to 'Reading sources'
-    thinking: 6000,               // Time before switching from 'Reading sources' to 'Thinking'
+    searchingWeb: 3500,            // 'Searching Web'
+    readingSources: 4500,          // -> 'Reading Sources'
+    analyzingFindings: 5500,       // -> 'Analyzing Live Findings'
+    thinking: 6000,                // -> 'Thinking'
   },
   explain: {
-    thinking: 5000,               // Time before switching from 'Analyzing code' to 'Thinking'
+    parsingCode: 3500,             // 'Parsing Code'
+    analyzingLogic: 4500,          // -> 'Analyzing Code Architecture & Logic'
+    thinking: 5500,                // -> 'Thinking'
   },
   translate: {
-    thinking: 5000,               // Time before switching from 'Translating' to 'Thinking'
+    detectingLanguage: 3000,       // 'Detecting Language & Nuance'
+    translating: 4500,             // -> 'Translating Contextually'
+    thinking: 5000,                // -> 'Thinking'
   },
   fix: {
-    thinking: 5000,               // Time before switching from 'Analyzing grammar' to 'Thinking'
+    analyzingGrammar: 3000,        // 'Analyzing Grammar & Syntax'
+    refiningTone: 4500,            // -> 'Refining Tone & Clarity'
+    thinking: 5000,                // -> 'Thinking'
   }
 };
 
@@ -3358,93 +3381,126 @@ const AI_PRESETS = [
   }, [currentUser]);
 
   useEffect(() => {
-    let timeoutSending: any, timeout1: any, timeout2: any, timeout3: any;
+    const timeouts: any[] = [];
     if (isLoading) {
-      // 1. Immediately start with "Sending" animation
       setLoadingPhase('Sending');
 
-      const sendingMs = TOOL_PHASE_DURATIONS.sendingDurationMs || 600;
+      const schedulePhase = (phaseText: string, delayMs: number) => {
+        const id = setTimeout(() => {
+          setLoadingPhase(phaseText);
+        }, delayMs);
+        timeouts.push(id);
+      };
 
-      // 2. Transition from "Sending" to the specific tool phase
-      timeoutSending = setTimeout(() => {
-        switch(loadingType) {
-          case 'think':
-            setLoadingPhase('Thinking Deeply');
-            timeout1 = setTimeout(() => {
-              setLoadingPhase('Analyzing Possibilities');
-            }, TOOL_PHASE_DURATIONS.think.analyzingPossibilities);
-            break;
-          case 'audio':
-            setLoadingPhase('Transcribing');
-            timeout1 = setTimeout(() => {
-              setLoadingPhase('Processing Audio');
-            }, TOOL_PHASE_DURATIONS.audio.processingAudio); 
-            break;
-          case 'image':
-            setLoadingPhase('Parsing Image');
-            timeout1 = setTimeout(() => {
-              setLoadingPhase('Analyzing Image');
-              timeout2 = setTimeout(() => {
-                setLoadingPhase('Thinking');
-              }, TOOL_PHASE_DURATIONS.image.thinking);
-            }, TOOL_PHASE_DURATIONS.image.analyzingImage);
-            break;
-          case 'document':
-            setLoadingPhase('Parsing PDF');
-            timeout1 = setTimeout(() => {
-              setLoadingPhase('Analyzing Document');
-              timeout2 = setTimeout(() => {
-                setLoadingPhase('Thinking');
-                timeout3 = setTimeout(() => {
-                  setLoadingPhase('Still processing your file...');
-                }, 8000);
-              }, TOOL_PHASE_DURATIONS.document.thinking);
-            }, TOOL_PHASE_DURATIONS.document.analyzingDocument);
-            break;
-          case 'summarize':
-            setLoadingPhase('Summarizing');
-            timeout1 = setTimeout(() => {
-              setLoadingPhase('Thinking');
-            }, TOOL_PHASE_DURATIONS.summarize.thinking);
-            break;
-          case 'search':
-            setLoadingPhase('Searching Web');
-            timeout1 = setTimeout(() => {
-              setLoadingPhase('Reading Sources');
-              timeout2 = setTimeout(() => {
-                setLoadingPhase('Thinking');
-              }, TOOL_PHASE_DURATIONS.search.thinking);
-            }, TOOL_PHASE_DURATIONS.search.readingSources);
-            break;
-          case 'explain':
-            setLoadingPhase('Analyzing Code');
-            timeout1 = setTimeout(() => {
-              setLoadingPhase('Thinking');
-            }, TOOL_PHASE_DURATIONS.explain.thinking);
-            break;
-          case 'translate':
-            setLoadingPhase('Translating');
-            timeout1 = setTimeout(() => {
-              setLoadingPhase('Thinking');
-            }, TOOL_PHASE_DURATIONS.translate.thinking);
-            break;
-          case 'fix':
-            setLoadingPhase('Analyzing Grammar');
-            timeout1 = setTimeout(() => {
-              setLoadingPhase('Thinking');
-            }, TOOL_PHASE_DURATIONS.fix.thinking);
-            break;
-          default:
-            setLoadingPhase('Thinking');
-            break;
-        }
-      }, sendingMs);
+      const sendingMs = TOOL_PHASE_DURATIONS.sendingDurationMs || 1500;
+      let currentElapsed = sendingMs;
+
+      const queueSteps = (steps: { text: string; duration: number }[]) => {
+        steps.forEach((step, idx) => {
+          if (idx === 0) {
+            schedulePhase(step.text, currentElapsed);
+          } else {
+            currentElapsed += steps[idx - 1].duration;
+            schedulePhase(step.text, currentElapsed);
+          }
+        });
+      };
+
+      switch (loadingType) {
+        case 'document':
+          queueSteps([
+            { text: 'Parsing PDF', duration: TOOL_PHASE_DURATIONS.document.parsingPdf },
+            { text: 'Extracting Text & OCR', duration: TOOL_PHASE_DURATIONS.document.extractingOcr },
+            { text: 'Analyzing Document', duration: TOOL_PHASE_DURATIONS.document.analyzingDocument },
+            { text: 'Deconstructing Visuals & Structure', duration: TOOL_PHASE_DURATIONS.document.deconstructingVisuals },
+            { text: 'Synthesizing Insights', duration: TOOL_PHASE_DURATIONS.document.synthesizingInsights },
+            { text: 'Thinking', duration: TOOL_PHASE_DURATIONS.document.thinking },
+            { text: 'Finalizing response...', duration: 15000 }
+          ]);
+          break;
+
+        case 'image':
+          queueSteps([
+            { text: 'Parsing Image', duration: TOOL_PHASE_DURATIONS.image.parsingImage },
+            { text: 'Analyzing Image', duration: TOOL_PHASE_DURATIONS.image.analyzingImage },
+            { text: 'Extracting Visual Features', duration: TOOL_PHASE_DURATIONS.image.extractingFeatures },
+            { text: 'Interpreting Context', duration: TOOL_PHASE_DURATIONS.image.interpretingContext },
+            { text: 'Thinking', duration: TOOL_PHASE_DURATIONS.image.thinking },
+            { text: 'Finalizing response...', duration: 15000 }
+          ]);
+          break;
+
+        case 'think':
+          queueSteps([
+            { text: 'Thinking Deeply', duration: TOOL_PHASE_DURATIONS.think.deconstructing },
+            { text: 'Deconstructing Complexities', duration: TOOL_PHASE_DURATIONS.think.analyzingPossibilities },
+            { text: 'Analyzing Possibilities', duration: TOOL_PHASE_DURATIONS.think.formulatingProofs },
+            { text: 'Formulating Logical Proofs', duration: TOOL_PHASE_DURATIONS.think.synthesizing },
+            { text: 'Synthesizing Output', duration: 15000 }
+          ]);
+          break;
+
+        case 'audio':
+          queueSteps([
+            { text: 'Transcribing Audio', duration: TOOL_PHASE_DURATIONS.audio.transcribing },
+            { text: 'Processing Voice Nuances', duration: TOOL_PHASE_DURATIONS.audio.processingAudio },
+            { text: 'Synthesizing Conversational Response', duration: TOOL_PHASE_DURATIONS.audio.synthesizing },
+            { text: 'Finalizing audio...', duration: 15000 }
+          ]);
+          break;
+
+        case 'summarize':
+          queueSteps([
+            { text: 'Reading Content', duration: TOOL_PHASE_DURATIONS.summarize.readingContent },
+            { text: 'Extracting Key Takeaways', duration: TOOL_PHASE_DURATIONS.summarize.extractingPoints },
+            { text: 'Summarizing', duration: TOOL_PHASE_DURATIONS.summarize.summarizing },
+            { text: 'Thinking', duration: 15000 }
+          ]);
+          break;
+
+        case 'search':
+          queueSteps([
+            { text: 'Searching Web', duration: TOOL_PHASE_DURATIONS.search.searchingWeb },
+            { text: 'Reading Sources', duration: TOOL_PHASE_DURATIONS.search.readingSources },
+            { text: 'Analyzing Live Findings', duration: TOOL_PHASE_DURATIONS.search.analyzingFindings },
+            { text: 'Thinking', duration: 15000 }
+          ]);
+          break;
+
+        case 'explain':
+          queueSteps([
+            { text: 'Parsing Code', duration: TOOL_PHASE_DURATIONS.explain.parsingCode },
+            { text: 'Analyzing Code Architecture & Logic', duration: TOOL_PHASE_DURATIONS.explain.analyzingLogic },
+            { text: 'Thinking', duration: 15000 }
+          ]);
+          break;
+
+        case 'translate':
+          queueSteps([
+            { text: 'Detecting Language & Nuance', duration: TOOL_PHASE_DURATIONS.translate.detectingLanguage },
+            { text: 'Translating Contextually', duration: TOOL_PHASE_DURATIONS.translate.translating },
+            { text: 'Thinking', duration: 15000 }
+          ]);
+          break;
+
+        case 'fix':
+          queueSteps([
+            { text: 'Analyzing Grammar & Syntax', duration: TOOL_PHASE_DURATIONS.fix.analyzingGrammar },
+            { text: 'Refining Tone & Clarity', duration: TOOL_PHASE_DURATIONS.fix.refiningTone },
+            { text: 'Thinking', duration: 15000 }
+          ]);
+          break;
+
+        default:
+          queueSteps([
+            { text: 'Thinking', duration: 8000 },
+            { text: 'Synthesizing Response', duration: 15000 }
+          ]);
+          break;
+      }
     }
     return () => {
-      clearTimeout(timeoutSending);
-      clearTimeout(timeout1);
-      clearTimeout(timeout2);
-      clearTimeout(timeout3);
+      timeouts.forEach(clearTimeout);
     };
   }, [isLoading, loadingType]);
 
