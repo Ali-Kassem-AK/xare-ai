@@ -3558,7 +3558,7 @@ const AI_PRESETS = [
     }
     if (!userMsg) return;
 
-    sendMessageToBackend(userMsg.text, userMsg.image || userMsg.document || null, activeChat, botMsgId);
+    sendMessageToBackend(userMsg.text, userMsg.image || userMsg.document || userMsg.audio || null, userMsg.image ? 'image' : (userMsg.document ? 'document' : (userMsg.audio ? 'audio' : null)), '', null, null, botMsgId, false);
   }, [chatHistory, currentChatId]);
 
   const handleEditUserPrompt = useCallback((userMsgId: string, newPromptText: string) => {
@@ -4827,7 +4827,7 @@ const AI_PRESETS = [
         fallbackBase64 = e.target?.result as string;
         setPendingAttachment((prev: any) => {
           if (!prev || prev.file !== file) return prev;
-          return { ...prev, fallbackBase64 };
+          return { ...prev, fallbackBase64, data: prev.data || fallbackBase64 };
         });
       };
       reader.readAsDataURL(file);
