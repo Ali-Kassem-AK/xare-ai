@@ -5530,7 +5530,7 @@ const AI_PRESETS = [
 
               <form 
                 onSubmit={handleSendMessage}
-                className={`relative flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 w-full ${
+                className={`relative flex items-end gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 w-full ${
                   isDarkMode 
                     ? 'bg-[#070e1c] border-blue-500/30 shadow-[0_8px_32px_0_rgba(2,10,35,0.85)] focus-within:border-cyan-400/60' 
                     : 'bg-white border-slate-200/90 shadow-xl focus-within:border-blue-400'
@@ -5686,30 +5686,30 @@ const AI_PRESETS = [
                     )}
 
                     {pendingAttachment && (
-                      <div className="px-2 pt-2 pb-1">
-                        <div className={`relative inline-flex items-center gap-2 p-1.5 pr-3 rounded-xl border shadow-sm group ${isDarkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-100 border-slate-200'}`}>
+                      <div className="px-1.5 sm:px-2 pt-1 pb-1 flex items-center">
+                        <div className={`relative inline-flex items-center gap-2 py-1 px-2 pr-2.5 rounded-xl border shadow-sm group max-w-[calc(100vw-130px)] sm:max-w-[340px] ${isDarkMode ? 'bg-slate-800/70 border-slate-700/80 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-800'}`}>
                           {pendingAttachment.type === 'image' ? (
-                            <img src={pendingAttachment.data} alt="preview" className={`h-10 w-10 object-cover rounded-lg border ${isDarkMode ? 'border-slate-700' : 'border-slate-300'}`} />
+                            <img src={pendingAttachment.data} alt="preview" className={`h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-md border flex-shrink-0 ${isDarkMode ? 'border-slate-700' : 'border-slate-300'}`} />
                           ) : (
-                            <div className={`h-10 w-10 rounded-lg border flex items-center justify-center flex-shrink-0 ${isDarkMode ? 'bg-blue-900/20 border-blue-800/50 text-blue-400' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
-                              <FileText className="w-5 h-5" />
+                            <div className={`h-7 w-7 sm:h-8 sm:w-8 rounded-md border flex items-center justify-center flex-shrink-0 ${isDarkMode ? 'bg-blue-900/30 border-blue-700/50 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
+                              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </div>
                           )}
-                          <div className="flex flex-col max-w-[160px] sm:max-w-[220px]">
-                            <span className={`text-[12px] font-medium truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{pendingAttachment.name}</span>
-                            <div className="flex items-center gap-1.5 text-[10px]">
+                          <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
+                            <span className={`text-[11px] sm:text-[12px] font-medium truncate ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{pendingAttachment.name}</span>
+                            <div className="flex items-center gap-1.5 text-[9.5px] sm:text-[10px] leading-tight">
                               {pendingAttachment.isUploading ? (
-                                <span className="text-blue-400 font-medium flex items-center gap-1">
-                                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                <span className="text-blue-400 font-medium flex items-center gap-1 truncate">
+                                  <Loader2 className="w-2.5 h-2.5 animate-spin flex-shrink-0" />
                                   Uploading {pendingAttachment.uploadProgress || 0}%
                                 </span>
                               ) : pendingAttachment.uploadResult ? (
-                                <span className="text-emerald-400 font-medium flex items-center gap-1">
-                                  <CheckCircle className="w-2.5 h-2.5 text-emerald-400" />
+                                <span className="text-emerald-400 font-medium flex items-center gap-1 truncate">
+                                  <CheckCircle className="w-2.5 h-2.5 text-emerald-400 flex-shrink-0" />
                                   Ready • {pendingAttachment.size ? (pendingAttachment.size / (1024 * 1024)).toFixed(1) + ' MB' : ''}
                                 </span>
                               ) : (
-                                <span className="text-slate-400">
+                                <span className="text-slate-400 truncate">
                                   {pendingAttachment.size ? (pendingAttachment.size / (1024 * 1024)).toFixed(1) + ' MB' : ''}
                                 </span>
                               )}
@@ -5723,10 +5723,10 @@ const AI_PRESETS = [
                               }
                               setPendingAttachment(null);
                             }}
-                            className="ml-1 w-5 h-5 bg-slate-700 hover:bg-slate-600 text-white rounded-full flex items-center justify-center transition-all shadow-sm"
+                            className="ml-1 w-4 h-4 sm:w-4.5 sm:h-4.5 bg-slate-700/80 hover:bg-slate-600 text-white rounded-full flex items-center justify-center transition-all shadow-sm flex-shrink-0"
                             title="Remove attachment"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                           </button>
                         </div>
                       </div>
