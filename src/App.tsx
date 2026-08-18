@@ -258,6 +258,13 @@ export const TOOL_PHASE_DURATIONS = {
     analyzingGrammar: 3000,        // 'Analyzing Grammar & Syntax'
     refiningTone: 4500,            // -> 'Refining Tone & Clarity'
     thinking: 5000,                // -> 'Thinking'
+  },
+  text: {
+    readingPrompt: 2000,           // 'Reading Prompt' -> 'Understanding Context'
+    understandingContext: 3000,    // -> 'Thinking'
+    thinking: 4000,                // -> 'Formulating Response'
+    formulatingResponse: 5000,     // -> 'Synthesizing Output'
+    synthesizing: 6000,            // -> 'Finalizing response...'
   }
 };
 
@@ -3491,10 +3498,15 @@ const AI_PRESETS = [
           ]);
           break;
 
+        case 'text':
         default:
           queueSteps([
-            { text: 'Thinking', duration: 8000 },
-            { text: 'Synthesizing Response', duration: 15000 }
+            { text: 'Reading Prompt', duration: TOOL_PHASE_DURATIONS.text.readingPrompt },
+            { text: 'Understanding Context', duration: TOOL_PHASE_DURATIONS.text.understandingContext },
+            { text: 'Thinking', duration: TOOL_PHASE_DURATIONS.text.thinking },
+            { text: 'Formulating Response', duration: TOOL_PHASE_DURATIONS.text.formulatingResponse },
+            { text: 'Synthesizing Output', duration: TOOL_PHASE_DURATIONS.text.synthesizing },
+            { text: 'Finalizing response...', duration: 15000 }
           ]);
           break;
       }
