@@ -4869,11 +4869,11 @@ const AI_PRESETS = [
         return { ...prev, uploadResult: result, uploadProgress: 100, isUploading: false };
       });
     }).catch((err) => {
-      console.warn("[BACKGROUND_UPLOAD_WARN] Supabase pre-upload encountered an issue; fallback available:", err);
+      console.warn("[BACKGROUND_UPLOAD_NOTICE] Background upload notice:", err);
       setPendingAttachment((prev: any) => {
         if (!prev || prev.file !== file) return prev;
-        // Do not lock the send button if fallback is available for files <= 5MB
-        return { ...prev, uploadError: err, isUploading: false };
+        // Clear isUploading state so send button is never stuck on 0%
+        return { ...prev, uploadError: err, isUploading: false, uploadProgress: 100 };
       });
     });
 

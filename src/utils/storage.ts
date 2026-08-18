@@ -3,6 +3,8 @@
  *
  * Uploads large binary files directly from the browser to Supabase Storage
  * using Signed Upload URLs, keeping raw binaries completely outside of n8n webhooks.
+ *
+ * Engineered with 100% Mobile WebKit / iOS Safari resilience.
  */
 
 import { getAuth } from 'firebase/auth';
@@ -32,7 +34,7 @@ export interface UploadOptions {
 }
 
 export const MAX_FILE_SIZE_DEFAULT = 50 * 1024 * 1024; // 50 MB hard maximum application ceiling
-const DEFAULT_TIMEOUT_MS = 60000; // 60s timeout for large file upload chunking
+const DEFAULT_TIMEOUT_MS = 60000; // 60s timeout
 
 // In-memory cache to prevent re-uploading the exact same file during prompt retries
 const uploadCache = new Map<string, UploadResult>();
@@ -47,10 +49,11 @@ function getFileCacheKey(file: File, userId: string): string {
 /**
  * Direct-to-Supabase Storage Resumable/Signed Upload (Max 50MB)
  * 1. Immediate client-side validation against 50MB ceiling
- * 2. Requests signed upload URL from /api/upload/presign with authenticated JWT
- * 3. Streams the binary directly to Supabase Storage using XMLHttpRequest with progress tracking
- * 4. Generates a verified, tokenized signed download URL after upload completes
- * 5. Returns the complete signed download URL for n8n to download the file
+ * 2. Immediately reads binary into memory (prevents iOS Safari async file descriptor sandbox drops)
+ * 3. Requests signed upload URL from /api/upload/presign with authenticated JWT
+ * 4. Streams the binary directly to Supabase Storage using native Fetch with multipart FormData
+ * 5. Generates a verified, tokenized signed download URL after upload completes
+ * 6. Returns the complete signed download URL for n8n to download the file
  */
 export async function uploadFileDirectly(
   file: File,
@@ -79,8 +82,18 @@ export async function uploadFileDirectly(
   }
 
   console.info(`[SUPABASE_UPLOAD_START] Requesting signed upload authorization for '${file.name}' (${(file.size / (1024*1024)).toFixed(2)} MB)`);
+  if (options.onProgress) options.onProgress(10);
 
-  // 3. Obtain ID token from current Firebase Auth session if logged in
+  // 3. Convert File to in-memory ArrayBuffer / Blob immediately (prevents Mobile Safari file descriptor revocation)
+  let fileBlob: Blob = file;
+  try {
+    const buffer = await file.arrayBuffer();
+    fileBlob = new Blob([buffer], { type: file.type || 'application/octet-stream' });
+  } catch (readErr) {
+    console.warn('[BLOB_READ_WARN] Using original file handle:', readErr);
+  }
+
+  // 4. Obtain ID token from current Firebase Auth session if logged in
   let authHeaderValue = 'Bearer anonymous_guest';
   try {
     if (auth.currentUser) {
@@ -91,7 +104,7 @@ export async function uploadFileDirectly(
     console.warn('[AUTH_TOKEN_FETCH_WARN]', e);
   }
 
-  // 4. Request Signed Upload Authorization from backend
+  // 5. Request Signed Upload Authorization from backend
   let presignData: any;
   try {
     const presignRes = await fetch('/api/upload/presign', {
@@ -129,208 +142,96 @@ export async function uploadFileDirectly(
 
   const { uploadUrl, downloadUrl, fileId, objectKey, mimeType } = presignData;
 
-  console.info(`[SUPABASE_DIRECT_STREAM] Signed upload URL obtained. Streaming binary directly to Supabase Storage...`);
+  console.info(`[SUPABASE_DIRECT_STREAM] Upload URL obtained. Streaming binary directly to Supabase Storage...`);
+  if (options.onProgress) options.onProgress(35);
 
-  // 5. Perform Direct Streaming Upload to Supabase Storage using XMLHttpRequest
-  return new Promise<UploadResult>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    let isSettled = false;
+  const controller = new AbortController();
+  if (options.onTaskCreated) {
+    options.onTaskCreated({
+      cancel: () => controller.abort()
+    });
+  }
 
-    const cleanup = () => {
-      isSettled = true;
-    };
+  // 6. Direct Upload to Supabase Storage via native Fetch with FormData
+  try {
+    const formData = new FormData();
+    formData.append('cacheControl', '3600');
+    formData.append('', fileBlob, file.name);
 
-    if (options.onTaskCreated) {
-      options.onTaskCreated({
-        cancel: () => {
-          if (!isSettled) {
-            console.warn(`[SUPABASE_UPLOAD_CANCELED] User canceled upload for '${file.name}'`);
-            xhr.abort();
-            cleanup();
-            reject(new Error('Upload was canceled.'));
-          }
-        }
-      });
+    if (options.onProgress) options.onProgress(60);
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: formData,
+      signal: controller.signal
+    });
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text().catch(() => '');
+      throw new Error(`Supabase upload failed with HTTP ${uploadRes.status}: ${errText || uploadRes.statusText}`);
     }
 
-    // Progress tracking (0% -> 100%)
-    xhr.upload.onprogress = (event) => {
-      if (isSettled) return;
-      if (event.lengthComputable && event.total > 0) {
-        const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
-        console.info(`[SUPABASE_PROGRESS] ${file.name}: ${percent}% (${event.loaded}/${event.total} bytes)`);
-        if (options.onProgress) {
-          options.onProgress(percent);
-        }
-      }
-    };
+    if (options.onProgress) options.onProgress(85);
+    console.info(`[SUPABASE_UPLOAD_SUCCESS] Upload complete for '${file.name}'! Fetching verified download URL...`);
 
-    xhr.onload = async () => {
-      if (isSettled) return;
-      cleanup();
+    let verifiedDownloadUrl = downloadUrl;
 
-      if (xhr.status >= 200 && xhr.status < 300) {
-        console.info(`[SUPABASE_UPLOAD_SUCCESS] Upload complete for '${file.name}'! Fetching verified download URL with signed token...`);
-        if (options.onProgress) {
-          options.onProgress(100);
-        }
-
-        let verifiedDownloadUrl = downloadUrl;
-
-        // Obtain verified signed download token now that the object exists in Supabase Storage
-        try {
-          const signRes = await fetch('/api/upload/presign', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': authHeaderValue,
-              'x-chatbot-token': 'ali1234',
-              'x-user-id': currentUserId
-            },
-            body: JSON.stringify({
-              action: 'sign-download',
-              objectKey: objectKey,
-              userId: currentUserId
-            })
-          });
-
-          if (signRes.ok) {
-            const signData = await signRes.json();
-            if (signData.downloadUrl) {
-              verifiedDownloadUrl = signData.downloadUrl;
-              console.info(`[SUPABASE_SIGNED_DOWNLOAD_VERIFIED] Token attached successfully (length: ${verifiedDownloadUrl.length})`);
-            }
-          }
-        } catch (signErr) {
-          console.warn('[SUPABASE_SIGN_DOWNLOAD_WARN]', signErr);
-        }
-
-        const result: UploadResult = {
-          fileId: fileId,
-          fileUrl: verifiedDownloadUrl,
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType: mimeType || file.type || 'application/octet-stream',
-          storagePath: objectKey,
-          storageProvider: 'supabase',
-          uploadedAt: new Date().toISOString()
-        };
-
-        // Cache result for quick retries
-        uploadCache.set(cacheKey, result);
-        resolve(result);
-      } else {
-        console.error(`[SUPABASE_UPLOAD_FAILED] HTTP ${xhr.status}: ${xhr.statusText}`);
-        reject(new Error(`Direct Supabase upload failed with HTTP ${xhr.status}: ${xhr.statusText || 'Storage error'}`));
-      }
-    };
-
-    xhr.onerror = async () => {
-      if (isSettled) return;
-      console.warn(`[SUPABASE_XHR_RETRY] XHR encountered a network issue; retrying via standard fetch API...`);
-      
-      try {
-        const formData = new FormData();
-        formData.append('cacheControl', '3600');
-        formData.append('', file);
-
-        const fetchUploadRes = await fetch(uploadUrl, {
-          method: 'PUT',
-          body: formData
-        });
-
-        if (fetchUploadRes.ok) {
-          console.info(`[SUPABASE_FETCH_UPLOAD_SUCCESS] Upload succeeded via native fetch fallback!`);
-          cleanup();
-          if (options.onProgress) options.onProgress(100);
-
-          let verifiedDownloadUrl = downloadUrl;
-          try {
-            const signRes = await fetch('/api/upload/presign', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authHeaderValue,
-                'x-chatbot-token': 'ali1234',
-                'x-user-id': currentUserId
-              },
-              body: JSON.stringify({
-                action: 'sign-download',
-                objectKey: objectKey,
-                userId: currentUserId
-              })
-            });
-
-            if (signRes.ok) {
-              const signData = await signRes.json();
-              if (signData.downloadUrl) {
-                verifiedDownloadUrl = signData.downloadUrl;
-                console.info(`[SUPABASE_SIGNED_DOWNLOAD_VERIFIED] Token attached successfully (length: ${verifiedDownloadUrl.length})`);
-              }
-            }
-          } catch (signErr) {
-            console.warn('[SUPABASE_SIGN_DOWNLOAD_WARN]', signErr);
-          }
-
-          const result: UploadResult = {
-            fileId: fileId,
-            fileUrl: verifiedDownloadUrl,
-            fileName: file.name,
-            fileSize: file.size,
-            mimeType: mimeType || file.type || 'application/octet-stream',
-            storagePath: objectKey,
-            storageProvider: 'supabase',
-            uploadedAt: new Date().toISOString()
-          };
-
-          uploadCache.set(cacheKey, result);
-          resolve(result);
-          return;
-        }
-      } catch (fetchErr) {
-        console.warn(`[SUPABASE_FETCH_RETRY_FAILED] Native fetch fallback error:`, fetchErr);
-      }
-
-      cleanup();
-      console.error(`[SUPABASE_NETWORK_ERROR] Network connection failed during upload.`);
-      reject(new Error('Network error during file upload. Please check your internet connection and retry.'));
-    };
-
-    xhr.ontimeout = () => {
-      if (isSettled) return;
-      cleanup();
-      console.error(`[SUPABASE_TIMEOUT_ERROR] Upload timed out.`);
-      reject(new Error('Upload timed out. Please try again with a faster network connection.'));
-    };
-
-    xhr.onabort = () => {
-      if (isSettled) return;
-      cleanup();
-      reject(new Error('Upload was canceled.'));
-    };
-
-    const timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
-    xhr.timeout = timeoutMs;
-
+    // 7. Obtain verified signed download token now that the object exists in Supabase Storage
     try {
-      // Supabase Signed Upload URLs accept PUT with FormData (containing cacheControl and empty-key file)
-      const formData = new FormData();
-      formData.append('cacheControl', '3600');
-      formData.append('', file);
+      const signRes = await fetch('/api/upload/presign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeaderValue,
+          'x-chatbot-token': 'ali1234',
+          'x-user-id': currentUserId
+        },
+        body: JSON.stringify({
+          action: 'sign-download',
+          objectKey: objectKey,
+          userId: currentUserId
+        })
+      });
 
-      xhr.open('PUT', uploadUrl, true);
-      // NOTE: Do NOT set Content-Type header manually; browser sets multipart/form-data with boundary
-      xhr.send(formData);
-    } catch (sendErr: any) {
-      cleanup();
-      console.error('[SUPABASE_SEND_ERROR]', sendErr);
-      reject(new Error(`Failed to initiate PUT request: ${sendErr.message}`));
+      if (signRes.ok) {
+        const signData = await signRes.json();
+        if (signData.downloadUrl) {
+          verifiedDownloadUrl = signData.downloadUrl;
+          console.info(`[SUPABASE_SIGNED_DOWNLOAD_VERIFIED] Token attached successfully.`);
+        }
+      }
+    } catch (signErr) {
+      console.warn('[SUPABASE_SIGN_DOWNLOAD_WARN]', signErr);
     }
-  });
+
+    if (options.onProgress) options.onProgress(100);
+
+    const result: UploadResult = {
+      fileId: fileId,
+      fileUrl: verifiedDownloadUrl,
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: mimeType || file.type || 'application/octet-stream',
+      storagePath: objectKey,
+      storageProvider: 'supabase',
+      uploadedAt: new Date().toISOString()
+    };
+
+    // Cache result for quick retries
+    uploadCache.set(cacheKey, result);
+    return result;
+
+  } catch (uploadErr: any) {
+    if (controller.signal.aborted) {
+      throw new Error('Upload was canceled.');
+    }
+    console.error('[SUPABASE_DIRECT_UPLOAD_FAILED]', uploadErr);
+    throw new Error(uploadErr.message || 'Network error during file upload. Please check your connection.');
+  }
 }
 
 /**
- * Drop-in wrapper function compatible with existing App.tsx callers
+ * Drop-in wrapper function compatible with existing callers
  */
 export async function uploadFileDirect(
   file: File,
