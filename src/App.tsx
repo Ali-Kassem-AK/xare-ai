@@ -26,7 +26,7 @@ export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached t
 // ==========================================
 // --- REQUEST TIMEOUT & ERROR CLASSIFICATION
 // ==========================================
-export const N8N_REQUEST_TIMEOUT_MS = 60000; // 60s timeout for n8n processing (ample headroom for 50MB PDFs & media)
+export const N8N_REQUEST_TIMEOUT_MS = 60000000;
 
 export type RequestFailureType =
   | 'quota'
