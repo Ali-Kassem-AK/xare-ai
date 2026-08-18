@@ -4,7 +4,7 @@
  * Uploads large binary files directly from the browser to Supabase Storage
  * using Signed Upload URLs, keeping raw binaries completely outside of n8n webhooks.
  *
- * Engineered with 100% Mobile WebKit / iOS Safari resilience and realistic dynamic progress interpolation.
+ * Engineered with 100% Mobile WebKit / iOS Safari resilience and realistic dynamic continuous progress interpolation.
  */
 
 import { getAuth } from 'firebase/auth';
@@ -46,53 +46,74 @@ function getFileCacheKey(file: File, userId: string): string {
 }
 
 /**
- * Helper class for realistic, organic upload progress simulation
+ * Realistic, continuous organic upload progress simulator
+ * - Dynamically scales duration and step increments based on file size
+ * - Never gets stuck at a fixed number (constantly ticks forward naturally)
+ * - Smoothly glides to 100% upon server settlement
  */
 class ProgressSimulator {
-  private currentProgress = 5;
+  private currentProgress = 0;
   private timer: any = null;
   private onProgress?: (percent: number) => void;
+  private fileSize: number;
 
-  constructor(onProgress?: (percent: number) => void) {
+  constructor(fileSize: number, onProgress?: (percent: number) => void) {
+    this.fileSize = fileSize || 1024 * 1024;
     this.onProgress = onProgress;
-    if (this.onProgress) {
-      this.onProgress(this.currentProgress);
-    }
   }
 
   start() {
     this.stop();
+    this.currentProgress = 3;
+    if (this.onProgress) this.onProgress(3);
+
+    const sizeMb = this.fileSize / (1024 * 1024);
+    // Estimated natural duration based on file size (e.g. 1.6s for small PDFs, up to 7s for 30MB+)
+    const expectedDurationMs = Math.max(1600, Math.min(8500, 1400 + sizeMb * 350));
+    const intervalMs = 60;
+    const totalSteps = expectedDurationMs / intervalMs;
+    const baseIncrement = 94.0 / totalSteps;
+
+    let tickCount = 0;
     this.timer = setInterval(() => {
-      if (this.currentProgress < 30) {
-        // Fast initial ramp (presigning / connection)
-        this.currentProgress += Math.floor(Math.random() * 5) + 3;
-      } else if (this.currentProgress < 75) {
-        // Steady streaming
-        this.currentProgress += Math.floor(Math.random() * 4) + 2;
-      } else if (this.currentProgress < 92) {
-        // Gentle easing while awaiting server confirmation
-        this.currentProgress += Math.random() > 0.4 ? 1 : 0;
+      tickCount++;
+      let step = baseIncrement;
+
+      if (this.currentProgress < 75) {
+        // Natural organic pacing
+        step = baseIncrement * (0.85 + 0.3 * (tickCount % 3));
+      } else if (this.currentProgress < 94) {
+        // Gentle deceleration approaching upload finish
+        step = Math.max(0.4, baseIncrement * 0.55);
+      } else {
+        // Continuous micro-advance (95, 96, 97, 98...) so the user NEVER feels stuck
+        step = 0.22;
       }
-      this.currentProgress = Math.min(92, this.currentProgress);
+
+      this.currentProgress = Math.min(98.5, this.currentProgress + step);
+      const rounded = Math.floor(this.currentProgress);
       if (this.onProgress) {
-        this.onProgress(this.currentProgress);
+        this.onProgress(rounded);
       }
-    }, 90);
+    }, intervalMs);
   }
 
-  stepTo(target: number) {
-    this.currentProgress = Math.max(this.currentProgress, target);
-    if (this.onProgress) {
-      this.onProgress(this.currentProgress);
-    }
-  }
-
-  finish() {
+  finish(): Promise<void> {
     this.stop();
-    this.currentProgress = 100;
-    if (this.onProgress) {
-      this.onProgress(100);
-    }
+    return new Promise((resolve) => {
+      let cur = Math.max(this.currentProgress, 92);
+      const finishTimer = setInterval(() => {
+        cur += 2.5;
+        if (cur >= 100) {
+          cur = 100;
+          clearInterval(finishTimer);
+          if (this.onProgress) this.onProgress(100);
+          resolve();
+        } else {
+          if (this.onProgress) this.onProgress(Math.floor(cur));
+        }
+      }, 20);
+    });
   }
 
   stop() {
@@ -140,8 +161,8 @@ export async function uploadFileDirectly(
 
   console.info(`[SUPABASE_UPLOAD_START] Requesting signed upload authorization for '${file.name}' (${(file.size / (1024*1024)).toFixed(2)} MB)`);
   
-  // Start realistic smooth progress ticker
-  const progressSim = new ProgressSimulator(options.onProgress);
+  // Start realistic smooth continuous progress ticker
+  const progressSim = new ProgressSimulator(file.size, options.onProgress);
   progressSim.start();
 
   // 3. Convert File to in-memory ArrayBuffer / Blob immediately (prevents Mobile Safari file descriptor revocation)
@@ -205,7 +226,6 @@ export async function uploadFileDirectly(
   const { uploadUrl, downloadUrl, fileId, objectKey, mimeType } = presignData;
 
   console.info(`[SUPABASE_DIRECT_STREAM] Upload URL obtained. Streaming binary directly to Supabase Storage...`);
-  progressSim.stepTo(25);
 
   const controller = new AbortController();
   if (options.onTaskCreated) {
@@ -235,7 +255,6 @@ export async function uploadFileDirectly(
       throw new Error(`Supabase upload failed with HTTP ${uploadRes.status}: ${errText || uploadRes.statusText}`);
     }
 
-    progressSim.stepTo(94);
     console.info(`[SUPABASE_UPLOAD_SUCCESS] Upload complete for '${file.name}'! Fetching verified download URL...`);
 
     let verifiedDownloadUrl = downloadUrl;
@@ -269,7 +288,7 @@ export async function uploadFileDirectly(
     }
 
     // Complete smooth progress to 100%
-    progressSim.finish();
+    await progressSim.finish();
 
     const result: UploadResult = {
       fileId: fileId,
