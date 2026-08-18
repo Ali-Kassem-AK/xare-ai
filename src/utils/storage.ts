@@ -249,10 +249,14 @@ export async function uploadFileDirectly(
     xhr.timeout = timeoutMs;
 
     try {
-      // Supabase Signed Upload URLs accept PUT with the binary file
+      // Supabase Signed Upload URLs accept PUT with FormData (containing cacheControl and empty-key file)
+      const formData = new FormData();
+      formData.append('cacheControl', '3600');
+      formData.append('', file);
+
       xhr.open('PUT', uploadUrl, true);
-      xhr.setRequestHeader('Content-Type', mimeType || file.type || 'application/octet-stream');
-      xhr.send(file);
+      // NOTE: Do NOT set Content-Type header manually; browser sets multipart/form-data with boundary
+      xhr.send(formData);
     } catch (sendErr: any) {
       cleanup();
       console.error('[SUPABASE_SEND_ERROR]', sendErr);

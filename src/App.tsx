@@ -4135,9 +4135,22 @@ const AI_PRESETS = [
         uploadedFileId = uploadRes.fileId;
         setUploadProgress(null);
       } catch (uploadErr: any) {
-        console.error("In-flight storage upload failed:", uploadErr);
+        console.warn("In-flight storage upload failed, attempting automatic fallback:", uploadErr);
         setUploadProgress(null);
-        if (attachmentFile && attachmentFile.size <= 5 * 1024 * 1024 && attachmentData) {
+        if (attachmentFile && attachmentFile.size <= 5 * 1024 * 1024) {
+          // Automatic resilient fallback to Base64 payload for files <= 5MB
+          if (!attachmentData) {
+            try {
+              attachmentData = await new Promise<string>((res, rej) => {
+                const r = new FileReader();
+                r.onload = () => res(r.result as string);
+                r.onerror = rej;
+                r.readAsDataURL(attachmentFile);
+              });
+            } catch (e) {
+              console.warn("Failed to read file as base64 fallback:", e);
+            }
+          }
           uploadedFileUrl = null;
         } else {
           setIsLoading(false);
@@ -4788,8 +4801,23 @@ const AI_PRESETS = [
   // --- OPTIMISTIC BACKGROUND PRE-UPLOAD
   // ==========================================
   const startBackgroundUpload = (file: File, type: 'image' | 'document') => {
-    const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
+    const isImg = type === 'image' || (file.type && file.type.startsWith('image/')) || file.name.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i);
+    const previewUrl = isImg ? URL.createObjectURL(file) : '';
     
+    // Read Base64 fallback in parallel for files <= 5MB to ensure 100% resilient mobile fallback
+    let fallbackBase64: string | null = null;
+    if (file.size <= 5 * 1024 * 1024) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        fallbackBase64 = e.target?.result as string;
+        setPendingAttachment((prev: any) => {
+          if (!prev || prev.file !== file) return prev;
+          return { ...prev, fallbackBase64 };
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
     let uploadTaskHandle: any = null;
     const uploadPromise = uploadFileDirectly(file, {
       userId: currentUser?.id,
@@ -4805,12 +4833,13 @@ const AI_PRESETS = [
     });
 
     const initialAttachment = {
-      type,
+      type: isImg ? 'image' : 'document',
       file,
       data: previewUrl || '',
+      fallbackBase64: null,
       name: file.name,
       size: file.size,
-      mimeType: file.type || (type === 'image' ? 'image/jpeg' : 'application/pdf'),
+      mimeType: file.type || (isImg ? 'image/jpeg' : 'application/pdf'),
       uploadPromise,
       uploadTaskHandle,
       uploadProgress: 0,
@@ -4825,9 +4854,10 @@ const AI_PRESETS = [
         return { ...prev, uploadResult: result, uploadProgress: 100, isUploading: false };
       });
     }).catch((err) => {
-      console.error("Background pre-upload error:", err);
+      console.warn("[BACKGROUND_UPLOAD_WARN] Supabase pre-upload encountered an issue; fallback available:", err);
       setPendingAttachment((prev: any) => {
         if (!prev || prev.file !== file) return prev;
+        // Do not lock the send button if fallback is available for files <= 5MB
         return { ...prev, uploadError: err, isUploading: false };
       });
     });
