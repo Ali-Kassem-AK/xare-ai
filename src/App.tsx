@@ -16,7 +16,7 @@ import {
 import { 
   getFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment 
 } from 'firebase/firestore';
-import { uploadFileDirectly, uploadFileDirect, UploadResult } from './utils/storage';
+import { uploadFileDirectly, UploadResult } from './utils/storage';
 
 // ==========================================
 // --- TOKEN LIMIT & REDIRECTION CONFIG
@@ -2917,6 +2917,9 @@ export const ChatMessageItem = React.memo(({
   return (
     prevProps.msg.id === nextProps.msg.id &&
     prevProps.msg.text === nextProps.msg.text &&
+    prevProps.msg.image === nextProps.msg.image &&
+    prevProps.msg.document === nextProps.msg.document &&
+    prevProps.msg.audio === nextProps.msg.audio &&
     prevProps.msg.activeVersionIndex === nextProps.msg.activeVersionIndex &&
     prevProps.msg.versions?.length === nextProps.msg.versions?.length &&
     prevProps.isDarkMode === nextProps.isDarkMode &&
