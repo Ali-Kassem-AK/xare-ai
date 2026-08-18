@@ -4816,15 +4816,33 @@ const AI_PRESETS = [
   // --- OPTIMISTIC BACKGROUND PRE-UPLOAD
   // ==========================================
   const startBackgroundUpload = (file: File, type: 'image' | 'document') => {
-    const isImg = type === 'image' || (file.type && file.type.startsWith('image/')) || file.name.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i);
+    const isImg = type === 'image' || (file.type && file.type.startsWith('image/')) || Boolean(file.name.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i));
     const previewUrl = isImg ? URL.createObjectURL(file) : '';
     
-    // Read Base64 fallback in parallel for files <= 5MB to ensure 100% resilient mobile fallback
-    let fallbackBase64: string | null = null;
+    // 1. Instantly mount the attachment badge in the prompt bar in 0ms (instant UI feedback)
+    const initialAttachment = {
+      type: isImg ? 'image' : 'document',
+      file,
+      data: previewUrl || '',
+      fallbackBase64: null,
+      name: file.name,
+      size: file.size,
+      mimeType: file.type || (isImg ? 'image/jpeg' : 'application/pdf'),
+      uploadPromise: null as any,
+      uploadTaskHandle: null as any,
+      uploadProgress: 5,
+      uploadResult: null,
+      uploadError: null,
+      isUploading: true
+    };
+
+    setPendingAttachment(initialAttachment);
+
+    // 2. Read Base64 fallback in parallel for files <= 5MB to ensure 100% resilient mobile fallback
     if (file.size <= 5 * 1024 * 1024) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        fallbackBase64 = e.target?.result as string;
+        const fallbackBase64 = e.target?.result as string;
         setPendingAttachment((prev: any) => {
           if (!prev || prev.file !== file) return prev;
           return { ...prev, fallbackBase64, data: prev.data || fallbackBase64 };
@@ -4833,6 +4851,7 @@ const AI_PRESETS = [
       reader.readAsDataURL(file);
     }
 
+    // 3. Start background Supabase direct upload with smooth progress
     let uploadTaskHandle: any = null;
     const uploadPromise = uploadFileDirectly(file, {
       userId: currentUser?.id,
@@ -4844,24 +4863,18 @@ const AI_PRESETS = [
       },
       onTaskCreated: (handle) => {
         uploadTaskHandle = handle;
+        setPendingAttachment((prev: any) => {
+          if (!prev || prev.file !== file) return prev;
+          return { ...prev, uploadTaskHandle: handle };
+        });
       }
     });
 
-    const initialAttachment = {
-      type: isImg ? 'image' : 'document',
-      file,
-      data: previewUrl || '',
-      fallbackBase64: null,
-      name: file.name,
-      size: file.size,
-      mimeType: file.type || (isImg ? 'image/jpeg' : 'application/pdf'),
-      uploadPromise,
-      uploadTaskHandle,
-      uploadProgress: 0,
-      uploadResult: null,
-      uploadError: null,
-      isUploading: true
-    };
+    // Attach uploadPromise to pending attachment
+    setPendingAttachment((prev: any) => {
+      if (!prev || prev.file !== file) return prev;
+      return { ...prev, uploadPromise, uploadTaskHandle };
+    });
 
     uploadPromise.then((result) => {
       setPendingAttachment((prev: any) => {
@@ -4876,8 +4889,6 @@ const AI_PRESETS = [
         return { ...prev, uploadError: err, isUploading: false, uploadProgress: 100 };
       });
     });
-
-    setPendingAttachment(initialAttachment);
   };
 
   const handleImageSelect = async (e) => {
