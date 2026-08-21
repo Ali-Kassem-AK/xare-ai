@@ -2167,103 +2167,150 @@ const N8N_WEBHOOK_URL = "https://aliiis-24-7-n8n.hf.space/webhook-test/xare-ai-v
 const BASE64_AUDIO_REGEX = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const IMAGE_URL_REGEX = /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)/i;
 
-const parsePayloadData = (payload) => {
-  let parsedText = '';
-  let parsedAudio = null;
-  let parsedImage = null;
+export const formatImageStr = (str: any): string => {
+  if (!str || typeof str !== 'string') return '';
+  let cleanStr = str.trim();
+  if (cleanStr.startsWith('http://') || cleanStr.startsWith('https://')) return cleanStr;
+  if (cleanStr.startsWith('blob:')) return cleanStr;
+  if (cleanStr.startsWith('localdb_')) return cleanStr;
 
-  // Intelligent Image Base64 Sniffer
-  const isImageStr = (str) => {
-    if (!str || typeof str !== 'string') return false;
-    if (str.startsWith('http')) return false; 
-    if (str.startsWith('data:image/')) return true;
-    if (str.startsWith('data:;base64,')) return true;
-    if (str.startsWith('/9j/') && str.length > 50) return true; // JPEG magic
-    if (str.startsWith('iVBORw0KGgo') && str.length > 50) return true; // PNG magic
-    if (str.startsWith('UklGR') && str.length > 50) return true; // WebP magic
-    if (str.startsWith('R0lGOD') && str.length > 50) return true; // GIF magic
-    return false;
-  };
-
-  // Re-format damaged or missing base64 headers
-  const formatImageStr = (str) => {
-    if (!str || typeof str !== 'string') return str;
-    let cleanStr = str.replace(/[\n\r\t ]+/g, ''); // Safely clean base64 data
-    
-    if (cleanStr.startsWith('http')) return cleanStr; 
-    
-    // Strip ALL existing prefixes to guarantee no double-prefixing or malformed headers
-    cleanStr = cleanStr.replace(/data:image\/[a-zA-Z0-9]+;base64,/gi, '');
-    cleanStr = cleanStr.replace(/data:;base64,/gi, '');
-    
-    // Infer MIME type from magic bytes to prevent rendering collisions
-    let mimeType = 'jpeg'; 
-    if (cleanStr.startsWith('iVBORw0KGgo')) mimeType = 'png';
-    else if (cleanStr.startsWith('UklGR')) mimeType = 'webp';
-    else if (cleanStr.startsWith('R0lGOD')) mimeType = 'gif';
-    
-    return `data:image/${mimeType};base64,${cleanStr}`;
-  };
-
-  if (typeof payload === 'string') {
+  // Auto-Unwrap: Detect if someone base64-encoded a JSON string into a Data URL (e.g. data:image/jpeg;base64,eyJ...)
+  if (cleanStr.startsWith('data:') && (cleanStr.includes(';base64,eyJ') || cleanStr.includes(';base64,eyI'))) {
     try {
-      const parsed = JSON.parse(payload);
-      if (typeof parsed === 'object' && parsed !== null) {
-        return parsePayloadData(parsed); 
+      const b64Part = cleanStr.split(';base64,')[1];
+      if (b64Part) {
+        const decoded = atob(b64Part.trim());
+        const parsed = JSON.parse(decoded);
+        const innerImg = parsed.image || parsed.imageUrl || parsed.image_url || parsed.result || parsed.output || parsed.base64_data;
+        if (innerImg && typeof innerImg === 'string') {
+          return formatImageStr(innerImg);
+        }
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
-  if (typeof payload === 'object' && payload !== null) {
-    // 1. Extract text if possible
-    parsedText = payload.output || payload.text || payload.message || payload.response || payload.result || payload.content || '';
-    
-    if (typeof parsedText !== 'string') {
-        try {
-            parsedText = JSON.stringify(parsedText, null, 2);
-        } catch (err) {
-            parsedText = String(parsedText);
+  // Clean all whitespaces/newlines from base64 string
+  cleanStr = cleanStr.replace(/\s+/g, '');
+  cleanStr = cleanStr.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/i, '');
+  cleanStr = cleanStr.replace(/^data:;base64,/i, '');
+  cleanStr = cleanStr.replace(/^data:application\/[a-zA-Z0-9+.-]+;base64,/i, '');
+
+  // Infer MIME type from magic base64 header bytes
+  let mimeType = 'jpeg';
+  if (cleanStr.startsWith('iVBORw0KGgo')) mimeType = 'png';
+  else if (cleanStr.startsWith('UklGR')) mimeType = 'webp';
+  else if (cleanStr.startsWith('R0lGOD')) mimeType = 'gif';
+  else if (cleanStr.startsWith('PHN2Zy') || cleanStr.startsWith('PD94bW')) mimeType = 'svg+xml';
+  else if (cleanStr.startsWith('/9j/')) mimeType = 'jpeg';
+
+  return `data:image/${mimeType};base64,${cleanStr}`;
+};
+
+export const isImageStr = (str: any): boolean => {
+  if (!str || typeof str !== 'string') return false;
+  const s = str.trim();
+  if (s.startsWith('http://') || s.startsWith('https://')) {
+    return Boolean(IMAGE_URL_REGEX.test(s) || s.includes('/storage/') || s.includes('generativelanguage') || s.includes('image'));
+  }
+  if (s.startsWith('data:image/')) return true;
+  if (s.startsWith('data:;base64,')) return true;
+  if (s.startsWith('localdb_')) return true;
+  if (s.startsWith('/9j/') && s.length > 30) return true; // JPEG magic
+  if (s.startsWith('iVBORw0KGgo') && s.length > 30) return true; // PNG magic
+  if (s.startsWith('UklGR') && s.length > 30) return true; // WebP magic
+  if (s.startsWith('R0lGOD') && s.length > 30) return true; // GIF magic
+  if (s.startsWith('PHN2Zy') && s.length > 30) return true; // SVG magic
+  // Base64 JSON containing image payload
+  if (s.includes(';base64,eyJ') || s.includes(';base64,eyI')) return true;
+  return false;
+};
+
+const parsePayloadData = (payload: any) => {
+  let parsedText = '';
+  let parsedAudio: string | null = null;
+  let parsedImage: string | null = null;
+
+  if (typeof payload === 'string') {
+    const trimmed = payload.trim();
+    // 1. Try to unwrap JSON string
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (typeof parsed === 'object' && parsed !== null) {
+          return parsePayloadData(Array.isArray(parsed) ? parsed[0] : parsed);
         }
+      } catch (e) {}
     }
 
-    // 2. Extract strictly defined media fields
-    if (payload.audio) parsedAudio = payload.audio;
-    if (payload.image || payload.imageUrl) parsedImage = payload.image || payload.imageUrl;
-    
-    // 3. AUTO-DETECT: Sometimes n8n outputs the image base64 directly into the 'text' field by accident
-    if (isImageStr(parsedText) && !parsedImage) {
-        parsedImage = parsedText;
-        parsedText = '';
+    // 2. Try to unwrap Data URL with base64 JSON
+    if (trimmed.startsWith('data:') && (trimmed.includes(';base64,eyJ') || trimmed.includes(';base64,eyI'))) {
+      try {
+        const b64Part = trimmed.split(';base64,')[1];
+        if (b64Part) {
+          const decoded = atob(b64Part.trim());
+          const parsed = JSON.parse(decoded);
+          if (typeof parsed === 'object' && parsed !== null) {
+            return parsePayloadData(Array.isArray(parsed) ? parsed[0] : parsed);
+          }
+        }
+      } catch (e) {}
     }
 
-    // 4. Fallback: Dump payload as text only if NO media was found
-    if (!parsedText && !parsedAudio && !parsedImage) {
-      if (Object.keys(payload).length === 1 && isImageStr(Object.values(payload)[0])) {
-          parsedImage = Object.values(payload)[0];
-      } else {
-          parsedText = JSON.stringify(payload, null, 2);
-      }
-    }
-  } else if (typeof payload === 'string') {
-    const isAudioDataUri = payload.startsWith('data:audio/');
-    const isBase64AudioString = BASE64_AUDIO_REGEX.test(payload) && payload.length > 100;
+    const isAudioDataUri = trimmed.startsWith('data:audio/');
+    const isBase64AudioString = BASE64_AUDIO_REGEX.test(trimmed) && trimmed.length > 100;
 
     if (isAudioDataUri || isBase64AudioString) {
-      parsedAudio = payload.startsWith('data:') ? payload : `data:audio/mp3;base64,${payload}`;
-    } 
-    // AUTO-DETECT RAW STRINGS
-    else if (IMAGE_URL_REGEX.test(payload) || isImageStr(payload)) {
-      parsedImage = formatImageStr(payload);
-    } 
-    else {
+      parsedAudio = trimmed.startsWith('data:') ? trimmed : `data:audio/mp3;base64,${trimmed}`;
+    } else if (isImageStr(trimmed)) {
+      parsedImage = formatImageStr(trimmed);
+    } else {
       parsedText = payload;
     }
   }
 
-  // Final sanity check format wrap
-  if (parsedImage && isImageStr(parsedImage)) {
-      parsedImage = formatImageStr(parsedImage);
+  if (typeof payload === 'object' && payload !== null) {
+    // 1. Extract strictly defined media fields first
+    if (payload.audio) parsedAudio = payload.audio;
+    if (payload.image || payload.imageUrl || payload.image_url || payload.base64_data || payload.base64Data) {
+      parsedImage = payload.image || payload.imageUrl || payload.image_url || payload.base64_data || payload.base64Data;
+    }
+
+    // Check nested result/payload objects
+    if (!parsedImage && payload.result && typeof payload.result === 'object') {
+      parsedImage = payload.result.image || payload.result.imageUrl || payload.result.base64_data;
+    }
+    if (!parsedImage && payload.payload && typeof payload.payload === 'object') {
+      parsedImage = payload.payload.image || payload.payload.imageUrl || payload.payload.base64_data;
+    }
+
+    // 2. Extract text if possible
+    parsedText = payload.output || payload.text || payload.message || payload.response || payload.result || payload.content || '';
+    if (typeof parsedText !== 'string') {
+      try {
+        parsedText = JSON.stringify(parsedText, null, 2);
+      } catch (err) {
+        parsedText = String(parsedText);
+      }
+    }
+
+    // 3. AUTO-DETECT: If text field actually contains an image base64 or URL
+    if (isImageStr(parsedText) && !parsedImage) {
+      parsedImage = parsedText;
+      parsedText = '';
+    }
+
+    // 4. Fallback if empty
+    if (!parsedText && !parsedAudio && !parsedImage) {
+      if (Object.keys(payload).length === 1 && isImageStr(Object.values(payload)[0])) {
+        parsedImage = Object.values(payload)[0] as string;
+      } else {
+        parsedText = JSON.stringify(payload, null, 2);
+      }
+    }
+  }
+
+  if (parsedImage) {
+    parsedImage = formatImageStr(parsedImage);
   }
 
   if (parsedText) {
@@ -2272,11 +2319,6 @@ const parsePayloadData = (payload) => {
 
   return { text: parsedText, audio: parsedAudio, image: parsedImage };
 };
-
-
-// ============================================================================
-// --- IMPROVED DEEPGRAM ORB COMPONENT
-// ============================================================================
 
 export const DeepgramOrb = ({ isDarkMode, onClose }) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -2648,17 +2690,24 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
 // --- MEDIA RENDERERS (INTEGRATED WITH IndexedDB)
 // ==========================================
 
-export const LocalImageRenderer = ({ src, isDarkMode }) => {
-  const [localSrc, setLocalSrc] = useState(null);
+export const LocalImageRenderer = ({ src, isDarkMode }: { src: string; isDarkMode: boolean }) => {
+  const [localSrc, setLocalSrc] = useState<string | null>(null);
   
   useEffect(() => {
-    if (src?.startsWith('localdb_')) {
-      getFromLocalDB(src).then(data => {
-          // Double guarantee: strictly remove whitespace/newlines from IndexedDB blob strings
-          setLocalSrc(data ? data.replace(/[\n\r\t ]+/g, '') : '');
-      });
+    if (!src) {
+      setLocalSrc('');
+      return;
+    }
+    if (src.startsWith('localdb_')) {
+      getFromLocalDB(src).then((data: any) => {
+        if (data && typeof data === 'string') {
+          setLocalSrc(formatImageStr(data));
+        } else {
+          setLocalSrc('');
+        }
+      }).catch(() => setLocalSrc(''));
     } else {
-      setLocalSrc(src ? src.replace(/[\n\r\t ]+/g, '') : '');
+      setLocalSrc(formatImageStr(src));
     }
   }, [src]);
 
@@ -4648,30 +4697,59 @@ const AI_PRESETS = [
         }
 
         if (response.ok && !isResolved) {
-          const contentType = response.headers.get('content-type') || '';
-          
+          const contentType = (response.headers.get('content-type') || '').toLowerCase();
+          let data: any = null;
+
+          // If response has image/ or audio/ header, check if it's JSON text or pure raw binary
           if (contentType.includes('image/')) {
             const blob = await response.blob();
-            const reader = new FileReader();
-            reader.onloadend = () => { if (!isResolved) completeBotResponse({ image: reader.result }); };
-            reader.readAsDataURL(blob);
-            return;
+            const textAttempt = await blob.text();
+            let isJson = false;
+            try {
+              const trimmed = textAttempt.trim();
+              if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                data = JSON.parse(trimmed);
+                if (Array.isArray(data) && data.length > 0) data = data[0];
+                isJson = true;
+              }
+            } catch (e) {}
+
+            if (!isJson) {
+              // Real raw binary image
+              const reader = new FileReader();
+              reader.onloadend = () => { if (!isResolved) completeBotResponse({ image: reader.result }); };
+              reader.readAsDataURL(blob);
+              return;
+            }
           } else if (contentType.includes('audio/')) {
             const blob = await response.blob();
-            const reader = new FileReader();
-            reader.onloadend = () => { if (!isResolved) completeBotResponse({ audio: reader.result }); };
-            reader.readAsDataURL(blob);
-            return;
+            const textAttempt = await blob.text();
+            let isJson = false;
+            try {
+              const trimmed = textAttempt.trim();
+              if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                data = JSON.parse(trimmed);
+                if (Array.isArray(data) && data.length > 0) data = data[0];
+                isJson = true;
+              }
+            } catch (e) {}
+
+            if (!isJson) {
+              const reader = new FileReader();
+              reader.onloadend = () => { if (!isResolved) completeBotResponse({ audio: reader.result }); };
+              reader.readAsDataURL(blob);
+              return;
+            }
           }
 
-          const text = await response.text();
-          let data: any;
-          
-          try {
+          if (!data) {
+            const text = await response.text();
+            try {
               data = JSON.parse(text);
               if (Array.isArray(data) && data.length > 0) data = data[0];
-          } catch (e) {
+            } catch (e) {
               data = text; // Treat as raw text
+            }
           }
 
           const isGenericAck = data && data.message && typeof data.message === 'string' && (data.message.toLowerCase().includes("started") || data.message.toLowerCase().includes("received"));
