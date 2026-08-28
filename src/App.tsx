@@ -5192,7 +5192,7 @@ const AI_PRESETS = [
                  <a href="https://github.com/Ali-Kassem-AK" target="_blank" rel="noopener noreferrer" className={`p-2.5 rounded-full transition-all hover:scale-110 border backdrop-blur-sm ${isDarkMode ? 'bg-slate-900/50 border-slate-700/50 text-slate-300 hover:bg-slate-800 hover:text-white' : 'bg-white/50 border-slate-300/50 text-slate-600 hover:bg-white hover:text-slate-900 shadow-sm'}`} title="GitHub Profile">
                    <Github className="w-[18px] h-[18px]" />
                  </a>
-                 <a href="https://www.linkedin.com/in/ali-kassem-7224bb244" target="_blank" rel="noopener noreferrer" className={`p-2.5 rounded-full transition-all hover:scale-110 border backdrop-blur-sm ${isDarkMode ? 'bg-slate-900/50 border-slate-700/50 text-blue-400 hover:bg-[#0A66C2] hover:text-white' : 'bg-white/50 border-slate-300/50 text-blue-600 hover:bg-[#0A66C2] hover:text-white shadow-sm'}`} title="LinkedIn Profile">
+                 <a href="https://www.linkedin.com/in/aliahmedkassem" target="_blank" rel="noopener noreferrer" className={`p-2.5 rounded-full transition-all hover:scale-110 border backdrop-blur-sm ${isDarkMode ? 'bg-slate-900/50 border-slate-700/50 text-blue-400 hover:bg-[#0A66C2] hover:text-white' : 'bg-white/50 border-slate-300/50 text-blue-600 hover:bg-[#0A66C2] hover:text-white shadow-sm'}`} title="LinkedIn Profile">
                    <Linkedin className="w-[18px] h-[18px]" />
                  </a>
                </div>
