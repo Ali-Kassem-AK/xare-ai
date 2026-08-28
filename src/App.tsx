@@ -5464,7 +5464,7 @@ const AI_PRESETS = [
                 <a href="https://github.com/Ali-Kassem-AK" target="_blank" rel="noopener noreferrer" className={`p-1 sm:p-2 rounded-full transition-all hover:scale-110 ${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50'}`} title="Ali's GitHub">
                   <Github className="w-[15px] h-[15px] sm:w-[18px] sm:h-[18px]" />
                 </a>
-                <a href="https://www.linkedin.com/in/ali-kassem-7224bb244" target="_blank" rel="noopener noreferrer" className={`p-1 sm:p-2 rounded-full transition-all hover:scale-110 ${isDarkMode ? 'text-slate-400 hover:text-[#0A66C2] hover:bg-blue-900/20' : 'text-slate-500 hover:text-[#0A66C2] hover:bg-blue-50'}`} title="Ali's LinkedIn">
+                <a href="https://www.linkedin.com/in/aliahmedkassem" target="_blank" rel="noopener noreferrer" className={`p-1 sm:p-2 rounded-full transition-all hover:scale-110 ${isDarkMode ? 'text-slate-400 hover:text-[#0A66C2] hover:bg-blue-900/20' : 'text-slate-500 hover:text-[#0A66C2] hover:bg-blue-50'}`} title="Ali's LinkedIn">
                   <Linkedin className="w-[15px] h-[15px] sm:w-[18px] sm:h-[18px]" />
                 </a>
               </div>
