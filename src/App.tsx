@@ -5371,7 +5371,7 @@ const AI_PRESETS = [
                  <a href="https://github.com/Ali-Kassem-AK" target="_blank" rel="noopener noreferrer" className={`p-1.5 rounded-lg transition-all ${isDarkMode ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-500 hover:bg-slate-200 hover:text-slate-900'}`} title="GitHub Profile">
                     <Github className="w-4 h-4" />
                  </a>
-                 <a href="https://www.linkedin.com/in/ali-kassem-7224bb244" target="_blank" rel="noopener noreferrer" className={`p-1.5 rounded-lg transition-all ${isDarkMode ? 'text-slate-400 hover:bg-[#0A66C2] hover:text-white' : 'text-slate-500 hover:bg-blue-100 hover:text-[#0A66C2]'}`} title="LinkedIn Profile">
+                 <a href="https://www.linkedin.com/in/aliahmedkassem" target="_blank" rel="noopener noreferrer" className={`p-1.5 rounded-lg transition-all ${isDarkMode ? 'text-slate-400 hover:bg-[#0A66C2] hover:text-white' : 'text-slate-500 hover:bg-blue-100 hover:text-[#0A66C2]'}`} title="LinkedIn Profile">
                     <Linkedin className="w-4 h-4" />
                  </a>
                </div>
