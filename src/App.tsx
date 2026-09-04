@@ -1148,6 +1148,129 @@ const renderInline = (text: any, isDarkMode: boolean) => {
   });
 };
 
+// ==========================================
+// --- CODE BLOCK TRUNCATION & CONTINUATION ENGINE
+// ==========================================
+
+export interface IncompleteCodeDetection {
+  isIncomplete: boolean;
+  language: string;
+  cutoffSnippet: string;
+  reason: string;
+}
+
+/**
+ * Detects whether an AI response cut off prematurely mid-code due to token limits.
+ * Inspects for unclosed markdown fences (```), truncated HTML/SVG tags, or abrupt code terminations.
+ */
+export const detectIncompleteCodeBlock = (text: string): IncompleteCodeDetection => {
+  if (!text || typeof text !== 'string') return { isIncomplete: false, language: '', cutoffSnippet: '', reason: '' };
+
+  const clean = text.trim();
+  const codeBlockCount = (clean.match(/```/g) || []).length;
+
+  // 1. Odd number of ``` means an opened code block was never closed!
+  if (codeBlockCount % 2 !== 0) {
+    const lastOpenIndex = clean.lastIndexOf('```');
+    const fenceHeader = clean.slice(lastOpenIndex + 3, lastOpenIndex + 35);
+    const langMatch = fenceHeader.match(/^([a-zA-Z0-9_\-\+\#]+)/);
+    const language = langMatch ? langMatch[1].toLowerCase() : '';
+    const cutoffSnippet = clean.slice(-150);
+    return { isIncomplete: true, language, cutoffSnippet, reason: 'unclosed_fence' };
+  }
+
+  // 2. Check if HTML/SVG code was closed with ```, but inside tags are truncated
+  const lastBlockMatch = clean.match(/```([a-zA-Z0-9_\-\+\#]*)\s*([\s\S]*?)```$/);
+  if (lastBlockMatch) {
+    const lang = (lastBlockMatch[1] || '').toLowerCase();
+    const code = lastBlockMatch[2].trim();
+    if (lang === 'html' || lang === 'svg' || code.includes('<html') || code.includes('<svg') || code.includes('<script')) {
+      const hasHtmlOpen = /<html\b/i.test(code);
+      const hasHtmlClose = /<\/html>/i.test(code);
+      const hasScriptOpen = /<script\b/i.test(code);
+      const hasScriptClose = /<\/script>/i.test(code);
+      const hasSvgOpen = /<svg\b/i.test(code);
+      const hasSvgClose = /<\/svg>/i.test(code);
+
+      if ((hasHtmlOpen && !hasHtmlClose) || (hasScriptOpen && !hasScriptClose) || (hasSvgOpen && !hasSvgClose)) {
+        return { isIncomplete: true, language: lang, cutoffSnippet: clean.slice(-150), reason: 'unclosed_html_tags' };
+      }
+    }
+  }
+
+  return { isIncomplete: false, language: '', cutoffSnippet: '', reason: '' };
+};
+
+/**
+ * Removes overlapping tokens/lines across continuation boundaries to prevent duplicated code.
+ */
+export const removeBoundaryOverlap = (base: string, cont: string): string => {
+  const b = base.trimEnd();
+  const c = cont.trimStart();
+  const maxOverlap = Math.min(b.length, c.length, 250);
+
+  // Search for the longest matching suffix of b matching prefix of c
+  for (let len = maxOverlap; len >= 3; len--) {
+    const bSuffix = b.slice(-len);
+    const cPrefix = c.slice(0, len);
+    if (bSuffix === cPrefix) {
+      const offset = cont.indexOf(cPrefix);
+      return cont.slice(offset + len);
+    }
+  }
+  return cont;
+};
+
+/**
+ * Sanitizes and seamlessly merges a continuation response into the existing text.
+ * Strips conversational fluff ("Here is the continuation...", "Continuing from:"),
+ * strips redundant markdown fences, de-duplicates overlapping boundaries, and auto-closes fences if complete.
+ */
+export const cleanAndMergeContinuation = (baseText: string, continuationText: string): string => {
+  if (!continuationText || !continuationText.trim()) return baseText;
+  if (!baseText) return continuationText;
+
+  let cleanCont = continuationText.trimStart();
+
+  // 1. Strip conversational intros (e.g. "Here is the continuation of the code:", "Continuing:", etc.)
+  cleanCont = cleanCont.replace(
+    /^(?:(?:Here\s+(?:is|are)\s+(?:the\s+)?(?:continuation|rest|remaining|code)|Continuing(?:\s+from|\s+the)?|Resuming(?:\s+from)?|Sure,?\s+(?:here|continuing)|Below\s+is\s+the|Code\s+continuation)[\s\S]*?(?:(?=```)|(?:\n\s*\n)|(?:\r?\n)))/i,
+    ''
+  ).trimStart();
+
+  // If first line is still a short conversational phrase, strip it
+  const firstLineEnd = cleanCont.indexOf('\n');
+  if (firstLineEnd !== -1) {
+    const firstLine = cleanCont.substring(0, firstLineEnd).trim();
+    if (/^(here\s+is|continuing|resuming|sure|below|as requested)/i.test(firstLine) && !firstLine.includes('```')) {
+      cleanCont = cleanCont.substring(firstLineEnd + 1).trimStart();
+    }
+  }
+
+  // 2. If baseText has an unclosed ``` fence, strip redundant opening fence from continuation
+  const baseFenceCount = (baseText.match(/```/g) || []).length;
+  if (baseFenceCount % 2 !== 0) {
+    cleanCont = cleanCont.replace(/^```[a-zA-Z0-9_\-\+\#]*\r?\n?/, '');
+  }
+
+  // 3. Remove boundary overlap (e.g. repeated statement or line)
+  cleanCont = removeBoundaryOverlap(baseText, cleanCont);
+
+  // 4. Merge
+  let merged = baseText + cleanCont;
+
+  // 5. If merged text completed HTML/JS but omitted the trailing closing ```, auto-close it cleanly
+  const mergedFenceCount = (merged.match(/```/g) || []).length;
+  if (mergedFenceCount % 2 !== 0) {
+    const trimmedMerged = merged.trimEnd();
+    if (/<\/html>\s*$/i.test(trimmedMerged) || /<\/script>\s*$/i.test(trimmedMerged) || /<\/svg>\s*$/i.test(trimmedMerged)) {
+      merged = trimmedMerged + '\n```\n';
+    }
+  }
+
+  return merged;
+};
+
 /**
  * Typing Cursor Component (Disabled)
  */
@@ -3152,6 +3275,7 @@ const UserMessageActions = ({
  */
 const STREAMING_TEXT_VAULT = new Map<string, { fullText: string; partialText: string }>();
 const ACTIVELY_STREAMING_IDS = new Set<string>();
+const PENDING_CONTINUATIONS = new Map<string, boolean>();
 const STREAMING_SUBSCRIBERS = new Set<() => void>();
 let GLOBAL_IS_USER_SCROLLED_UP = false;
 
@@ -3418,7 +3542,7 @@ export function App() {
     }, 120);
   };
 
-  const streamBotResponse = (msgId: string, fullText: string, targetChatId: string, onComplete?: () => void) => {
+  const streamBotResponse = (msgId: string, fullText: string, targetChatId: string, onComplete?: (finalText?: string) => void) => {
     if (streamingAnimFrameRef.current) {
       cancelAnimationFrame(streamingAnimFrameRef.current);
       streamingAnimFrameRef.current = null;
@@ -3426,7 +3550,7 @@ export function App() {
 
     if (!fullText || typeof fullText !== 'string' || !fullText.trim()) {
       setStreamingMessageId(null);
-      if (onComplete) onComplete();
+      if (onComplete) onComplete(fullText);
       return;
     }
 
@@ -3434,7 +3558,6 @@ export function App() {
     ACTIVELY_STREAMING_IDS.add(msgId);
     STREAMING_TEXT_VAULT.set(msgId, { fullText, partialText: "" });
 
-    const totalLength = fullText.length;
     let charIndex = 0;
     let lastTime = performance.now();
     let lastRenderTime = 0;
@@ -3444,28 +3567,47 @@ export function App() {
     const AVERAGE_CHARS_PER_WORD = 5.5;
     const baseSpeed = STREAMING_CONFIG.wordsPerSecond * AVERAGE_CHARS_PER_WORD;
     const maxAdaptiveSpeed = STREAMING_CONFIG.maxAdaptiveWPS * AVERAGE_CHARS_PER_WORD;
-    const charsPerSecond = (STREAMING_CONFIG.enableAdaptiveSpeed && totalLength > 500) 
-      ? Math.min(maxAdaptiveSpeed, Math.max(baseSpeed, Math.ceil(totalLength / 6))) 
-      : baseSpeed;
 
     const step = (now: number) => {
       const deltaSeconds = Math.min((now - lastTime) / 1000, 0.1);
       lastTime = now;
 
-      charIndex += charsPerSecond * deltaSeconds;
+      // Dynamically fetch currentFullText in case background continuation expanded it
+      const vaultData = STREAMING_TEXT_VAULT.get(msgId);
+      const currentFullText = vaultData?.fullText || fullText;
+      const currentTotalLength = currentFullText.length;
+      const isAwaitingContinuation = PENDING_CONTINUATIONS.get(msgId) === true;
 
-      if (charIndex >= totalLength) {
-        charIndex = totalLength;
+      const dynamicCharsPerSecond = (STREAMING_CONFIG.enableAdaptiveSpeed && currentTotalLength > 500) 
+        ? Math.min(maxAdaptiveSpeed, Math.max(baseSpeed, Math.ceil(currentTotalLength / 6))) 
+        : baseSpeed;
+
+      charIndex += dynamicCharsPerSecond * deltaSeconds;
+
+      if (charIndex >= currentTotalLength) {
+        if (isAwaitingContinuation) {
+          // Pause at current boundary while background continuation chunk is being fetched
+          charIndex = currentTotalLength;
+          if (now - lastRenderTime >= RENDER_THROTTLE_MS) {
+            lastRenderTime = now;
+            STREAMING_TEXT_VAULT.set(msgId, { fullText: currentFullText, partialText: currentFullText });
+            notifyStreamingSubscribers();
+          }
+          streamingAnimFrameRef.current = requestAnimationFrame(step);
+          return;
+        }
+
+        charIndex = currentTotalLength;
         streamingAnimFrameRef.current = null;
         
-        // Lock vault partialText to fullText until React commits final state update
-        STREAMING_TEXT_VAULT.set(msgId, { fullText, partialText: fullText });
+        // Lock vault partialText to currentFullText until React commits final state update
+        STREAMING_TEXT_VAULT.set(msgId, { fullText: currentFullText, partialText: currentFullText });
 
         setChatHistory(prev => prev.map(c => {
           if (c.id !== targetChatId) return c;
           return {
             ...c,
-            messages: (c.messages || []).map(m => m.id === msgId ? { ...m, text: fullText } : m),
+            messages: (c.messages || []).map(m => m.id === msgId ? { ...m, text: currentFullText } : m),
             updatedAt: new Date()
           };
         }));
@@ -3475,19 +3617,20 @@ export function App() {
         setTimeout(() => {
           STREAMING_TEXT_VAULT.delete(msgId);
           ACTIVELY_STREAMING_IDS.delete(msgId);
+          PENDING_CONTINUATIONS.delete(msgId);
         }, 250);
 
         if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
-        if (onComplete) onComplete();
+        if (onComplete) onComplete(currentFullText);
       } else {
         if (now - lastRenderTime >= RENDER_THROTTLE_MS) {
           lastRenderTime = now;
 
           const nextCharCount = Math.floor(charIndex);
-          const partialText = fullText.slice(0, nextCharCount);
-          STREAMING_TEXT_VAULT.set(msgId, { fullText, partialText });
+          const partialText = currentFullText.slice(0, nextCharCount);
+          STREAMING_TEXT_VAULT.set(msgId, { fullText: currentFullText, partialText });
 
           // ISOLATED STREAMING UPDATE: Notify subscriber (active ChatMessageItem) without re-rendering App root!
           notifyStreamingSubscribers();
@@ -3498,7 +3641,6 @@ export function App() {
             }
           });
         }
-
         streamingAnimFrameRef.current = requestAnimationFrame(step);
       }
     };
@@ -4381,6 +4523,68 @@ const AI_PRESETS = [
       }
   };
 
+  const streamGeminiWithCodeContinuation = useCallback(async (
+    promptText: string,
+    msgId: string
+  ): Promise<string> => {
+    let finalAnswer = await callGeminiAPIStream(promptText, (accumulated) => {
+      STREAMING_TEXT_VAULT.set(msgId, { fullText: accumulated, partialText: accumulated });
+      notifyStreamingSubscribers();
+      if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
+    });
+
+    let geminiContinuations = 0;
+    const MAX_CONTINUATIONS = 3;
+
+    while (geminiContinuations < MAX_CONTINUATIONS) {
+      const check = detectIncompleteCodeBlock(finalAnswer);
+      if (!check.isIncomplete) break;
+
+      geminiContinuations++;
+      console.info(`[GEMINI_AUTO_CONTINUATION] Incomplete code block (${check.reason}). Continuing chunk ${geminiContinuations}/${MAX_CONTINUATIONS}...`);
+
+      const continuationPrompt = `[SYSTEM INSTRUCTION: CODE CONTINUATION]
+Your previous response was cut off mid-code due to output token length limits.
+Resume writing the code IMMEDIATELY from the exact character where you stopped.
+CRITICAL MANDATORY RULES:
+1. DO NOT repeat any code from before.
+2. DO NOT write any conversational intro, explanation, or outro (NEVER write "Here is the continuation", "Continuing:", etc.).
+3. DO NOT start a new markdown code fence if already inside one.
+4. Output ONLY the remaining raw code directly until the code block is fully closed with \`\`\`.
+Cutoff point was: "...${check.cutoffSnippet}"`;
+
+      try {
+        let chunkAcc = "";
+        await callGeminiAPIStream(continuationPrompt, (accCont) => {
+          chunkAcc = accCont;
+          const liveMerged = cleanAndMergeContinuation(finalAnswer, accCont);
+          STREAMING_TEXT_VAULT.set(msgId, { fullText: liveMerged, partialText: liveMerged });
+          notifyStreamingSubscribers();
+          if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+          }
+        });
+
+        if (!chunkAcc || !chunkAcc.trim()) break;
+        finalAnswer = cleanAndMergeContinuation(finalAnswer, chunkAcc);
+      } catch (contErr) {
+        console.warn("[GEMINI_AUTO_CONTINUATION] Error:", contErr);
+        break;
+      }
+    }
+
+    const finalCheck = detectIncompleteCodeBlock(finalAnswer);
+    if (finalCheck.isIncomplete && finalCheck.reason === 'unclosed_fence') {
+      finalAnswer = finalAnswer.trimEnd() + '\n```\n';
+    }
+
+    STREAMING_TEXT_VAULT.set(msgId, { fullText: finalAnswer, partialText: finalAnswer });
+    notifyStreamingSubscribers();
+    return finalAnswer;
+  }, []);
+
   const handleSwitchToGeminiAPI = useCallback(async (msgId: string) => {
     const currentChat = chatHistory.find(c => c.id === currentChatId);
     if (!currentChat) return;
@@ -4422,13 +4626,7 @@ const AI_PRESETS = [
     setActiveLoadingChatId(null);
 
     try {
-      const finalAnswer = await callGeminiAPIStream(userPromptText, (accumulated) => {
-        STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: accumulated, partialText: accumulated });
-        notifyStreamingSubscribers();
-        if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
-          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-        }
-      });
+      const finalAnswer = await streamGeminiWithCodeContinuation(userPromptText, newGeminiMsg.id);
 
       STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: finalAnswer });
       setChatHistory(prev => prev.map(c => c.id === currentChatId ? {
@@ -4714,13 +4912,7 @@ const AI_PRESETS = [
       setActiveLoadingChatId(null);
 
       try {
-        const finalAnswer = await callGeminiAPIStream(finalMessageText, (accumulated) => {
-          STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: accumulated, partialText: accumulated });
-          notifyStreamingSubscribers();
-          if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-          }
-        });
+        const finalAnswer = await streamGeminiWithCodeContinuation(finalMessageText, newGeminiMsg.id);
 
         STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: finalAnswer });
         setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
@@ -4944,6 +5136,110 @@ const AI_PRESETS = [
                botAudio = localId;
            }
 
+           const runBackgroundN8nContinuations = async (
+              activeTaskId: string,
+              initialBaseText: string,
+              targetSessionId: string,
+              actionType: string
+            ) => {
+              let currentText = initialBaseText;
+              let continuationsCount = 0;
+              const MAX_CONTINUATIONS = 3;
+
+              while (continuationsCount < MAX_CONTINUATIONS) {
+                const check = detectIncompleteCodeBlock(currentText);
+                if (!check.isIncomplete) break;
+
+                continuationsCount++;
+                console.info(`[AUTO_CODE_CONTINUATION] Incomplete code block (${check.reason}). Requesting background chunk ${continuationsCount}/${MAX_CONTINUATIONS}...`);
+
+                const continuationPrompt = `[SYSTEM INSTRUCTION: CODE CONTINUATION]
+Your previous response was cut off mid-code due to output token length limits.
+Resume writing the code IMMEDIATELY from the exact character where you stopped.
+CRITICAL MANDATORY RULES:
+1. DO NOT repeat any code from before.
+2. DO NOT write any conversational intro, explanation, or outro (NEVER write "Here is the continuation", "Continuing:", etc.).
+3. DO NOT start a new markdown code fence if already inside one.
+4. Output ONLY the remaining raw code directly until the code block is fully closed with \`\`\`.
+Cutoff point was: "...${check.cutoffSnippet}"`;
+
+                const continuationTaskId = generateUniqueId();
+                const continuationPayload: any = {
+                  taskId: continuationTaskId,
+                  sessionId: targetSessionId,
+                  userId: currentUser?.id || 'guest-user',
+                  username: currentUser?.username || 'Guest',
+                  message: continuationPrompt,
+                  systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+                  system_instruction: DEFAULT_SYSTEM_INSTRUCTION,
+                  action: actionType || 'chat',
+                  timestamp: new Date().toISOString()
+                };
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), N8N_REQUEST_TIMEOUT_MS);
+
+                try {
+                  const res = await fetch(N8N_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-chatbot-token': 'ali1234' },
+                    body: JSON.stringify(continuationPayload),
+                    signal: controller.signal
+                  });
+                  clearTimeout(timeoutId);
+
+                  if (!res.ok) {
+                    console.warn(`[AUTO_CODE_CONTINUATION] Fetch failed with status ${res.status}`);
+                    break;
+                  }
+
+                  const resText = await res.text();
+                  let data: any = resText;
+                  try {
+                    data = JSON.parse(resText);
+                    if (Array.isArray(data) && data.length > 0) data = data[0];
+                  } catch (e) {}
+
+                  const parsed = parsePayloadData(data?.payload || data?.response || data?.result || data?.text || data);
+                  const chunkText = parsed.text || (typeof data === 'string' ? data : '');
+
+                  if (!chunkText || !chunkText.trim()) {
+                    console.warn("[AUTO_CODE_CONTINUATION] Empty chunk received from webhook.");
+                    break;
+                  }
+
+                  currentText = cleanAndMergeContinuation(currentText, chunkText);
+
+                  // Dynamically update vault so active streaming incorporates new code without hitch
+                  const currentVault = STREAMING_TEXT_VAULT.get(activeTaskId);
+                  STREAMING_TEXT_VAULT.set(activeTaskId, {
+                    fullText: currentText,
+                    partialText: currentVault?.partialText || currentText
+                  });
+                  notifyStreamingSubscribers();
+
+                } catch (fetchErr) {
+                  clearTimeout(timeoutId);
+                  console.warn("[AUTO_CODE_CONTINUATION] Network or timeout error during continuation fetch:", fetchErr);
+                  break;
+                }
+              }
+
+              // If still unclosed after all attempts, auto-close code fence safely
+              const finalCheck = detectIncompleteCodeBlock(currentText);
+              if (finalCheck.isIncomplete && finalCheck.reason === 'unclosed_fence') {
+                currentText = currentText.trimEnd() + '\n```\n';
+                const currentVault = STREAMING_TEXT_VAULT.get(activeTaskId);
+                STREAMING_TEXT_VAULT.set(activeTaskId, {
+                  fullText: currentText,
+                  partialText: currentVault?.partialText || currentText
+                });
+                notifyStreamingSubscribers();
+              }
+
+              PENDING_CONTINUATIONS.delete(activeTaskId);
+            };
+
            const shouldStream = Boolean(rawBotText && finalAction !== 'generate_image');
            
            if (shouldStream) {
@@ -4969,11 +5265,18 @@ const AI_PRESETS = [
            setIsGeneratingImage(false);
 
            if (shouldStream) {
-            streamBotResponse(taskId, rawBotText, targetChatId, () => {
-              triggerSuggestions(rawBotText);
-              persistBotMessageToFirestore(targetChatId, newBotMsg, rawBotText);
-            });
-          } else {
+              const initialCheck = detectIncompleteCodeBlock(rawBotText);
+              if (initialCheck.isIncomplete) {
+                PENDING_CONTINUATIONS.set(taskId, true);
+                runBackgroundN8nContinuations(taskId, rawBotText, targetChatId, finalAction);
+              }
+
+              streamBotResponse(taskId, rawBotText, targetChatId, (finalStitchedText) => {
+                const textToSave = typeof finalStitchedText === 'string' ? finalStitchedText : rawBotText;
+                triggerSuggestions(textToSave);
+                persistBotMessageToFirestore(targetChatId, newBotMsg, textToSave);
+              });
+            } else {
             if (rawBotText && finalAction !== 'generate_image') {
               triggerSuggestions(rawBotText);
             }
