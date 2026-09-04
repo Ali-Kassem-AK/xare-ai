@@ -4,8 +4,8 @@ import {
   Sun, Moon, Send, Bot, User, Loader2, Paperclip, Mic, ImageIcon, 
   FileText, Menu, Plus, MessageSquare, Settings, Play, Pause, X, 
   LogOut, AlignLeft, CheckCircle, Code, Languages, 
-  Globe, ChevronLeft, ChevronRight, ChevronDown, AudioLines, Copy, Brain, Download,
-  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, ExternalLink, ArrowUp,
+  Globe, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AudioLines, Copy, Brain, Download,
+  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, Minimize2, ExternalLink, ArrowUp,
   Info, Lightbulb, AlertTriangle, AlertCircle
 } from 'lucide-react';
 import katex from 'katex';
@@ -419,7 +419,7 @@ YOU MUST Structure EVERY response using Xare's frontend markdown components:
 - Use \`inline code\` or \`\`\`lang\`\`\` blocks for code snippets, payload formats, and technical terms.
 - Use \`$inline$\` or \`$$display$$\` for mathematical and scientific expressions.
 - Use \`---\` dividers between major content sections.
-- Interactive Visuals: Frequently build complete, self-contained HTML/JS/CSS (or SVG) inside a \`\`\`html block to visually or interactively explain concepts, math, data, processes, and UI. The chat runs them live instantly—use them actively and never tell users to save files.
+- Interactive Visuals: Frequently build complete, self-contained HTML/JS/CSS (or SVG) inside a \`\`\`html block to visually or interactively explain concepts, math, data, processes, and UI. Design visuals to be compact, responsive, and properly scaled (use viewBox for SVGs, max-width: 100%, and fit comfortably within 360px-400px height with all controls clearly visible) so they render beautifully without clipping. The chat runs them live instantly—use them actively and never tell users to save files.
 - Keep the tone conversational, confident, and direct. Avoid generic boilerplate disclosures, redundant apologies, or fabricated status/metadata fields unless explicitly requested.
 NEVER RESPOND WITHOUT USING ANY OF THOSE UI STYLINGS`;
 
@@ -627,6 +627,18 @@ const highlightSyntax = (code: string, lang: string, isDarkMode: boolean) => {
 export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { code: string; lang: string; isDarkMode: boolean; isStreaming?: boolean }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isExpandedHeight, setIsExpandedHeight] = useState(false);
+
+  // Close fullscreen on Escape key
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullscreen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
 
   const cleanLang = useMemo(() => (lang || '').toLowerCase().trim(), [lang]);
 
@@ -683,7 +695,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
     return highlightSyntax(code, lang, isDarkMode);
   }, [code, lang, isDarkMode, isStreaming]);
 
-  // Prepare safe sandbox srcDoc
+  // Prepare safe sandbox srcDoc with responsive auto-fit styling
   const previewDoc = useMemo(() => {
     if (!code) return '';
     const trimmed = code.trim();
@@ -692,16 +704,77 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: ${isDarkMode ? '#060911' : '#ffffff'}; overflow: hidden; }
-    svg { max-width: 95vw; max-height: 90vh; height: auto; }
+    *, *::before, *::after { box-sizing: border-box !important; }
+    html, body { margin: 0; padding: 12px; width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; background: ${isDarkMode ? '#060911' : '#ffffff'}; overflow: auto; }
+    svg { max-width: 100%; max-height: 85vh; height: auto; }
   </style>
 </head>
 <body>${code}</body>
 </html>`;
     }
-    return code;
+
+    const responsiveHelper = `
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style id="xare-sandbox-fit">
+    *, *::before, *::after {
+      box-sizing: border-box !important;
+    }
+    html {
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    body {
+      margin: 0 !important;
+      padding: 12px !important;
+      max-width: 100vw !important;
+      min-height: 100% !important;
+      height: auto !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+    }
+    /* Auto-scale visual elements to prevent clipping */
+    svg, canvas, img {
+      max-width: 100% !important;
+      height: auto;
+    }
+    /* Slim sleek scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(120, 120, 140, 0.35);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(120, 120, 140, 0.65);
+    }
+  </style>`;
+
+    if (code.includes('</head>')) {
+      return code.replace('</head>', `${responsiveHelper}\n</head>`);
+    } else if (code.includes('<body')) {
+      return code.replace('<body', `<head>${responsiveHelper}</head><body`);
+    } else {
+      return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  ${responsiveHelper}
+</head>
+<body>${code}</body>
+</html>`;
+    }
   }, [code, cleanLang, isDarkMode]);
+
+  const iframeHeightClass = isExpandedHeight ? 'h-[500px] sm:h-[580px]' : 'h-[340px] sm:h-[390px]';
 
   return (
     <div className={`my-4 rounded-2xl overflow-hidden border shadow-lg transition-all ${isDarkMode ? 'border-slate-800/90 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'}`}>
@@ -748,9 +821,40 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-1.5">
           {isRunnable && activeTab === 'preview' && (
             <>
+              {/* Expand / Compact Height Toggle */}
+              <button 
+                type="button"
+                onClick={() => setIsExpandedHeight(h => !h)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                  isDarkMode 
+                    ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                    : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900'
+                }`}
+                title={isExpandedHeight ? "Compact preview height" : "Expand preview height"}
+              >
+                {isExpandedHeight ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                <span className="hidden md:inline">{isExpandedHeight ? "Compact" : "Expand"}</span>
+              </button>
+
+              {/* Fullscreen Modal Theater Toggle */}
+              <button 
+                type="button"
+                onClick={() => setIsFullscreen(true)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                  isDarkMode 
+                    ? 'hover:bg-slate-800 text-slate-400 hover:text-cyan-300' 
+                    : 'hover:bg-slate-200 text-slate-600 hover:text-blue-700'
+                }`}
+                title="Open fullscreen theater mode"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Fullscreen</span>
+              </button>
+
+              {/* Reload Sandbox */}
               <button 
                 type="button"
                 onClick={handleRefresh}
@@ -765,6 +869,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
                 <span className="hidden sm:inline">Reset</span>
               </button>
 
+              {/* Open in Separate Browser Tab */}
               <button 
                 type="button"
                 onClick={handleOpenNewTab}
@@ -799,13 +904,13 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
 
       {/* Content Area */}
       {isRunnable && activeTab === 'preview' && !isStreaming ? (
-        <div className={`relative w-full overflow-hidden transition-all ${isDarkMode ? 'bg-[#060911]' : 'bg-white'}`}>
+        <div className={`relative w-full overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-[#060911]' : 'bg-white'}`}>
           <iframe
             key={refreshKey}
             srcDoc={previewDoc}
             title="Interactive Visualizer Sandbox"
             sandbox="allow-scripts allow-modals allow-forms allow-same-origin"
-            className="w-full h-[460px] sm:h-[520px] border-0 rounded-b-2xl block"
+            className={`w-full ${iframeHeightClass} border-0 rounded-b-2xl block transition-all duration-300`}
             loading="lazy"
           />
         </div>
@@ -826,6 +931,71 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
             />
           </pre>
         </div>
+      )}
+
+      {/* Fullscreen Interactive Theater Modal */}
+      {isFullscreen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex flex-col p-2 sm:p-5 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className={`w-full max-w-7xl h-full mx-auto rounded-2xl overflow-hidden border shadow-2xl flex flex-col ${isDarkMode ? 'border-slate-800 bg-[#060911]' : 'border-slate-300 bg-white text-slate-900'}`}>
+            {/* Modal Header */}
+            <div className={`flex items-center justify-between px-4 py-3 border-b select-none ${isDarkMode ? 'bg-[#080c16] border-slate-800 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-800'}`}>
+              <div className="flex items-center gap-3">
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider ${isDarkMode ? 'bg-cyan-950/70 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+                  {lang || 'html'}
+                </span>
+                <span className="text-sm font-semibold">Interactive Visualizer Sandbox</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  title="Reload sandbox"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenNewTab}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  title="Open in new browser tab"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Pop Out</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreen(false)}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${isDarkMode ? 'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'}`}
+                  title="Close Fullscreen (Esc)"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span>Close</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Iframe */}
+            <div className="flex-1 w-full relative overflow-hidden bg-black/40">
+              <iframe
+                key={`modal_${refreshKey}`}
+                srcDoc={previewDoc}
+                title="Interactive Visualizer Sandbox Fullscreen"
+                sandbox="allow-scripts allow-modals allow-forms allow-same-origin"
+                className="w-full h-full border-0 block"
+              />
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
