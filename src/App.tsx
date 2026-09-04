@@ -25,10 +25,8 @@ import { uploadFileDirectly, UploadResult } from './utils/storage';
 // ==========================================
 export const TOKEN_LIMIT_REDIRECTION_MSG = `Sorry, but the models have reached their free usage limit. Please try another tool, such as **Deep Thinking**, **Generate Image**, or **Upload Image or PDF**, or try again in a few minutes. Want to continue the conversation immediately? We’ll automatically switch you to **Gemini 3.5 Flash Lite** so you can continue without interruption.`;
 
-// ==========================================
-// --- REQUEST TIMEOUT & ERROR CLASSIFICATION
-// ==========================================
-export const N8N_REQUEST_TIMEOUT_MS = 60000000;
+export const N8N_REQUEST_TIMEOUT_MS = 75000; // 75s timeout for complex code/visual generation and media
+export const N8N_CONTINUATION_TIMEOUT_MS = 25000; // 25s timeout for background continuation chunks
 
 export type RequestFailureType =
   | 'quota'
@@ -250,6 +248,13 @@ export const TOOL_PHASE_DURATIONS = {
     parsingCode: 3500,             // 'Parsing Code'
     analyzingLogic: 4500,          // -> 'Analyzing Code Architecture & Logic'
     thinking: 5500,                // -> 'Thinking'
+  },
+  code: {
+    analyzingLogic: 2500,          // 'Analyzing Requirements & Architecture'
+    designingArchitecture: 3500,   // -> 'Structuring Logic & Data Flow'
+    writingImplementation: 4500,   // -> 'Writing Code Implementation'
+    craftingVisuals: 5000,         // -> 'Crafting Interactive Visual Components'
+    optimizingSandbox: 5500,       // -> 'Compiling Sandbox & Syntax'
   },
   translate: {
     detectingLanguage: 3000,       // 'Detecting Language & Nuance'
@@ -3940,9 +3945,32 @@ const AI_PRESETS = [
             schedulePhase(step.text, currentElapsed);
           }
         });
+
+        // Dynamic ongoing phases if generation takes extended time (prevents UI freeze appearance)
+        const extendedPhases = [
+          'Assembling complete code & visualizer...',
+          'Verifying syntax & rendering output...',
+          'Polishing live interactive components...',
+          'Finalizing response...'
+        ];
+        let extraDelay = currentElapsed + (steps[steps.length - 1]?.duration || 8000);
+        extendedPhases.forEach((extText) => {
+          schedulePhase(extText, extraDelay);
+          extraDelay += 8000;
+        });
       };
 
       switch (loadingType) {
+        case 'code':
+          queueSteps([
+            { text: 'Analyzing Requirements & Architecture', duration: TOOL_PHASE_DURATIONS.code.analyzingLogic },
+            { text: 'Structuring Logic & Data Flow', duration: TOOL_PHASE_DURATIONS.code.designingArchitecture },
+            { text: 'Writing Code Implementation', duration: TOOL_PHASE_DURATIONS.code.writingImplementation },
+            { text: 'Crafting Interactive Visual Components', duration: TOOL_PHASE_DURATIONS.code.craftingVisuals },
+            { text: 'Compiling Sandbox & Syntax', duration: TOOL_PHASE_DURATIONS.code.optimizingSandbox },
+            { text: 'Finalizing response...', duration: 15000 }
+          ]);
+          break;
         case 'document':
           queueSteps([
             { text: 'Parsing PDF', duration: TOOL_PHASE_DURATIONS.document.parsingPdf },
@@ -4683,10 +4711,6 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       finalMessageText = msgText.substring(9).trim();
     }
 
-    if (/\b(code|python|script|pygame|game|function|program|build|write|create|cpp|java|html|js|javascript|sql)\b/i.test(msgText)) {
-      finalMessageText += "\n\n[FORMAT DIRECTIVE: If your response includes code or scripts, you MUST wrap all code inside a standard markdown triple-backtick block, e.g. ```python\n# code\n```. Do NOT output code as plain text or inline backticks.]";
-    }
-
 
 
     let targetChatId = currentChatId;
@@ -4941,9 +4965,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       if (toolLabel.includes('Deep Thinking')) uiLoadingType = 'think';
       else if (toolLabel.includes('Summarize')) uiLoadingType = 'summarize';
       else if (toolLabel.includes('search')) uiLoadingType = 'search';
-      else if (toolLabel.includes('code')) uiLoadingType = 'explain';
+      else if (toolLabel.includes('code')) uiLoadingType = 'code';
       else if (toolLabel.includes('Translate')) uiLoadingType = 'translate';
       else if (toolLabel.includes('grammar')) uiLoadingType = 'fix';
+    } else if (/\b(code|python|script|pygame|game|function|program|build|write|create|cpp|java|html|js|javascript|sql|visual|visualization|chart|diagram|simulation|interactive)\b/i.test(msgText)) {
+      uiLoadingType = 'code';
     }
     setLoadingType(uiLoadingType);
 
@@ -5022,52 +5048,55 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         let newBotMsg;
         let rawBotText = "";
         
-        const triggerAutoGeminiFallback = (noticeText: string) => {
+        const triggerAutoGeminiFallback = async (noticeText: string) => {
           const noticeMsg = { id: generateUniqueId(), text: noticeText, sender: 'bot', timestamp: new Date() };
           setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, noticeMsg], updatedAt: new Date() } : c));
           
           setChatModelModes(prev => ({ ...prev, [targetChatId]: 'gemini' }));
           
-          setLoadingPhase('thinking');
-          setIsLoading(true);
-          setActiveLoadingChatId(targetChatId);
+          const newGeminiMsg = {
+            id: generateUniqueId(),
+            text: "",
+            sender: 'bot',
+            modelEngine: 'gemini',
+            timestamp: new Date()
+          };
 
-          callGeminiAPI(finalMessageText).then(geminiRes => {
-            const finalAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
-            const newGeminiMsg = {
-              id: generateUniqueId(),
-              text: "",
-              sender: 'bot',
-              modelEngine: 'gemini',
-              timestamp: new Date()
-            };
+          ACTIVELY_STREAMING_IDS.add(newGeminiMsg.id);
+          STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: "", partialText: "" });
+          setStreamingMessageId(newGeminiMsg.id);
 
-            ACTIVELY_STREAMING_IDS.add(newGeminiMsg.id);
-            STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
-            setStreamingMessageId(newGeminiMsg.id);
+          setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+            ...c,
+            messages: [...c.messages, newGeminiMsg],
+            updatedAt: new Date()
+          } : c));
 
+          setIsLoading(false);
+          setActiveLoadingChatId(null);
+          setLoadingType(null);
+          setIsGeneratingImage(false);
+
+          try {
+            const finalAnswer = await streamGeminiWithCodeContinuation(finalMessageText, newGeminiMsg.id);
+            STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: finalAnswer });
             setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
               ...c,
-              messages: [...c.messages, newGeminiMsg],
+              messages: (c.messages || []).map(m => m.id === newGeminiMsg.id ? { ...m, text: finalAnswer } : m),
               updatedAt: new Date()
             } : c));
-
-            setIsLoading(false);
-            setActiveLoadingChatId(null);
-            setLoadingType(null);
-            setIsGeneratingImage(false);
-
-            streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
-              triggerSuggestions(finalAnswer);
-              persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
-            });
-          }).catch(err => {
+            setStreamingMessageId(null);
+            setTimeout(() => {
+              STREAMING_TEXT_VAULT.delete(newGeminiMsg.id);
+              ACTIVELY_STREAMING_IDS.delete(newGeminiMsg.id);
+            }, 250);
+            triggerSuggestions(finalAnswer);
+            persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
+          } catch (err) {
             console.error("Auto Gemini fallback error:", err);
-            setIsLoading(false);
-            setActiveLoadingChatId(null);
-            setLoadingType(null);
-            setIsGeneratingImage(false);
-          });
+            setStreamingMessageId(null);
+            showLocalBotMessage("I am currently unable to process this request. Please try again in a moment.");
+          }
         };
 
         // Classify the error if present
@@ -5079,9 +5108,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         }
 
         if (classified) {
-          if (classified.isQuota) {
-            // ONLY trigger Gemini fallback on genuine quota / rate-limit failures!
-            triggerAutoGeminiFallback(classified.message);
+          if (classified.isQuota || classified.type === 'timeout' || classified.type === 'server' || classified.type === 'network') {
+            const notice = classified.isQuota
+              ? classified.message
+              : "⚠️ Server response timed out. Seamlessly switching to Gemini 3.5 Flash Lite engine to deliver your response...";
+            triggerAutoGeminiFallback(notice);
             return;
           } else {
             // For timeouts, network errors, server errors: display truthful neutral message without false quota warning
@@ -5177,7 +5208,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                 };
 
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), N8N_REQUEST_TIMEOUT_MS);
+                const timeoutId = setTimeout(() => controller.abort(), N8N_CONTINUATION_TIMEOUT_MS);
 
                 try {
                   const res = await fetch(N8N_WEBHOOK_URL, {
