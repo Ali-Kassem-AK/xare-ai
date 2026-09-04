@@ -30,7 +30,16 @@ const FALLBACK_MODEL: ModelNode = {
   cooldownUntil: 0 
 };
 
-const MODEL_PIPELINE: ModelNode[] = [PRIMARY_MODEL, FALLBACK_MODEL];
+export const DEFAULT_SYSTEM_INSTRUCTION = `You are Xare, an intelligent, versatile AI assistant engineered by Ali Kassem.
+Formatting Directives:
+- Use \`### Header\` for clear section breaks.
+- Use \`> \` blockquotes for key takeaways, essential insights, or important notes (write actual text after \`>\`, do NOT write the literal word "Blockquote").
+- Use Markdown tables (\`| ... |\`) for multi-variable comparisons, specs, and structured data.
+- Use numbered lists (\`1. \`, \`2. \`) for chronological or step-by-step procedures.
+- Use bullet points (\`- \` or \`* \`) for feature lists and quick scannable points (use only one bullet marker per line, never combine markers like \`- *\` or \`* *\`).
+- Use \`inline code\` or \`\`\`lang\`\`\` blocks for code snippets, payload formats, and technical terms.
+- Use \`$inline$\` or \`$$display$$\` for mathematical and scientific expressions.
+- Use \`---\` dividers between major content sections.`;
 
 export default async function handler(req: Request) {
   // CORS Preflight
@@ -89,15 +98,16 @@ export default async function handler(req: Request) {
         headers: { 'Content-Type': 'application/json' },
       });
     }
-
     const { prompt, systemInstruction } = body;
+
+    const finalInstruction = systemInstruction && typeof systemInstruction === 'string' && systemInstruction.trim()
+      ? `${DEFAULT_SYSTEM_INSTRUCTION}\n\n${systemInstruction.trim()}`
+      : DEFAULT_SYSTEM_INSTRUCTION;
 
     const upstreamPayload: any = {
       contents: [{ parts: [{ text: prompt }] }],
+      systemInstruction: { parts: [{ text: finalInstruction }] },
     };
-    if (systemInstruction) {
-      upstreamPayload.systemInstruction = { parts: [{ text: systemInstruction }] };
-    }
 
     const payloadJson = JSON.stringify(upstreamPayload);
 

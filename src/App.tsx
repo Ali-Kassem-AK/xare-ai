@@ -391,6 +391,17 @@ const getLatestChatActivityTime = (chat: any): number => {
   return maxTime;
 };
 
+export const DEFAULT_SYSTEM_INSTRUCTION = `You are Xare, an intelligent, versatile AI assistant engineered by Ali Kassem.
+Formatting Directives:
+- Use ### Header for clear section breaks.
+- Use >  blockquotes for key takeaways, essential insights, or important notes (write actual text after >, do NOT write the literal word "Blockquote").
+- Use Markdown tables (| ... |) for multi-variable comparisons, specs, and structured data.
+- Use numbered lists (1. , 2. ) for chronological or step-by-step procedures.
+- Use bullet points (-  or * ) for feature lists and quick scannable points (use only one bullet marker per line, never combine markers like - * or * *).
+- Use \`inline code\` or \`\`\`lang\`\`\` blocks for code snippets, payload formats, and technical terms.
+- Use $inline$ or $$display$$ for mathematical and scientific expressions.
+- Use --- dividers between major content sections.`;
+
 /**
  * Universal helper to interact directly with the Gemini API.
  * Uses a smart Endpoint Resolver to automatically find the correct internal API string for Gemini 3.1 Flash Lite.
@@ -402,12 +413,13 @@ const getLatestChatActivityTime = (chat: any): number => {
 const callGeminiAPIStream = async (
   prompt: string,
   onChunk: (accumulatedText: string, chunk: string) => void,
-  systemInstruction = "",
+  systemInstruction = DEFAULT_SYSTEM_INSTRUCTION,
   signal?: AbortSignal
 ): Promise<string> => {
   const payload: any = { prompt };
-  if (systemInstruction) {
-    payload.systemInstruction = systemInstruction;
+  const finalSystemInstruction = systemInstruction || DEFAULT_SYSTEM_INSTRUCTION;
+  if (finalSystemInstruction) {
+    payload.systemInstruction = finalSystemInstruction;
   }
 
   const res = await fetch('/api/chat/stream', {
@@ -461,7 +473,7 @@ const callGeminiAPIStream = async (
   return accumulated;
 };
 
-const callGeminiAPI = async (prompt: string, systemInstruction = "", isJson = false) => {
+const callGeminiAPI = async (prompt: string, systemInstruction = DEFAULT_SYSTEM_INSTRUCTION, isJson = false) => {
   let result = "";
   try {
     result = await callGeminiAPIStream(prompt, () => {}, systemInstruction);
@@ -724,7 +736,7 @@ export const MessageActions = ({
 // ==========================================
 // --- OPTIMIZED STATIC REGEXP CONSTANTS (0-ALLOCATION PERFORMANCE)
 // ==========================================
-const INLINE_SPLIT_REGEX = /(!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\*\*.*?\*\*|\*.*?\*|`[^`\n]+`|\$[^$\n]+\$|\\\([^\\\n]+\\\))/g;
+const INLINE_SPLIT_REGEX = /(!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\*\*\*(?!\s)[^\*\n]+?(?<!\s)\*\*\*|\*\*(?!\s)[^\*\n]+?(?<!\s)\*\*|\*(?!\s)[^\*\n]+?(?<!\s)\*|~~(?!\s)[^~\n]+?(?<!\s)~~|`[^`\n]+`|\$[^$\n]+\$|\\\([^\\\n]+\\\))/g;
 const MARKDOWN_IMG_REGEX = /^!\[(.*?)\]\((.*?)\)$/;
 const MARKDOWN_LINK_REGEX = /^\[(.*?)\]\((.*?)\)$/;
 const URL_AUTOLINK_REGEX = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
@@ -882,6 +894,16 @@ const renderInline = (text: any, isDarkMode: boolean) => {
       );
     }
 
+    if (part.startsWith('***') && part.endsWith('***') && part.length >= 6) {
+      return (
+        <strong key={i} className={`font-black text-[1.08em] tracking-tight ${isDarkMode ? 'text-cyan-300' : 'text-blue-800'}`}>
+          <em className={`italic font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+            {renderInline(part.slice(3, -3), isDarkMode)}
+          </em>
+        </strong>
+      );
+    }
+
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
         <strong key={i} className={`font-black text-[1.08em] tracking-tight ${isDarkMode ? 'text-cyan-300' : 'text-blue-800'}`}>
@@ -895,6 +917,14 @@ const renderInline = (text: any, isDarkMode: boolean) => {
         <em key={i} className={`italic font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
           {renderInline(part.slice(1, -1), isDarkMode)}
         </em>
+      );
+    }
+
+    if (part.startsWith('~~') && part.endsWith('~~') && part.length >= 4) {
+      return (
+        <del key={i} className="line-through opacity-75">
+          {renderInline(part.slice(2, -2), isDarkMode)}
+        </del>
       );
     }
 
@@ -1282,8 +1312,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
-        // 5. Markdown Headers (#, ##, ###, ####)
-        const headerMatch = trimmedLine.match(/^(#{1,4})\s+(.*)/);
+        // 5. Markdown Headers (#, ##, ###, ####, #####, ######)
+        const headerMatch = trimmedLine.match(/^(#{1,6})\s+(.*)/);
         if (headerMatch) {
           flushAll();
           const level = headerMatch[1].length;
@@ -1292,40 +1322,58 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
             `text-2xl font-extrabold mt-6 mb-3 tracking-tight ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-indigo-200 to-cyan-300' : 'text-blue-950'}`, 
             `text-xl font-bold mt-5 mb-2.5 tracking-tight ${isDarkMode ? 'text-cyan-300' : 'text-blue-900'}`, 
             `text-lg font-semibold mt-4 mb-2 ${isDarkMode ? 'text-indigo-200' : 'text-slate-900'}`, 
-            `text-base font-semibold mt-3 mb-1.5 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`
+            `text-base font-semibold mt-3 mb-1.5 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`,
+            `text-sm font-semibold mt-2.5 mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`,
+            `text-xs font-semibold mt-2 mb-1 uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`
           ];
-          elements.push(<div key={`h-${lIdx}`} className={sizeClasses[level-1]}>{renderInline(content, isDarkMode)}</div>);
+          elements.push(<div key={`h-${lIdx}`} className={sizeClasses[level-1] || sizeClasses[3]}>{renderInline(content, isDarkMode)}</div>);
           return;
         }
 
-        // 6. Unordered Bullet Lists (- or *)
-        const listMatch = trimmedLine.match(/^[-*]\s+(.*)/);
+        // 6. Unordered Bullet Lists (-, *, +, •, etc.)
+        const listMatch = trimmedLine.match(/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+(.*)/);
         if (listMatch) {
+          flushAll();
+          let listContent = listMatch[1].trim();
+          // Strip any redundant leading bullet markers (e.g. "* ", "- ", "• ", "+ ")
+          while (/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+/.test(listContent)) {
+            listContent = listContent.replace(/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+/, '').trim();
+          }
+
+          const indentMatch = line.match(/^(\s{2,})/);
+          const indentClass = indentMatch ? (indentMatch[1].length >= 4 ? 'ml-6' : 'ml-4') : 'ml-2';
+
           elements.push(
-            <div key={`ul-${lIdx}`} className="flex gap-3 ml-2 mt-2 items-baseline">
+            <div key={`ul-${lIdx}`} className={`flex gap-3 ${indentClass} mt-2 items-baseline`}>
               <span className={`select-none text-base font-bold leading-none ${isDarkMode ? 'text-cyan-400' : 'text-blue-600'}`}>•</span>
-              <span className="flex-1">{renderInline(listMatch[1], isDarkMode)}</span>
+              <span className="flex-1">{renderInline(listContent, isDarkMode)}</span>
             </div>
           );
           return;
         }
 
-        // 7. Numbered Lists (1., 2., etc.)
-        const numListMatch = trimmedLine.match(/^(\d+\.)\s+(.*)/);
+        // 7. Numbered Lists (1., 2., 1), 2), etc.)
+        const numListMatch = trimmedLine.match(/^(\d+[\.\)])\s+(.*)/);
         if (numListMatch) {
-          const isHeaderLike = /^(\*\*.*?\*\*|[A-Z][a-zA-Z0-9\s\-\(\)\/\:\,\.]{3,60})$/.test(numListMatch[2].trim());
-          if (isHeaderLike && numListMatch[2].trim().length > 5) {
+          flushAll();
+          let numContent = numListMatch[2].trim();
+          while (/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+/.test(numContent)) {
+            numContent = numContent.replace(/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+/, '').trim();
+          }
+
+          const isHeaderLike = /^(\*\*.*?\*\*|[A-Z][a-zA-Z0-9\s\-\(\)\/\:\,\.]{3,60})$/.test(numContent);
+          if (isHeaderLike && numContent.length > 5) {
             elements.push(
               <div key={`ol-h-${lIdx}`} className={`text-base sm:text-lg font-bold mt-5 mb-2 flex items-baseline gap-2 tracking-tight ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-300 to-indigo-200' : 'text-blue-900'}`}>
                 <span className={`text-xs px-2 py-0.5 rounded-md font-mono select-none flex-shrink-0 ${isDarkMode ? 'bg-cyan-950/90 text-cyan-300 border border-cyan-700/60' : 'bg-blue-100 text-blue-800'}`}>{numListMatch[1]}</span>
-                <span className="flex-1">{renderInline(numListMatch[2], isDarkMode)}</span>
+                <span className="flex-1">{renderInline(numContent, isDarkMode)}</span>
               </div>
             );
           } else {
             elements.push(
               <div key={`ol-${lIdx}`} className="flex gap-2.5 ml-2 mt-2 items-baseline">
                 <span className={`font-bold text-xs px-2 py-0.5 rounded-md min-w-[24px] text-center select-none ${isDarkMode ? 'bg-blue-950/80 text-cyan-300 border border-cyan-800/40 shadow-sm' : 'bg-blue-100 text-blue-800'}`}>{numListMatch[1]}</span>
-                <span className="flex-1">{renderInline(numListMatch[2], isDarkMode)}</span>
+                <span className="flex-1">{renderInline(numContent, isDarkMode)}</span>
               </div>
             );
           }
@@ -4433,6 +4481,8 @@ const AI_PRESETS = [
         userId: currentUser.id,
         username: currentUser.username,
         message: finalMessageText,
+        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+        system_instruction: DEFAULT_SYSTEM_INSTRUCTION,
         action: finalAction,
         timestamp: new Date().toISOString()
       };
