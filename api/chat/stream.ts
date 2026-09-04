@@ -174,9 +174,19 @@ export default async function handler(req: Request) {
     }
 
     if (!upstreamRes || !upstreamRes.body || !winningModel) {
+      let availableModels: string[] = [];
+      try {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          availableModels = (listData.models || []).map((m: any) => m.name.replace('models/', ''));
+        }
+      } catch (e) {}
+
       return new Response(JSON.stringify({
         error: 'AI Inference Unavailable',
-        details: lastErrorDetails || 'Models are currently rate-limited or unavailable.'
+        details: lastErrorDetails || 'Models are currently rate-limited or unavailable.',
+        availableModels: availableModels.slice(0, 20)
       }), {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
