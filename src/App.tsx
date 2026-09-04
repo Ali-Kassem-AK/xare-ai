@@ -1353,7 +1353,19 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         }
 
         // 2. Data Tables (Pipe-separated lines)
-        if (trimmedLine.includes('|')) {
+        const isPotentialTableRow = trimmedLine.includes('|') &&
+          !/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+/.test(trimmedLine) &&
+          !/^(?:(\d+[\.\)])|\((\d+)\))\s+/.test(trimmedLine) &&
+          !/^>\s*/.test(trimmedLine) &&
+          !/^#{1,6}\s+/.test(trimmedLine) &&
+          (
+            tableRows.length > 0 ||
+            (/^[\s\|\-:]+$/.test(trimmedLine) && trimmedLine.includes('-')) ||
+            (trimmedLine.startsWith('|') && trimmedLine.endsWith('|') && trimmedLine.length > 2) ||
+            (lines[lIdx + 1] && /^[\s\|\-:]+$/.test(lines[lIdx + 1].trim()) && lines[lIdx + 1].trim().includes('-'))
+          );
+
+        if (isPotentialTableRow) {
           flushQuote();
           tableRows.push(trimmedLine);
           return;
@@ -1370,11 +1382,19 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           flushQuote();
         }
 
-        // 4. Standalone / Naked LaTeX Math Equations (e.g. f'(x) = \lim_{...} or \frac{...}{...} or \int ... on its own line)
-        const isLatexLine = !trimmedLine.includes('`') && (
-          /^\s*(?:[a-zA-Z]['\w\(\)]*\s*=\s*)?\\(?:lim|frac|sqrt|sum|int|prod|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|phi|omega|nabla|partial|infty|times|cdot|approx|pm|neq|le|ge|begin)\b/.test(trimmedLine) ||
-          /\\(?:frac\{|sqrt\{|lim_\{|int_\{|sum_\{)/.test(trimmedLine)
-        );
+        // 4. Standalone / Naked LaTeX Math Equations (ONLY for pure equation lines without prose or inline $ delimiters)
+        const isLatexLine = !trimmedLine.includes('$') && 
+          !trimmedLine.includes('`') && 
+          !trimmedLine.includes('**') &&
+          !/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+/.test(trimmedLine) &&
+          !/^(?:(\d+[\.\)])|\((\d+)\))\s+/.test(trimmedLine) &&
+          !/^>\s*/.test(trimmedLine) &&
+          !/^#{1,6}\s+/.test(trimmedLine) &&
+          !/(?<!\\)\b(?:where|meaning|which|that|this|the|from|with|into|onto|then|when|since|imagine|consider)\b/i.test(trimmedLine) &&
+          (
+            /^\s*(?:[a-zA-Z]['\w\(\)]*\s*=\s*)?\\(?:lim|frac|sqrt|sum|int|prod|begin)(?![a-zA-Z])/.test(trimmedLine) ||
+            /^\s*\\(?:frac\{|sqrt\{|lim_\{|int_\{|sum_\{|begin\{)/.test(trimmedLine)
+          );
         if (isLatexLine) {
           flushAll();
           elements.push(
