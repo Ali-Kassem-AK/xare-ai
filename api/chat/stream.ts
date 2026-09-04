@@ -40,7 +40,7 @@ Formatting Directives:
 - Use numbered lists (\`1. \`, \`2. \`) for chronological or step-by-step procedures.
 - Use bullet points (\`- \` or \`* \`) for feature lists and quick scannable points (use only one bullet marker per line, never combine markers like \`- *\` or \`* *\`).
 - Use \`inline code\` or \`\`\`lang\`\`\` blocks for code snippets, payload formats, and technical terms.
-- Use \`$inline$\` or \`$$display$$\` for mathematical and scientific expressions.
+- Use \`$inline$\` or \`$$display$$\` for mathematical and scientific expressions (standard LaTeX syntax like \\frac, \\lim, \\int, etc.).
 - Use \`---\` dividers between major content sections.`;
 
 export default async function handler(req: Request) {

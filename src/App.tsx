@@ -5,8 +5,10 @@ import {
   FileText, Menu, Plus, MessageSquare, Settings, Play, Pause, X, 
   LogOut, AlignLeft, CheckCircle, Code, Languages, 
   Globe, ChevronLeft, ChevronRight, ChevronDown, AudioLines, Copy, Brain, Download,
-  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, ExternalLink, ArrowUp
+  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, ExternalLink, ArrowUp,
+  Info, Lightbulb, AlertTriangle, AlertCircle
 } from 'lucide-react';
+import katex from 'katex';
 
 import { initializeApp } from 'firebase/app';
 import { 
@@ -399,7 +401,7 @@ Formatting Directives:
 - Use numbered lists (1. , 2. ) for chronological or step-by-step procedures.
 - Use bullet points (-  or * ) for feature lists and quick scannable points (use only one bullet marker per line, never combine markers like - * or * *).
 - Use \`inline code\` or \`\`\`lang\`\`\` blocks for code snippets, payload formats, and technical terms.
-- Use $inline$ or $$display$$ for mathematical and scientific expressions.
+- Use $inline$ or $$display$$ for mathematical and scientific expressions (standard LaTeX syntax like \\frac, \\lim, \\int, etc.).
 - Use --- dividers between major content sections.`;
 
 /**
@@ -736,115 +738,70 @@ export const MessageActions = ({
 // ==========================================
 // --- OPTIMIZED STATIC REGEXP CONSTANTS (0-ALLOCATION PERFORMANCE)
 // ==========================================
-const INLINE_SPLIT_REGEX = /(!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\*\*\*(?!\s)[^\*\n]+?(?<!\s)\*\*\*|\*\*(?!\s)[^\*\n]+?(?<!\s)\*\*|\*(?!\s)[^\*\n]+?(?<!\s)\*|~~(?!\s)[^~\n]+?(?<!\s)~~|`[^`\n]+`|\$[^$\n]+\$|\\\([^\\\n]+\\\))/g;
+const INLINE_SPLIT_REGEX = /(!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\*\*\*(?!\s)[^\*\n]+?(?<!\s)\*\*\*|___(?!\s)[^_\n]+?(?<!\s)___|\*\*(?!\s)[^\*\n]+?(?<!\s)\*\*|__(?!\s)[^_\n]+?(?<!\s)__|(?<!\w)\*(?!\s)[^\*\n]+?(?<!\s)\*(?!\w)|(?<!\w)_(?!\s)[^_\n]+?(?<!\s)_(?!\w)|~~(?!\s)[^~\n]+?(?<!\s)~~|==(?!\s)[^=\n]+?(?<!\s)==|`[^`\n]+`|\$(?!\s)(?:[^\$\n]|\\\$)+(?<!\s)\$|\\\([^\n]+?\\\))/g;
 const MARKDOWN_IMG_REGEX = /^!\[(.*?)\]\((.*?)\)$/;
 const MARKDOWN_LINK_REGEX = /^\[(.*?)\]\((.*?)\)$/;
 const URL_AUTOLINK_REGEX = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
 const IS_HTTP_REGEX = /^https?:\/\//i;
 const BR_TAG_SPLIT_REGEX = /(<br\s*\/?>)/i;
 
-const SQRT_MATH_REGEX = /\\sqrt\{((?:[^{}]|\{[^{}]*\})*)\}/g;
-const FRAC_MATH_REGEX = /\\frac\{((?:[^{}]|\{[^{}]*\})*)\}\{((?:[^{}]|\{[^{}]*\})*)\}/g;
-const BOXED_MATH_REGEX = /\\boxed\{((?:[^{}]|\{[^{}]*\})*)\}/g;
-
 const SYNTAX_TOKEN_REGEX = /(\/\/.*|\/\*[\s\S]*?\*\/|#.*)|(".*?"|'.*?'|`.*?`)|(\b(?:const|let|var|function|return|if|else|for|while|import|export|from|default|class|extends|async|await|try|catch|new|type|interface|public|private|protected|def|self|print|struct|enum|void|int|float|double|bool|string)\b)|(\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_]\w*(?=\s*\())/g;
+
+const KATEX_CACHE = new Map<string, string>();
+const MAX_KATEX_CACHE_SIZE = 600;
+
 /**
- * Highly upgraded and robust LaTeX math renderer.
+ * Highly upgraded and robust LaTeX math renderer powered by KaTeX.
+ * Fully supports limits, integrals, matrices, fractions, square roots, Greek symbols, and alignments.
  */
-const renderMath = (tex: string, isDarkMode: boolean) => {
-  let inner = tex.replace(/^(\$\$?|\\\[|\\\()|(\$\$?|\\\]|\\\))$/g, '').trim();
+const renderMath = (tex: string, isDarkMode: boolean, isDisplay: boolean = false): string => {
+  if (!tex || typeof tex !== 'string') return '';
 
-  let escaped = inner
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  let html = escaped
-     .replace(/\{,\}/g, ',')
-     .replace(/\\,/g, '<span class="mx-[1px]"></span>')
-     .replace(/\\;/g, '<span class="mx-[2px]"></span>')
-     .replace(/\\quad/g, '<span class="mx-2"></span>')
-     .replace(/\\qquad/g, '<span class="mx-4"></span>')
-     .replace(/\\\{/g, '{')
-     .replace(/\\\}/g, '}')
-     .replace(/\\\|/g, '|')
-     .replace(/\\!/g, '')
-     .replace(/\\Delta/g, 'Δ')
-     .replace(/\\delta/g, 'δ')
-     .replace(/\\pi/g, 'π')
-     .replace(/\\Pi/g, 'Π')
-     .replace(/\\alpha/g, 'α')
-     .replace(/\\beta/g, 'β')
-     .replace(/\\gamma/g, 'γ')
-     .replace(/\\theta/g, 'θ')
-     .replace(/\\Theta/g, 'Θ')
-     .replace(/\\sigma/g, 'σ')
-     .replace(/\\Sigma/g, 'Σ')
-     .replace(/\\omega/g, 'ω')
-     .replace(/\\Omega/g, 'Ω')
-     .replace(/\\lambda/g, 'λ')
-     .replace(/\\Lambda/g, 'Λ')
-     .replace(/\\mu/g, 'μ')
-     .replace(/\\epsilon/g, 'ε')
-     .replace(/\\phi/g, 'φ')
-     .replace(/\\infty/g, '∞')
-     .replace(/\\nabla/g, '∇')
-     .replace(/\\partial/g, '∂')
-     .replace(/\\le(q)?/g, ' ≤ ')
-     .replace(/\\ge(q)?/g, ' ≥ ')
-     .replace(/\\times/g, ' × ')
-     .replace(/\\cdot/g, ' · ')
-     .replace(/\\Leftrightarrow/g, ' ⇔ ')
-     .replace(/\\Rightarrow/g, ' ⇒ ')
-     .replace(/\\Leftarrow/g, ' ⇐ ')
-     .replace(/\\implies/g, ' ⇒ ')
-     .replace(/\\rightarrow/g, ' → ')
-     .replace(/\\leftarrow/g, ' ← ')
-     .replace(/\\iff/g, ' ⇔ ')
-     .replace(/\\equiv/g, ' ≡ ')
-     .replace(/\\approx/g, ' ≈ ')
-     .replace(/\\sim/g, ' ∼ ')
-     .replace(/\\pm/g, ' ± ')
-     .replace(/\\mp/g, ' ∓ ')
-     .replace(/\\neq/g, ' ≠ ')
-     .replace(/\\propto/g, ' ∝ ')
-     .replace(/\\sum/g, '∑')
-     .replace(/\\prod/g, '∏')
-     .replace(/\\int/g, '∫')
-     .replace(/\\circ/g, ' ∘ ')
-     .replace(/\\cup/g, ' ∪ ')
-     .replace(/\\cap/g, ' ∩ ')
-     .replace(/\\in/g, ' ∈ ')
-     .replace(/\\notin/g, ' ∉ ')
-     .replace(/\\subset(eq)?/g, ' ⊆ ')
-     .replace(/\\forall/g, ' ∀ ')
-     .replace(/\\exists/g, ' ∃ ')
-     .replace(/\\mathbb\{R\}/g, 'ℝ')
-     .replace(/\\mathbb\{Z\}/g, 'ℤ')
-     .replace(/\\mathbb\{N\}/g, 'ℕ')
-     .replace(/\\mathbb\{C\}/g, 'ℂ')
-     .replace(/\\mathbb\{Q\}/g, 'ℚ')
-     .replace(/\\text\{([^}]*)\}/g, '<span class="font-sans normal-case font-normal opacity-80 mx-1">$1</span>')
-     .replace(/\\textbf\{([^}]*)\}/g, '<strong class="font-bold">$1</strong>')
-     .replace(/\\mathbf\{([^}]*)\}/g, '<strong class="font-bold">$1</strong>')
-     .replace(/\\mathit\{([^}]*)\}/g, '<em class="italic">$1</em>');
-
-  for (let i = 0; i < 3; i++) {
-      html = html.replace(SQRT_MATH_REGEX, '<span class="inline-flex items-baseline"><span class="mr-[1px] leading-none">√</span><span class="border-t border-current pt-[1px]">$1</span></span>');
+  let inner = tex.trim();
+  if (inner.startsWith('$$') && inner.endsWith('$$') && inner.length >= 4) {
+    inner = inner.slice(2, -2).trim();
+  } else if (inner.startsWith('\\[') && inner.endsWith('\\]') && inner.length >= 4) {
+    inner = inner.slice(2, -2).trim();
+  } else if (inner.startsWith('\\(') && inner.endsWith('\\)') && inner.length >= 4) {
+    inner = inner.slice(2, -2).trim();
+  } else if (inner.startsWith('$') && inner.endsWith('$') && inner.length >= 2) {
+    inner = inner.slice(1, -1).trim();
   }
 
-  for (let i = 0; i < 3; i++) {
-     html = html.replace(FRAC_MATH_REGEX, `<span class="inline-flex flex-col align-middle text-center text-[0.85em] leading-tight mx-1.5"><span class="border-b-[1.5px] pb-[1px] border-current opacity-90">$1</span><span class="pt-[1px] opacity-90">$2</span></span>`);
+  // Restore decoded entities if pre-escaped
+  inner = inner
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+
+  const cacheKey = `${isDisplay ? 'd' : 'i'}_${inner}`;
+  if (KATEX_CACHE.has(cacheKey)) {
+    return KATEX_CACHE.get(cacheKey)!;
   }
 
-  html = html.replace(BOXED_MATH_REGEX, `<span class="inline-block border px-3 py-1 rounded-md font-semibold mx-1 shadow-sm transition-colors ${isDarkMode ? 'border-blue-500/30 bg-blue-500/10 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800'}">$1</span>`);
+  try {
+    const rendered = katex.renderToString(inner, {
+      displayMode: isDisplay,
+      throwOnError: false,
+      strict: false,
+      trust: false,
+      output: 'htmlAndMathml',
+    });
 
-  html = html.replace(/\^\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<sup class="text-[0.7em] ml-[1px] opacity-90">$1</sup>');
-  html = html.replace(/\^([a-zA-Z0-9\-\+\*])/g, '<sup class="text-[0.7em] ml-[1px] opacity-90">$1</sup>');
-  html = html.replace(/_\{((?:[^{}]|\{[^{}]*\})*)\}/g, '<sub class="text-[0.7em] ml-[1px] opacity-90">$1</sub>');
-  html = html.replace(/_([a-zA-Z0-9\-\+\*])/g, '<sub class="text-[0.7em] ml-[1px] opacity-90">$1</sub>');
-
-  return html;
+    if (KATEX_CACHE.size >= MAX_KATEX_CACHE_SIZE) {
+      const first = KATEX_CACHE.keys().next().value;
+      if (first) KATEX_CACHE.delete(first);
+    }
+    KATEX_CACHE.set(cacheKey, rendered);
+    return rendered;
+  } catch (err) {
+    console.warn('KaTeX render fallback:', err);
+    const escaped = inner
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    return `<span class="font-serif italic opacity-90">${escaped}</span>`;
+  }
 };
 
 const UNSAFE_URL_REGEX = /^(javascript:|data:|vbscript:)/i;
@@ -904,7 +861,25 @@ const renderInline = (text: any, isDarkMode: boolean) => {
       );
     }
 
+    if (part.startsWith('___') && part.endsWith('___') && part.length >= 6) {
+      return (
+        <strong key={i} className={`font-black text-[1.08em] tracking-tight ${isDarkMode ? 'text-cyan-300' : 'text-blue-800'}`}>
+          <em className={`italic font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+            {renderInline(part.slice(3, -3), isDarkMode)}
+          </em>
+        </strong>
+      );
+    }
+
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      return (
+        <strong key={i} className={`font-black text-[1.08em] tracking-tight ${isDarkMode ? 'text-cyan-300' : 'text-blue-800'}`}>
+          {renderInline(part.slice(2, -2), isDarkMode)}
+        </strong>
+      );
+    }
+
+    if (part.startsWith('__') && part.endsWith('__') && part.length >= 4) {
       return (
         <strong key={i} className={`font-black text-[1.08em] tracking-tight ${isDarkMode ? 'text-cyan-300' : 'text-blue-800'}`}>
           {renderInline(part.slice(2, -2), isDarkMode)}
@@ -920,11 +895,27 @@ const renderInline = (text: any, isDarkMode: boolean) => {
       );
     }
 
+    if (part.startsWith('_') && part.endsWith('_') && part.length >= 2 && !part.startsWith('__')) {
+      return (
+        <em key={i} className={`italic font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+          {renderInline(part.slice(1, -1), isDarkMode)}
+        </em>
+      );
+    }
+
     if (part.startsWith('~~') && part.endsWith('~~') && part.length >= 4) {
       return (
         <del key={i} className="line-through opacity-75">
           {renderInline(part.slice(2, -2), isDarkMode)}
         </del>
+      );
+    }
+
+    if (part.startsWith('==') && part.endsWith('==') && part.length >= 4) {
+      return (
+        <mark key={i} className={`px-1 py-0.5 rounded text-[0.95em] ${isDarkMode ? 'bg-amber-500/20 text-amber-200' : 'bg-amber-100 text-amber-900'}`}>
+          {renderInline(part.slice(2, -2), isDarkMode)}
+        </mark>
       );
     }
 
@@ -941,9 +932,9 @@ const renderInline = (text: any, isDarkMode: boolean) => {
 
     if ((part.startsWith('$') && part.endsWith('$') && part.length >= 2) || (part.startsWith('\\(') && part.endsWith('\\)') && part.length >= 4)) {
       return (
-        <span key={i} className={`font-sans font-medium tracking-wide text-[1.05em] px-0.5 whitespace-nowrap ${
+        <span key={i} className={`inline-block align-middle px-0.5 ${
           isDarkMode ? 'text-slate-100' : 'text-slate-900'
-        }`} dangerouslySetInnerHTML={{ __html: renderMath(part, isDarkMode) }} />
+        }`} dangerouslySetInnerHTML={{ __html: renderMath(part, isDarkMode, false) }} />
       );
     }
     
@@ -1029,7 +1020,9 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
     }
   }
   
-  let processedText = cleanThinkTags(text).replace(/\\n/g, '\n').replace(/\\"/g, '"');
+  let processedText = cleanThinkTags(text)
+    .replace(/\\n(?!(?:abla|eq|e\b|otin|u\b|i\b|ot\b|atural|earrow|warrow|ewcommand|ewenvironment|oindent|ormalsize|onumber))/g, '\n')
+    .replace(/\\"/g, '"');
   if (!processedText.trim()) return null;
 
   // Normalize 4+ backticks to 3 backticks
@@ -1062,7 +1055,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
     }
   }
 
-  const blocks = formatText.split(/(```[\s\S]*?```|\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\])/g);
+  const blocks = formatText.split(/(```[\s\S]*?```|\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\begin\{(?:equation\*?|align\*?|gather\*?|pmatrix|bmatrix|vmatrix|matrix|cases)\}[\s\S]*?\\end\{(?:equation\*?|align\*?|gather\*?|pmatrix|bmatrix|vmatrix|matrix|cases)\})/g);
 
   return blocks.map((block, bIdx) => {
     if (!block) return null;
@@ -1096,12 +1089,17 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
       return <CodeBlock key={bIdx} code={code.trimEnd()} lang={lang} isDarkMode={isDarkMode} isStreaming={isStreaming} />;
     }
 
-    // Display Math
-    if ((block.startsWith('$$') && block.endsWith('$$')) || (block.startsWith('\\[') && block.endsWith('\\]'))) {
+    // Display Math ($$...$$, \[...\], \begin{...}...\end{...})
+    const isDisplayMath = (
+      (trimmedBlock.startsWith('$$') && trimmedBlock.endsWith('$$')) ||
+      (trimmedBlock.startsWith('\\[') && trimmedBlock.endsWith('\\]')) ||
+      (/^\\begin\{(?:equation\*?|align\*?|gather\*?|pmatrix|bmatrix|vmatrix|matrix|cases)\}/.test(trimmedBlock) &&
+       /\\end\{(?:equation\*?|align\*?|gather\*?|pmatrix|bmatrix|vmatrix|matrix|cases)\}$/.test(trimmedBlock))
+    );
+
+    if (isDisplayMath) {
       return (
-        <div key={bIdx} className="my-5 py-3 overflow-x-auto flex items-center justify-center chat-scroll">
-          <span className={`text-[1.15rem] font-sans font-medium tracking-wide whitespace-nowrap ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} dangerouslySetInnerHTML={{ __html: renderMath(block, isDarkMode) }} />
-        </div>
+        <div key={bIdx} className={`my-4 py-2 overflow-x-auto overflow-y-hidden text-center chat-scroll ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} dangerouslySetInnerHTML={{ __html: renderMath(trimmedBlock, isDarkMode, true) }} />
       );
     }
 
@@ -1117,27 +1115,98 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
 
       const flushQuote = () => {
         if (quoteRows.length > 0) {
-          elements.push(
-            <blockquote key={`bq-${elements.length}`} className={`border-l-3 pl-3.5 pr-3 py-2 my-2.5 rounded-r-xl text-[13.5px] leading-relaxed overflow-x-auto chat-scroll ${isDarkMode ? 'border-cyan-400/80 bg-cyan-950/20 text-slate-200' : 'border-blue-500 bg-blue-50/50 text-slate-800'}`}>
-              {quoteRows.map((qLine, qIdx) => (
-                <div key={qIdx} className="my-0.5 min-w-0 break-words">
-                  {renderInline(qLine, isDarkMode)}
+          // Check for GitHub-style Alert / Callout tag on the first line: [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION]
+          const firstLine = quoteRows[0].trim();
+          const calloutMatch = firstLine.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION|INFO)\]\s*(.*)/i);
+
+          if (calloutMatch) {
+            const type = calloutMatch[1].toUpperCase();
+            const restOfFirstLine = calloutMatch[2].trim();
+            const bodyRows = restOfFirstLine ? [restOfFirstLine, ...quoteRows.slice(1)] : quoteRows.slice(1);
+
+            let alertStyle = '';
+            let alertBadge = '';
+            let IconComponent = Info;
+
+            switch (type) {
+              case 'TIP':
+                alertStyle = isDarkMode ? 'border-emerald-500/70 bg-emerald-950/30 text-emerald-200' : 'border-emerald-500 bg-emerald-50 text-emerald-950';
+                alertBadge = isDarkMode ? 'text-emerald-400' : 'text-emerald-700';
+                IconComponent = Lightbulb;
+                break;
+              case 'IMPORTANT':
+                alertStyle = isDarkMode ? 'border-indigo-500/70 bg-indigo-950/30 text-indigo-200' : 'border-indigo-500 bg-indigo-50 text-indigo-950';
+                alertBadge = isDarkMode ? 'text-indigo-400' : 'text-indigo-700';
+                IconComponent = AlertCircle;
+                break;
+              case 'WARNING':
+                alertStyle = isDarkMode ? 'border-amber-500/70 bg-amber-950/30 text-amber-200' : 'border-amber-500 bg-amber-50 text-amber-950';
+                alertBadge = isDarkMode ? 'text-amber-400' : 'text-amber-700';
+                IconComponent = AlertTriangle;
+                break;
+              case 'CAUTION':
+                alertStyle = isDarkMode ? 'border-rose-500/70 bg-rose-950/30 text-rose-200' : 'border-rose-500 bg-rose-50 text-rose-950';
+                alertBadge = isDarkMode ? 'text-rose-400' : 'text-rose-700';
+                IconComponent = AlertTriangle;
+                break;
+              case 'NOTE':
+              case 'INFO':
+              default:
+                alertStyle = isDarkMode ? 'border-blue-500/70 bg-blue-950/30 text-blue-200' : 'border-blue-500 bg-blue-50 text-blue-950';
+                alertBadge = isDarkMode ? 'text-blue-400' : 'text-blue-700';
+                IconComponent = Info;
+                break;
+            }
+
+            elements.push(
+              <div key={`callout-${elements.length}`} className={`border-l-4 pl-4 pr-3 py-3 my-3 rounded-r-xl text-[13.5px] leading-relaxed overflow-x-auto chat-scroll ${alertStyle}`}>
+                <div className={`flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider mb-1.5 ${alertBadge}`}>
+                  <IconComponent className="w-4 h-4 flex-shrink-0" />
+                  <span>{type}</span>
                 </div>
-              ))}
-            </blockquote>
-          );
+                {bodyRows.map((qLine, qIdx) => (
+                  <div key={qIdx} className="my-0.5 min-w-0 break-words">
+                    {renderInline(qLine, isDarkMode)}
+                  </div>
+                ))}
+              </div>
+            );
+          } else {
+            // Standard Blockquote: Strip any literal "Blockquote:" or "**Blockquote**:" prefix
+            const cleanRows = quoteRows.map((qLine, idx) => {
+              if (idx === 0) {
+                return qLine.replace(/^(\*{0,2}Blockquote\*{0,2}\s*[:–\-]?\s*)/i, '');
+              }
+              return qLine;
+            });
+
+            elements.push(
+              <blockquote key={`bq-${elements.length}`} className={`border-l-3 pl-3.5 pr-3 py-2 my-2.5 rounded-r-xl text-[13.5px] leading-relaxed overflow-x-auto chat-scroll ${isDarkMode ? 'border-cyan-400/80 bg-cyan-950/20 text-slate-200' : 'border-blue-500 bg-blue-50/50 text-slate-800'}`}>
+                {cleanRows.map((qLine, qIdx) => (
+                  <div key={qIdx} className="my-0.5 min-w-0 break-words">
+                    {renderInline(qLine, isDarkMode)}
+                  </div>
+                ))}
+              </blockquote>
+            );
+          }
           quoteRows = [];
         }
       };
 
       const flushTable = () => {
         if (tableRows.length > 0) {
-          const isSeparator = (r: string) => /^[\s\|\-:]+$/.test(r);
+          const isSeparator = (r: string) => /^[\s\|\-:]+$/.test(r) && r.includes('-');
+          const separatorIdx = tableRows.findIndex(isSeparator);
+          const hasSeparator = separatorIdx !== -1;
           const cleanRows = tableRows.filter(r => !isSeparator(r));
-          const hasSeparator = tableRows.some(isSeparator);
-          
-          // Require at least 2 clean rows OR a header + separator line to form a valid table
-          if (cleanRows.length >= 2 || (cleanRows.length >= 1 && hasSeparator)) {
+
+          // A valid table requires:
+          // 1. A header + separator line, OR
+          // 2. At least 2 clean rows that each contain a pipe
+          const isValidTable = (hasSeparator && cleanRows.length >= 1) || (cleanRows.length >= 2 && cleanRows.every(r => r.includes('|')));
+
+          if (isValidTable) {
             const parseRow = (r: string) => {
               let backtickCount = 0;
               let currentCell = '';
@@ -1151,42 +1220,41 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                   currentCell += ch;
                 } else if (ch === '|' && (i === 0 || r[i - 1] !== '\\')) {
                   if (backtickCount % 2 === 0) {
-                    // EVEN backticks -> Pipe is a true cell separator!
                     cells.push(currentCell.trim());
                     currentCell = '';
                   } else {
-                    // ODD backticks -> Pipe is inside inline code!
                     currentCell += ch;
                   }
                 } else {
                   currentCell += ch;
                 }
               }
-              if (currentCell.trim() !== '') {
-                cells.push(currentCell.trim());
-              }
+              cells.push(currentCell.trim());
 
-              // Remove outer boundary empty cells from leading/trailing pipes `| ... |`
-              if (cells.length > 0 && cells[0] === '') cells.shift();
-              if (cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
+              if (cells.length > 0 && cells[0] === '' && r.trim().startsWith('|')) cells.shift();
+              if (cells.length > 0 && cells[cells.length - 1] === '' && r.trim().endsWith('|')) cells.pop();
 
               return cells;
             };
 
-            const headers = parseRow(cleanRows[0]);
+            const headerRow = cleanRows[0];
+            const headers = parseRow(headerRow);
             const numColumns = headers.length;
+
+            // Parse alignments from separator row if available
+            let alignments: string[] = [];
+            if (hasSeparator) {
+              const sepCells = parseRow(tableRows[separatorIdx]);
+              alignments = sepCells.map(c => {
+                const tr = c.trim();
+                if (tr.startsWith(':') && tr.endsWith(':')) return 'text-center';
+                if (tr.endsWith(':')) return 'text-right';
+                return 'text-left';
+              });
+            }
 
             let bodyRows = cleanRows.slice(1).map(r => {
               const cells = parseRow(r);
-              // Smart auto-repair: If 2-column table has missing middle pipe
-              if (numColumns === 2 && (cells.length === 1 || (cells.length === 2 && !cells[1].trim()))) {
-                const fullCell = cells[0];
-                const match = fullCell.match(/^(`[^`]+`|\*\*[^*]+\*\*|[\w\._\-\(\)]+)\s*[:–\-]?\s+(.+)$/s);
-                if (match) {
-                  return [match[1].trim(), match[2].trim()];
-                }
-              }
-
               // Normalize column count to match headers strictly
               if (cells.length < numColumns) {
                 while (cells.length < numColumns) cells.push('');
@@ -1206,12 +1274,13 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                     <tr className={`border-b-2 ${isDarkMode ? 'border-slate-700/80' : 'border-slate-300'}`}>
                       {headers.map((h, i) => {
                         const isShortIdx = h.trim() === '#' || h.trim().length <= 2;
+                        const alignClass = alignments[i] || (isShortIdx ? 'text-center' : 'text-left');
                         return (
                           <th 
                             key={i} 
-                            className={`py-2.5 px-3 font-bold text-[12.5px] tracking-wider uppercase whitespace-nowrap align-bottom ${
+                            className={`py-2.5 px-3 font-bold text-[12.5px] tracking-wider uppercase whitespace-nowrap align-bottom ${alignClass} ${
                               isShortIdx 
-                                ? 'w-10 text-center' 
+                                ? 'w-10' 
                                 : i === 0 
                                   ? 'min-w-[110px] sm:min-w-[170px] w-1/4' 
                                   : 'min-w-[130px] sm:min-w-[220px]'
@@ -1228,12 +1297,13 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                       <tr key={rIdx} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-100/50'}`}>
                         {row.map((cell, cIdx) => {
                           const isShortIdx = headers[0]?.trim() === '#' || headers[0]?.trim().length <= 2;
+                          const alignClass = alignments[cIdx] || (cIdx === 0 && isShortIdx ? 'text-center' : 'text-left');
                           return (
                             <td 
                               key={cIdx} 
-                              className={`py-3 px-3 text-[13.5px] leading-relaxed align-top ${
+                              className={`py-3 px-3 text-[13.5px] leading-relaxed align-top ${alignClass} ${
                                 cIdx === 0 && isShortIdx
-                                  ? `text-center font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
+                                  ? `font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
                                   : cIdx === 0
                                     ? `min-w-[110px] sm:min-w-[170px] font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
                                     : `min-w-[130px] sm:min-w-[220px] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`
@@ -1250,7 +1320,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
               </div>
             );
           } else {
-            // Render single pipe lines (e.g. "| 9 |") as clean standard text
+            // Render non-table pipe lines as clean standard text
             tableRows.forEach((rowStr) => {
               elements.push(
                 <div key={`p-t-${elements.length}`} className={`min-h-[1.5rem] mt-1.5 leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
@@ -1272,8 +1342,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         const trimmedLine = line.trim();
         if (!trimmedLine) return;
 
-        // 1. Horizontal Divider (--- or *** or ___)
-        const hrMatch = trimmedLine.match(/^(\-{3,}|\*{3,}|_{3,})$/);
+        // 1. Horizontal Divider (--- or *** or ___ or - - - or * * *)
+        const hrMatch = trimmedLine.match(/^(?:(?:\-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/);
         if (hrMatch) {
           flushAll();
           elements.push(
@@ -1282,8 +1352,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
-        // 2. Data Tables (Pipe-separated)
-        if (trimmedLine.includes('|') && trimmedLine.split('|').length > 2) {
+        // 2. Data Tables (Pipe-separated lines)
+        if (trimmedLine.includes('|')) {
           flushQuote();
           tableRows.push(trimmedLine);
           return;
@@ -1300,7 +1370,20 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           flushQuote();
         }
 
-        // 4. Section & Block Sub-Headers (Block 1 –, Step 1, Integrated Narrative, etc.)
+        // 4. Standalone / Naked LaTeX Math Equations (e.g. f'(x) = \lim_{...} or \frac{...}{...} or \int ... on its own line)
+        const isLatexLine = !trimmedLine.includes('`') && (
+          /^\s*(?:[a-zA-Z]['\w\(\)]*\s*=\s*)?\\(?:lim|frac|sqrt|sum|int|prod|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|phi|omega|nabla|partial|infty|times|cdot|approx|pm|neq|le|ge|begin)\b/.test(trimmedLine) ||
+          /\\(?:frac\{|sqrt\{|lim_\{|int_\{|sum_\{)/.test(trimmedLine)
+        );
+        if (isLatexLine) {
+          flushAll();
+          elements.push(
+            <div key={`naked-math-${lIdx}`} className={`my-4 py-2 overflow-x-auto overflow-y-hidden text-center chat-scroll ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} dangerouslySetInnerHTML={{ __html: renderMath(trimmedLine, isDarkMode, true) }} />
+          );
+          return;
+        }
+
+        // 5. Section & Block Sub-Headers (Block 1 –, Step 1, Integrated Narrative, etc.)
         const blockHeaderMatch = trimmedLine.match(/^(Block\s+\d+.*?|Step\s+\d+.*?|Section\s+\d+.*?|Integrated Narrative|Step-by-Step Execution)$/i);
         if (blockHeaderMatch) {
           flushAll();
@@ -1312,8 +1395,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
-        // 5. Markdown Headers (#, ##, ###, ####, #####, ######)
-        const headerMatch = trimmedLine.match(/^(#{1,6})\s+(.*)/);
+        // 6. Markdown Headers (# to ######, with or without trailing #)
+        const headerMatch = trimmedLine.match(/^(#{1,6})\s+(.*?)(?:\s+#+)?$/);
         if (headerMatch) {
           flushAll();
           const level = headerMatch[1].length;
@@ -1330,12 +1413,11 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
-        // 6. Unordered Bullet Lists (-, *, +, •, etc.)
+        // 7. Unordered Bullet Lists (-, *, +, •, etc.)
         const listMatch = trimmedLine.match(/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+(.*)/);
         if (listMatch) {
           flushAll();
           let listContent = listMatch[1].trim();
-          // Strip any redundant leading bullet markers (e.g. "* ", "- ", "• ", "+ ")
           while (/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+/.test(listContent)) {
             listContent = listContent.replace(/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+/, '').trim();
           }
@@ -1343,36 +1425,65 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           const indentMatch = line.match(/^(\s{2,})/);
           const indentClass = indentMatch ? (indentMatch[1].length >= 4 ? 'ml-6' : 'ml-4') : 'ml-2';
 
+          // Check for task list checkboxes: [ ] or [x]
+          const taskMatch = listContent.match(/^\[([ xX])\]\s+(.*)/);
+          if (taskMatch) {
+            const isChecked = taskMatch[1].toLowerCase() === 'x';
+            const taskText = taskMatch[2];
+            elements.push(
+              <div key={`task-${lIdx}`} className={`flex gap-2.5 ${indentClass} mt-2 items-center`}>
+                <span className={`w-4 h-4 rounded border flex items-center justify-center select-none text-[10px] ${
+                  isChecked 
+                    ? (isDarkMode ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold' : 'bg-emerald-100 border-emerald-600 text-emerald-700 font-bold') 
+                    : (isDarkMode ? 'border-slate-600 bg-slate-800/40' : 'border-slate-400 bg-white')
+                }`}>
+                  {isChecked ? '✓' : ''}
+                </span>
+                <span className={`flex-1 ${isChecked ? 'line-through opacity-70' : ''}`}>
+                  {renderInline(taskText, isDarkMode)}
+                </span>
+              </div>
+            );
+            return;
+          }
+
+          // Bullet hierarchy: Level 1 (•), Level 2 (◦), Level 3 (▪)
+          const bulletSymbol = indentMatch ? (indentMatch[1].length >= 4 ? '▪' : '◦') : '•';
+
           elements.push(
             <div key={`ul-${lIdx}`} className={`flex gap-3 ${indentClass} mt-2 items-baseline`}>
-              <span className={`select-none text-base font-bold leading-none ${isDarkMode ? 'text-cyan-400' : 'text-blue-600'}`}>•</span>
+              <span className={`select-none text-base font-bold leading-none ${isDarkMode ? 'text-cyan-400' : 'text-blue-600'}`}>{bulletSymbol}</span>
               <span className="flex-1">{renderInline(listContent, isDarkMode)}</span>
             </div>
           );
           return;
         }
 
-        // 7. Numbered Lists (1., 2., 1), 2), etc.)
-        const numListMatch = trimmedLine.match(/^(\d+[\.\)])\s+(.*)/);
+        // 8. Numbered Lists (1., 2., 1), 2), (1), (2), etc.)
+        const numListMatch = trimmedLine.match(/^(?:(\d+[\.\)])|\((\d+)\))\s+(.*)/);
         if (numListMatch) {
           flushAll();
-          let numContent = numListMatch[2].trim();
+          const marker = numListMatch[1] || `(${numListMatch[2]})`;
+          let numContent = numListMatch[3].trim();
           while (/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+/.test(numContent)) {
             numContent = numContent.replace(/^[-*+•\u2022\u2023\u25E6\u2043\u2219]\s+/, '').trim();
           }
 
+          const indentMatch = line.match(/^(\s{2,})/);
+          const indentClass = indentMatch ? (indentMatch[1].length >= 4 ? 'ml-6' : 'ml-4') : 'ml-2';
+
           const isHeaderLike = /^(\*\*.*?\*\*|[A-Z][a-zA-Z0-9\s\-\(\)\/\:\,\.]{3,60})$/.test(numContent);
           if (isHeaderLike && numContent.length > 5) {
             elements.push(
-              <div key={`ol-h-${lIdx}`} className={`text-base sm:text-lg font-bold mt-5 mb-2 flex items-baseline gap-2 tracking-tight ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-300 to-indigo-200' : 'text-blue-900'}`}>
-                <span className={`text-xs px-2 py-0.5 rounded-md font-mono select-none flex-shrink-0 ${isDarkMode ? 'bg-cyan-950/90 text-cyan-300 border border-cyan-700/60' : 'bg-blue-100 text-blue-800'}`}>{numListMatch[1]}</span>
+              <div key={`ol-h-${lIdx}`} className={`text-base sm:text-lg font-bold mt-5 mb-2 flex items-baseline gap-2 tracking-tight ${indentClass} ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-300 to-indigo-200' : 'text-blue-900'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded-md font-mono select-none flex-shrink-0 ${isDarkMode ? 'bg-cyan-950/90 text-cyan-300 border border-cyan-700/60' : 'bg-blue-100 text-blue-800'}`}>{marker}</span>
                 <span className="flex-1">{renderInline(numContent, isDarkMode)}</span>
               </div>
             );
           } else {
             elements.push(
-              <div key={`ol-${lIdx}`} className="flex gap-2.5 ml-2 mt-2 items-baseline">
-                <span className={`font-bold text-xs px-2 py-0.5 rounded-md min-w-[24px] text-center select-none ${isDarkMode ? 'bg-blue-950/80 text-cyan-300 border border-cyan-800/40 shadow-sm' : 'bg-blue-100 text-blue-800'}`}>{numListMatch[1]}</span>
+              <div key={`ol-${lIdx}`} className={`flex gap-2.5 ${indentClass} mt-2 items-baseline`}>
+                <span className={`font-bold text-xs px-2 py-0.5 rounded-md min-w-[24px] text-center select-none ${isDarkMode ? 'bg-blue-950/80 text-cyan-300 border border-cyan-800/40 shadow-sm' : 'bg-blue-100 text-blue-800'}`}>{marker}</span>
                 <span className="flex-1">{renderInline(numContent, isDarkMode)}</span>
               </div>
             );
@@ -1380,7 +1491,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
-        // 8. Key - Value / Definition Pair Lines (Key: Value or Key  Value)
+        // 9. Key - Value / Definition Pair Lines (Key: Value or Key  Value)
         const keyValueMatch = trimmedLine.match(/^([A-Z0-9][a-zA-Z0-9\s_\-\.]{1,25})\s*(?:\t|\s{2,}|\s*[:–]\s*)(.*)$/);
         if (keyValueMatch && keyValueMatch[2] && !trimmedLine.startsWith('http') && keyValueMatch[1].trim().length > 1) {
           const key = keyValueMatch[1].trim();
@@ -1398,7 +1509,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           return;
         }
 
-        // 9. Standard Paragraphs
+        // 10. Standard Paragraphs
         elements.push(
           <div key={`p-${lIdx}`} className={`min-h-[1.5rem] mt-1.5 leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
             {renderInline(line, isDarkMode)}
