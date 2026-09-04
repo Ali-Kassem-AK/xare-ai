@@ -30,6 +30,8 @@ const FALLBACK_MODEL: ModelNode = {
   cooldownUntil: 0 
 };
 
+const MODEL_PIPELINE: ModelNode[] = [PRIMARY_MODEL, FALLBACK_MODEL];
+
 export const DEFAULT_SYSTEM_INSTRUCTION = `You are Xare, an intelligent, versatile AI assistant engineered by Ali Kassem.
 Formatting Directives:
 - Use \`### Header\` for clear section breaks.
