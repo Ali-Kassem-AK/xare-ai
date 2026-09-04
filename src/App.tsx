@@ -402,7 +402,8 @@ Formatting Directives:
 - Use bullet points (-  or * ) for feature lists and quick scannable points (use only one bullet marker per line, never combine markers like - * or * *).
 - Use \`inline code\` or \`\`\`lang\`\`\` blocks for code snippets, payload formats, and technical terms.
 - Use $inline$ or $$display$$ for mathematical and scientific expressions (standard LaTeX syntax like \\frac, \\lim, \\int, etc.).
-- Use --- dividers between major content sections.`;
+- Use --- dividers between major content sections.
+- For interactive simulations, mathematical visualizers, charts, diagrams, or UI widgets, output complete, self-contained HTML/CSS/JS (or standalone SVG) inside a single \`\`\`html ... \`\`\` (or \`\`\`svg ... \`\`\`) block. The chat interface instantly executes and renders it as an interactive visualizer directly in the chat window, so do NOT tell the user that the chat cannot run code or that they have to save it locally as an HTML file.`;
 
 /**
  * Universal helper to interact directly with the Gemini API.
@@ -602,15 +603,53 @@ const highlightSyntax = (code: string, lang: string, isDarkMode: boolean) => {
 };
 
 /**
- * Enhanced Code Block component with line numbers, syntax highlighting, copy feedback, and language badge.
+ * Enhanced Code Block component with interactive Live Preview sandbox (HTML, SVG, Canvas, JS visualizers),
+ * code/preview tab toggles, reload, full-tab popout, line numbers, syntax highlighting, and copy feedback.
  */
 export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { code: string; lang: string; isDarkMode: boolean; isStreaming?: boolean }) => {
   const [isCopied, setIsCopied] = useState(false);
-  
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const cleanLang = useMemo(() => (lang || '').toLowerCase().trim(), [lang]);
+
+  const isRunnable = useMemo(() => {
+    if (cleanLang === 'html' || cleanLang === 'htm' || cleanLang === 'svg' || cleanLang === 'xml') return true;
+    const trimmed = (code || '').trim().toLowerCase();
+    return (
+      trimmed.startsWith('<!doctype html') ||
+      trimmed.startsWith('<html') ||
+      trimmed.startsWith('<svg') ||
+      (trimmed.includes('<canvas') && trimmed.includes('<script')) ||
+      (trimmed.includes('<style') && trimmed.includes('<script')) ||
+      (trimmed.includes('<div') && trimmed.includes('<script'))
+    );
+  }, [code, cleanLang]);
+
+  // Default to 'preview' for runnable visualizers, 'code' while streaming
+  const [activeTab, setActiveTab] = useState<'code' | 'preview'>('preview');
+
+  // When not streaming and runnable, auto-switch to preview mode
+  useEffect(() => {
+    if (!isStreaming && isRunnable) {
+      setActiveTab('preview');
+    }
+  }, [isStreaming, isRunnable]);
+
   const handleCopy = useCallback(async () => {
     await copyToClipboard(code);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  }, [code]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshKey(k => k + 1);
+  }, []);
+
+  const handleOpenNewTab = useCallback(() => {
+    if (!code) return;
+    const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
   }, [code]);
 
   const lines = useMemo(() => (code || '').split('\n'), [code]);
@@ -626,46 +665,150 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
     return highlightSyntax(code, lang, isDarkMode);
   }, [code, lang, isDarkMode, isStreaming]);
 
+  // Prepare safe sandbox srcDoc
+  const previewDoc = useMemo(() => {
+    if (!code) return '';
+    const trimmed = code.trim();
+    if (cleanLang === 'svg' || trimmed.startsWith('<svg')) {
+      return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: ${isDarkMode ? '#060911' : '#ffffff'}; overflow: hidden; }
+    svg { max-width: 95vw; max-height: 90vh; height: auto; }
+  </style>
+</head>
+<body>${code}</body>
+</html>`;
+    }
+    return code;
+  }, [code, cleanLang, isDarkMode]);
+
   return (
-    <div className={`my-4 rounded-2xl overflow-hidden border shadow-md transition-all ${isDarkMode ? 'border-slate-800/80 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'}`}>
-      <div className={`flex items-center justify-between px-4 py-2.5 border-b select-none ${isDarkMode ? 'bg-[#080c16]/90 border-slate-800/80 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
-        <div className="flex items-center gap-2">
-          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold uppercase tracking-wider ${isDarkMode ? 'bg-cyan-950/60 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+    <div className={`my-4 rounded-2xl overflow-hidden border shadow-lg transition-all ${isDarkMode ? 'border-slate-800/90 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'}`}>
+      {/* Header Bar */}
+      <div className={`flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b select-none ${isDarkMode ? 'bg-[#080c16]/95 border-slate-800/80 text-slate-300' : 'bg-slate-100/95 border-slate-200 text-slate-700'}`}>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider ${isDarkMode ? 'bg-cyan-950/70 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
             {lang || 'code'}
           </span>
-          <span className="text-[11px] opacity-60 font-mono">{lines.length} lines</span>
+          <span className="text-[11px] opacity-60 font-mono hidden xs:inline">{lines.length} lines</span>
+
+          {/* Interactive Code / Preview Toggle Tabs */}
+          {isRunnable && !isStreaming && (
+            <div className={`flex items-center p-0.5 rounded-lg border text-xs font-semibold ${isDarkMode ? 'bg-slate-900/90 border-slate-800 text-slate-400' : 'bg-slate-200/80 border-slate-300 text-slate-600'}`}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('preview')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+                  activeTab === 'preview'
+                    ? (isDarkMode ? 'bg-cyan-500/20 text-cyan-300 shadow-sm border border-cyan-500/30' : 'bg-white text-blue-700 shadow-sm')
+                    : 'hover:text-slate-200'
+                }`}
+                title="Run live interactive visualization in chat"
+              >
+                <Play className="w-3 h-3 fill-current text-cyan-400" />
+                <span>Live Preview</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('code')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+                  activeTab === 'code'
+                    ? (isDarkMode ? 'bg-cyan-500/20 text-cyan-300 shadow-sm border border-cyan-500/30' : 'bg-white text-blue-700 shadow-sm')
+                    : 'hover:text-slate-200'
+                }`}
+                title="View source code"
+              >
+                <Code className="w-3 h-3" />
+                <span>Code</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        <button 
-          onClick={handleCopy} 
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
-            isDarkMode 
-              ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60' 
-              : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm'
-          }`}
-          title="Copy code"
-        >
-          {isCopied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-          {isCopied ? 'Copied!' : 'Copy Code'}
-        </button>
+        {/* Action Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {isRunnable && activeTab === 'preview' && (
+            <>
+              <button 
+                type="button"
+                onClick={handleRefresh}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                  isDarkMode 
+                    ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                    : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900'
+                }`}
+                title="Reload visualization"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Reset</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={handleOpenNewTab}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                  isDarkMode 
+                    ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                    : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900'
+                }`}
+                title="Open visualization in full browser tab"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Pop Out</span>
+              </button>
+            </>
+          )}
+
+          <button 
+            type="button"
+            onClick={handleCopy} 
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+              isDarkMode 
+                ? 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60' 
+                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm'
+            }`}
+            title="Copy code"
+          >
+            {isCopied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            {isCopied ? 'Copied!' : 'Copy Code'}
+          </button>
+        </div>
       </div>
 
-      <div className="overflow-x-auto p-4 chat-scroll flex items-start">
-        {/* Line Numbers Column */}
-        <div className={`select-none font-mono text-[12.5px] text-right pr-3.5 mr-3.5 border-r leading-relaxed ${isDarkMode ? 'text-slate-600 border-slate-800/80' : 'text-slate-400 border-slate-200'}`}>
-          {lines.map((_, idx) => (
-            <div key={idx}>{idx + 1}</div>
-          ))}
-        </div>
-
-        {/* Code Content */}
-        <pre className="flex-1 font-mono text-[13.5px] leading-relaxed whitespace-pre overflow-x-auto">
-          <code 
-            className={isDarkMode ? 'text-slate-200' : 'text-slate-800'}
-            dangerouslySetInnerHTML={{ __html: highlightedCode }}
+      {/* Content Area */}
+      {isRunnable && activeTab === 'preview' && !isStreaming ? (
+        <div className={`relative w-full overflow-hidden transition-all ${isDarkMode ? 'bg-[#060911]' : 'bg-white'}`}>
+          <iframe
+            key={refreshKey}
+            srcDoc={previewDoc}
+            title="Interactive Visualizer Sandbox"
+            sandbox="allow-scripts allow-modals allow-forms allow-same-origin"
+            className="w-full h-[460px] sm:h-[520px] border-0 rounded-b-2xl block"
+            loading="lazy"
           />
-        </pre>
-      </div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto p-4 chat-scroll flex items-start">
+          {/* Line Numbers Column */}
+          <div className={`select-none font-mono text-[12.5px] text-right pr-3.5 mr-3.5 border-r leading-relaxed ${isDarkMode ? 'text-slate-600 border-slate-800/80' : 'text-slate-400 border-slate-200'}`}>
+            {lines.map((_, idx) => (
+              <div key={idx}>{idx + 1}</div>
+            ))}
+          </div>
+
+          {/* Code Content */}
+          <pre className="flex-1 font-mono text-[13.5px] leading-relaxed whitespace-pre overflow-x-auto">
+            <code 
+              className={isDarkMode ? 'text-slate-200' : 'text-slate-800'}
+              dangerouslySetInnerHTML={{ __html: highlightedCode }}
+            />
+          </pre>
+        </div>
+      )}
     </div>
   );
 });
