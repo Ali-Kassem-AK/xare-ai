@@ -695,7 +695,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
     return highlightSyntax(code, lang, isDarkMode);
   }, [code, lang, isDarkMode, isStreaming]);
 
-  // Prepare safe sandbox srcDoc with responsive auto-fit styling
+  // Prepare safe sandbox srcDoc with responsive auto-fit scaling engine
   const previewDoc = useMemo(() => {
     if (!code) return '';
     const trimmed = code.trim();
@@ -707,8 +707,8 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     *, *::before, *::after { box-sizing: border-box !important; }
-    html, body { margin: 0; padding: 12px; width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; background: ${isDarkMode ? '#060911' : '#ffffff'}; overflow: auto; }
-    svg { max-width: 100%; max-height: 85vh; height: auto; }
+    html, body { margin: 0; padding: 12px; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: ${isDarkMode ? '#060911' : '#ffffff'}; overflow: hidden !important; }
+    svg { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
   </style>
 </head>
 <body>${code}</body>
@@ -726,52 +726,149 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
       height: 100% !important;
       margin: 0 !important;
       padding: 0 !important;
+      overflow: hidden !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background: ${isDarkMode ? '#060911' : '#ffffff'};
     }
     body {
       margin: 0 !important;
-      padding: 12px !important;
-      max-width: 100vw !important;
-      min-height: 100% !important;
-      height: auto !important;
-      overflow-x: hidden !important;
-      overflow-y: auto !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      transform-origin: center center !important;
+      will-change: transform;
+      min-width: min-content !important;
+      min-height: min-content !important;
     }
-    /* Auto-scale visual elements to prevent clipping */
-    svg, canvas, img {
-      max-width: 100% !important;
+    /* Prevent flex-shrink distortion of content */
+    body > * {
+      flex-shrink: 0 !important;
+    }
+    img, video {
+      max-width: 100%;
       height: auto;
-    }
-    /* Slim sleek scrollbars */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(120, 120, 140, 0.35);
-      border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(120, 120, 140, 0.65);
     }
   </style>`;
 
-    if (code.includes('</head>')) {
-      return code.replace('</head>', `${responsiveHelper}\n</head>`);
-    } else if (code.includes('<body')) {
-      return code.replace('<body', `<head>${responsiveHelper}</head><body`);
+    const autoFitScript = `
+  <script id="xare-autofit-script">
+    (function() {
+      var isFitting = false;
+      function fit() {
+        if (isFitting) return;
+        isFitting = true;
+        try {
+          var body = document.body;
+          var html = document.documentElement;
+          if (!body || !html) return;
+
+          try {
+            var bg = window.getComputedStyle(body).backgroundColor;
+            if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+              html.style.backgroundColor = bg;
+            }
+          } catch(e) {}
+
+          body.style.transform = 'none';
+
+          var children = Array.from(body.children).filter(function(el) {
+            if (!el || !el.tagName) return false;
+            var tag = el.tagName.toUpperCase();
+            if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META') return false;
+            if (el.id && el.id.indexOf('xare-') === 0) return false;
+            var s = window.getComputedStyle(el);
+            return s.display !== 'none' && s.visibility !== 'hidden';
+          });
+
+          var contentW = 0;
+          var contentH = 0;
+
+          if (children.length > 0) {
+            var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (var i = 0; i < children.length; i++) {
+              var r = children[i].getBoundingClientRect();
+              if (r.width > 0 || r.height > 0) {
+                minX = Math.min(minX, r.left);
+                minY = Math.min(minY, r.top);
+                maxX = Math.max(maxX, r.right);
+                maxY = Math.max(maxY, r.bottom);
+              }
+            }
+            if (isFinite(minX) && isFinite(maxX) && isFinite(minY) && isFinite(maxY)) {
+              contentW = maxX - minX;
+              contentH = maxY - minY;
+            }
+          }
+
+          if (contentW <= 0 || contentH <= 0) {
+            contentW = Math.max(body.scrollWidth, body.offsetWidth);
+            contentH = Math.max(body.scrollHeight, body.offsetHeight);
+          }
+
+          var availW = Math.max(10, window.innerWidth - 16);
+          var availH = Math.max(10, window.innerHeight - 16);
+
+          if (contentW > 0 && contentH > 0) {
+            var scale = Math.min(availW / contentW, availH / contentH, 1);
+            body.style.transform = 'scale(' + scale + ')';
+          }
+        } catch(err) {
+          console.warn('Xare auto-fit warning:', err);
+        } finally {
+          requestAnimationFrame(function() { isFitting = false; });
+        }
+      }
+
+      window.addEventListener('resize', fit);
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fit);
+      } else {
+        fit();
+      }
+      window.addEventListener('load', fit);
+      setTimeout(fit, 50);
+      setTimeout(fit, 250);
+      setTimeout(fit, 750);
+
+      if (typeof ResizeObserver !== 'undefined' && document.body) {
+        try {
+          var roTimer = null;
+          var ro = new ResizeObserver(function() {
+            if (!isFitting) {
+              if (roTimer) cancelAnimationFrame(roTimer);
+              roTimer = requestAnimationFrame(fit);
+            }
+          });
+          ro.observe(document.body);
+        } catch(e) {}
+      }
+    })();
+  </script>`;
+
+    let processedHtml = code;
+
+    if (processedHtml.includes('</head>')) {
+      processedHtml = processedHtml.replace('</head>', `${responsiveHelper}\n</head>`);
+    } else if (processedHtml.includes('<body')) {
+      processedHtml = processedHtml.replace('<body', `<head>${responsiveHelper}</head><body`);
     } else {
-      return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  ${responsiveHelper}
-</head>
-<body>${code}</body>
-</html>`;
+      processedHtml = `<head>${responsiveHelper}</head>${processedHtml}`;
     }
+
+    if (processedHtml.includes('</body>')) {
+      processedHtml = processedHtml.replace('</body>', `${autoFitScript}\n</body>`);
+    } else if (processedHtml.includes('</html>')) {
+      processedHtml = processedHtml.replace('</html>', `${autoFitScript}\n</html>`);
+    } else {
+      processedHtml = `${processedHtml}\n${autoFitScript}`;
+    }
+
+    if (!processedHtml.includes('<html')) {
+      processedHtml = `<!DOCTYPE html>\n<html>\n${processedHtml}\n</html>`;
+    }
+
+    return processedHtml;
   }, [code, cleanLang, isDarkMode]);
 
   const iframeHeightClass = isExpandedHeight ? 'h-[500px] sm:h-[580px]' : 'h-[340px] sm:h-[390px]';
@@ -936,45 +1033,45 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
       {/* Fullscreen Interactive Theater Modal */}
       {isFullscreen && typeof document !== 'undefined' && createPortal(
         <div 
-          className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex flex-col p-2 sm:p-5 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-md flex flex-col p-0 sm:p-2 animate-in fade-in duration-200"
           role="dialog"
           aria-modal="true"
         >
-          <div className={`w-full max-w-7xl h-full mx-auto rounded-2xl overflow-hidden border shadow-2xl flex flex-col ${isDarkMode ? 'border-slate-800 bg-[#060911]' : 'border-slate-300 bg-white text-slate-900'}`}>
+          <div className={`w-full h-full mx-auto rounded-none sm:rounded-2xl overflow-hidden border-0 sm:border shadow-2xl flex flex-col ${isDarkMode ? 'border-slate-800 bg-[#060911]' : 'border-slate-300 bg-white text-slate-900'}`}>
             {/* Modal Header */}
-            <div className={`flex items-center justify-between px-4 py-3 border-b select-none ${isDarkMode ? 'bg-[#080c16] border-slate-800 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-800'}`}>
-              <div className="flex items-center gap-3">
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider ${isDarkMode ? 'bg-cyan-950/70 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+            <div className={`h-11 flex-shrink-0 flex items-center justify-between px-3 sm:px-4 border-b select-none ${isDarkMode ? 'bg-[#080c16] border-slate-800 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-800'}`}>
+              <div className="flex items-center gap-2.5">
+                <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider ${isDarkMode ? 'bg-cyan-950/70 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
                   {lang || 'html'}
                 </span>
-                <span className="text-sm font-semibold">Interactive Visualizer Sandbox</span>
+                <span className="text-xs sm:text-sm font-semibold truncate">Interactive Visualizer Sandbox</span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/50' : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'}`}
                   title="Reload sandbox"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset</span>
+                  <span className="hidden sm:inline">Reset</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleOpenNewTab}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/50' : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'}`}
                   title="Open in new browser tab"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Pop Out</span>
+                  <span className="hidden sm:inline">Pop Out</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsFullscreen(false)}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${isDarkMode ? 'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'}`}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${isDarkMode ? 'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'}`}
                   title="Close Fullscreen (Esc)"
                 >
                   <Minimize2 className="w-3.5 h-3.5" />
@@ -984,7 +1081,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
             </div>
 
             {/* Modal Iframe */}
-            <div className="flex-1 w-full relative overflow-hidden bg-black/40">
+            <div className="flex-1 w-full h-full relative overflow-hidden bg-transparent">
               <iframe
                 key={`modal_${refreshKey}`}
                 srcDoc={previewDoc}
