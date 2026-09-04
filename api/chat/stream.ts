@@ -132,6 +132,7 @@ export default async function handler(req: Request) {
     let winningModel: ModelNode | null = null;
     const now = Date.now();
 
+    let lastErrorDetails = '';
     for (let i = 0; i < MODEL_PIPELINE.length; i++) {
       const candidate = MODEL_PIPELINE[i];
 
@@ -152,9 +153,10 @@ export default async function handler(req: Request) {
         });
 
         if (res.status === 429 || res.status === 503 || res.status === 404) {
+          lastErrorDetails = `${candidate.name} returned ${res.status}`;
           candidate.inFlight = Math.max(0, candidate.inFlight - 1);
           candidate.cooldownUntil = Date.now() + 20000; // 20s cooldown
-          continue; // Trigger fallback to Gemini 3.1 Flash Lite
+          continue; // Trigger fallback to next model
         }
 
         if (res.ok) {
@@ -162,9 +164,12 @@ export default async function handler(req: Request) {
           winningModel = candidate;
           break;
         } else {
+          const errText = await res.text().catch(() => '');
+          lastErrorDetails = `${candidate.name} [${res.status}]: ${errText.slice(0, 200)}`;
           candidate.inFlight = Math.max(0, candidate.inFlight - 1);
         }
       } catch (err: any) {
+        lastErrorDetails = `Fetch exception: ${err.message}`;
         candidate.inFlight = Math.max(0, candidate.inFlight - 1);
         if (req.signal.aborted) {
           return new Response(null, { status: 499 });
@@ -175,7 +180,7 @@ export default async function handler(req: Request) {
     if (!upstreamRes || !upstreamRes.body || !winningModel) {
       return new Response(JSON.stringify({
         error: 'AI Inference Unavailable',
-        details: 'Gemini 3.5 Flash Lite and Gemini 3.1 Flash Lite are currently rate-limited or unavailable.'
+        details: lastErrorDetails || 'Models are currently rate-limited or unavailable.'
       }), {
         status: 503,
         headers: { 'Content-Type': 'application/json' },
