@@ -152,21 +152,17 @@ export default async function handler(req: Request) {
           signal: req.signal,
         });
 
-        if (res.status === 429 || res.status === 503 || res.status === 404) {
-          lastErrorDetails = `${candidate.name} returned ${res.status}`;
-          candidate.inFlight = Math.max(0, candidate.inFlight - 1);
-          candidate.cooldownUntil = Date.now() + 20000; // 20s cooldown
-          continue; // Trigger fallback to next model
-        }
-
         if (res.ok) {
           upstreamRes = res;
           winningModel = candidate;
           break;
         } else {
           const errText = await res.text().catch(() => '');
-          lastErrorDetails = `${candidate.name} [${res.status}]: ${errText.slice(0, 200)}`;
+          lastErrorDetails = `${candidate.name} [${res.status}]: ${errText.slice(0, 300)}`;
           candidate.inFlight = Math.max(0, candidate.inFlight - 1);
+          if (res.status === 429 || res.status === 503) {
+            candidate.cooldownUntil = Date.now() + 20000;
+          }
         }
       } catch (err: any) {
         lastErrorDetails = `Fetch exception: ${err.message}`;
