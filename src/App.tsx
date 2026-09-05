@@ -1668,6 +1668,19 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         const prefixBefore = formatText.substring(0, prefixIndex);
         formatText = (prefixBefore ? prefixBefore.trim() + '\n' : '') + '```' + detectedLang + '\n' + restCode.trim() + '\n```';
       }
+    } else {
+      // Auto-detect raw code blocks (e.g. Gemini sends raw python/js/html without triple backticks)
+      const rawCodeRegex = /(?:^|\n)((?:(?:import\s+[a-zA-Z0-9_]+|from\s+[a-zA-Z0-9_]+\s+import|def\s+[a-zA-Z0-9_]+\s*\(|class\s+[a-zA-Z0-9_]+|const\s+[a-zA-Z0-9_]+\s*=|let\s+[a-zA-Z0-9_]+\s*=|var\s+[a-zA-Z0-9_]+\s*=|function\s+[a-zA-Z0-9_]+\s*\(|client\s*=\s*OpenAI|<\!doctype\s+html|<html)[\s\S]*))$/i;
+      const match = formatText.match(rawCodeRegex);
+      if (match) {
+        const prefix = formatText.substring(0, match.index! + (match[0].startsWith('\n') ? 1 : 0));
+        const rawCode = match[1].trim();
+        let detectedLang = 'python';
+        if (/<\!doctype|<html|<div|<script/i.test(rawCode)) detectedLang = 'html';
+        else if (/\b(const|let|var|console\.log|export\s+default)\b/.test(rawCode)) detectedLang = 'javascript';
+        else if (/\b(import\s+os|def\s+|print\(|client\s*=\s*OpenAI)\b/.test(rawCode)) detectedLang = 'python';
+        formatText = (prefix ? prefix.trimEnd() + '\n\n' : '') + '```' + detectedLang + '\n' + rawCode + '\n```';
+      }
     }
   }
 
@@ -2169,7 +2182,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
       flushAll(); 
 
       return (
-        <div key={`${bIdx}-${pIdx}`} className="mb-4 last:mb-0 space-y-1 text-[15px] sm:text-[16px] leading-relaxed w-full">
+        <div key={`${bIdx}-${pIdx}`} className="mb-4 last:mb-0 space-y-1 leading-relaxed w-full">
           {elements}
         </div>
       );
@@ -3737,7 +3750,7 @@ export const ChatMessageItem = React.memo(({
             </div>
           ) : (
             !(msg.audio && textToRender === "🎤 Voice Message") && (
-              <div dir="auto" className={`font-normal w-full ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} style={{ wordBreak: 'break-word' }}>
+              <div dir="auto" className={`font-normal w-full chat-content-text ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} style={{ wordBreak: 'break-word' }}>
                 {formatMessageText(textToRender, isDarkMode, isStreaming)}
               </div>
             )
@@ -3841,6 +3854,25 @@ export function App() {
 
   // --- Mobile Visual Viewport Sync State ---
   const [visualViewportHeight, setVisualViewportHeight] = useState<number | null>(null);
+
+  // --- Reading Font Size State (Zoom & Accessibility friendly) ---
+  const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg' | 'xl'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('xare_font_size');
+      if (saved === 'sm' || saved === 'base' || saved === 'lg' || saved === 'xl') return saved;
+    }
+    return 'base';
+  });
+
+  const cycleFontSize = () => {
+    setFontSize(prev => {
+      const order: ('sm' | 'base' | 'lg' | 'xl')[] = ['sm', 'base', 'lg', 'xl'];
+      const nextIdx = (order.indexOf(prev) + 1) % order.length;
+      const next = order[nextIdx];
+      try { localStorage.setItem('xare_font_size', next); } catch (e) {}
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -6427,7 +6459,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
             </div>
           )}
 
-          <header className="flex-none px-4 sm:px-6 py-4 flex justify-between items-center z-20 bg-transparent transition-colors duration-300">
+          <header className="flex-none px-4 sm:px-6 py-4 flex justify-between items-center z-20 bg-transparent transition-colors duration-300 chat-header">
             <div className="flex items-center gap-2 sm:gap-3 z-10 relative">
               {!isSidebarOpen && (
                 <button
@@ -6472,7 +6504,6 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
             <div className="flex z-10 flex-shrink-0 items-center gap-1.5 sm:gap-2">
 
-
               <div className={`flex items-center gap-0.5 sm:gap-1 mr-1 sm:mr-2 pr-1.5 sm:pr-3 border-r ${isDarkMode ? 'border-slate-700/60' : 'border-slate-300/60'}`}>
                 <a href="https://ali-kassem-portfolio-io.vercel.app/" target="_blank" rel="noopener noreferrer" className={`p-1 sm:p-2 rounded-full transition-all hover:scale-110 ${isDarkMode ? 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/30' : 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50'}`} title="Ali's Portfolio">
                   <Globe className="w-[15px] h-[15px] sm:w-[18px] sm:h-[18px]" />
@@ -6484,6 +6515,25 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                   <Linkedin className="w-[15px] h-[15px] sm:w-[18px] sm:h-[18px]" />
                 </a>
               </div>
+
+              {/* Font Size Adjuster for comfortable reading */}
+              <button
+                type="button"
+                onClick={cycleFontSize}
+                className={`px-2 py-1 rounded-full transition-all hover:scale-105 flex items-center gap-1 font-bold text-xs tracking-tight ${
+                  isDarkMode 
+                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60 border border-slate-700/50' 
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/60 border border-slate-300/50'
+                }`}
+                title={`Text size: ${fontSize.toUpperCase()} (Click to toggle)`}
+              >
+                <span className="flex items-baseline font-mono select-none">
+                  <span className="text-[11px]">A</span>
+                  <span className="text-[14px] font-black">A</span>
+                </span>
+                <span className="text-[10px] uppercase font-mono opacity-70">{fontSize}</span>
+              </button>
+
               <ThemeToggleSwitch isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
             </div>
           </header>
@@ -6496,9 +6546,9 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
             onTouchMove={handleTouchMove} 
             onTouchEnd={handleTouchEnd}
             onTouchCancel={handleTouchEnd} 
-            className="flex-1 overflow-y-auto chat-scroll gpu-accelerated w-full relative z-10"
+            className={`flex-1 overflow-y-auto chat-scroll gpu-accelerated w-full relative z-10 text-size-${fontSize}`}
           >
-            <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2">
+            <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2 chat-message-list">
 
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center min-h-[50vh] text-center my-auto px-4 animate-float-up select-none">
@@ -6582,7 +6632,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
             </div>
           </div>
 
-          <div className={`flex-none relative w-full p-2 sm:p-4 z-20 pb-3 sm:pb-5 ${isDarkMode ? 'bg-[#030407]' : 'bg-[#f8fafc]'}`}>
+          <div className={`flex-none relative w-full p-2 sm:p-4 z-20 pb-3 sm:pb-5 chat-bottom-bar ${isDarkMode ? 'bg-[#030407]' : 'bg-[#f8fafc]'}`}>
             
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
                 <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
@@ -6624,7 +6674,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
               <form 
                 onSubmit={handleSendMessage}
-                className={`relative flex items-end gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 w-full ${
+                className={`relative flex items-end gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 w-full chat-input-form ${
                   isDarkMode 
                     ? 'bg-[#070e1c] border-blue-500/30 shadow-[0_8px_32px_0_rgba(2,10,35,0.85)] focus-within:border-cyan-400/60' 
                     : 'bg-white border-slate-200/90 shadow-xl focus-within:border-blue-400'
@@ -6891,7 +6941,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                 </form>
               </div>
 
-              <div className={`text-center mt-4 text-[11px] font-medium pointer-events-auto ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+              <div className={`text-center mt-4 text-[11px] font-medium pointer-events-auto chat-disclaimer ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                 Xare is AI and can make mistakes. Check important info.
               </div>
           </div>

@@ -51,3 +51,68 @@
   contain-intrinsic-size: 0 80px;
 }
 
+/* =========================================================
+   Short Viewport / Zoomed-in Browser Optimization
+   Prevents fixed headers & huge input bar from swallowing screen
+   ========================================================= */
+@media (max-height: 680px) {
+  .chat-bottom-bar {
+    padding-top: 4px !important;
+    padding-bottom: 6px !important;
+  }
+  .chat-input-form {
+    padding: 4px 8px !important;
+    border-radius: 1.5rem !important;
+  }
+  .chat-header {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+  .chat-message-list {
+    gap: 1rem !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+  .chat-disclaimer {
+    display: none !important;
+  }
+}
+
+/* =========================================================
+   Accessibility & Reading Font Size Modes
+   Allows users to enlarge chat text cleanly without browser zoom distortion
+   ========================================================= */
+.chat-content-text {
+  font-size: 15px;
+  line-height: 1.62;
+}
+.text-size-sm .chat-content-text,
+.text-size-sm .chat-content-text p,
+.text-size-sm .chat-content-text span:not([class*="text-[1"]):not([class*="text-xs"]) {
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+}
+.text-size-base .chat-content-text,
+.text-size-base .chat-content-text p {
+  font-size: 15px !important;
+  line-height: 1.62 !important;
+}
+.text-size-lg .chat-content-text,
+.text-size-lg .chat-content-text p {
+  font-size: 17.5px !important;
+  line-height: 1.7 !important;
+}
+.text-size-xl .chat-content-text,
+.text-size-xl .chat-content-text p {
+  font-size: 20px !important;
+  line-height: 1.78 !important;
+}
+
+/* Adjusted pre/code text for large sizes */
+.text-size-lg pre code, .text-size-lg pre {
+  font-size: 15px !important;
+}
+.text-size-xl pre code, .text-size-xl pre {
+  font-size: 16.5px !important;
+}
+
