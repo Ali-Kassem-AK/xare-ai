@@ -629,6 +629,30 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
   const [refreshKey, setRefreshKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isExpandedHeight, setIsExpandedHeight] = useState(false);
+  const [activeLayoutMode, setActiveLayoutMode] = useState<'fit' | 'scroll'>('fit');
+  const inlineIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const modalIframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  // Listen for layout messages from sandbox
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'XARE_LAYOUT_STATE') {
+        if (e.data.activeMode) {
+          setActiveLayoutMode(e.data.activeMode);
+        }
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const handleToggleViewMode = useCallback(() => {
+    const newMode = activeLayoutMode === 'fit' ? 'scroll' : 'fit';
+    setActiveLayoutMode(newMode);
+    const msg = { type: 'XARE_SET_MODE', mode: newMode };
+    inlineIframeRef.current?.contentWindow?.postMessage(msg, '*');
+    modalIframeRef.current?.contentWindow?.postMessage(msg, '*');
+  }, [activeLayoutMode]);
 
   // Close fullscreen on Escape key
   useEffect(() => {
@@ -716,7 +740,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
     }
 
     const responsiveHelper = `
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style id="xare-sandbox-fit">
     *, *::before, *::after {
       box-sizing: border-box !important;
@@ -726,38 +750,80 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
       height: 100% !important;
       margin: 0 !important;
       padding: 0 !important;
-      overflow: hidden !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
       background: ${isDarkMode ? '#060911' : '#ffffff'};
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
     }
     body {
       margin: 0 !important;
       padding: 0 !important;
+      width: 100% !important;
+      min-height: 100% !important;
+      transform-origin: top center !important;
+      will-change: transform;
+    }
+
+    /* Scroll Mode: natural full-width responsive layout for full websites, landing pages, and long documents */
+    html.xare-mode-scroll {
+      overflow-y: auto !important;
+      display: block !important;
+    }
+    html.xare-mode-scroll body {
+      transform: none !important;
+      overflow-y: visible !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      display: block !important;
+    }
+
+    /* Fit Mode: zero-scrollbar auto-scaled layout for single-screen visualizers, canvas demos, and widgets */
+    html.xare-mode-fit {
+      overflow: hidden !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    html.xare-mode-fit body {
       overflow: hidden !important;
       transform-origin: center center !important;
-      will-change: transform;
       min-width: min-content !important;
       min-height: min-content !important;
+      width: auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
     }
-    /* Prevent flex-shrink distortion of content */
-    body > * {
+    html.xare-mode-fit body > * {
       flex-shrink: 0 !important;
     }
-    img, video {
-      max-width: 100%;
-      height: auto;
+
+    /* Sleek slim scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(120, 120, 140, 0.35);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(120, 120, 140, 0.65);
     }
   </style>`;
 
     const autoFitScript = `
   <script id="xare-autofit-script">
     (function() {
-      var isFitting = false;
-      function fit() {
-        if (isFitting) return;
-        isFitting = true;
+      var preferredMode = 'auto';
+      var isEvaluating = false;
+
+      function evaluateLayout() {
+        if (isEvaluating) return;
+        isEvaluating = true;
         try {
           var body = document.body;
           var html = document.documentElement;
@@ -770,79 +836,63 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
             }
           } catch(e) {}
 
+          html.classList.remove('xare-mode-fit', 'xare-mode-scroll');
           body.style.transform = 'none';
 
-          var children = Array.from(body.children).filter(function(el) {
-            if (!el || !el.tagName) return false;
-            var tag = el.tagName.toUpperCase();
-            if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META') return false;
-            if (el.id && el.id.indexOf('xare-') === 0) return false;
-            var s = window.getComputedStyle(el);
-            return s.display !== 'none' && s.visibility !== 'hidden';
-          });
+          var availW = Math.max(10, window.innerWidth - 20);
+          var availH = Math.max(10, window.innerHeight - 20);
 
-          var contentW = 0;
-          var contentH = 0;
+          var contentH = Math.max(body.scrollHeight, body.offsetHeight, html.scrollHeight);
+          var contentW = Math.max(body.scrollWidth, body.offsetWidth, html.scrollWidth);
 
-          if (children.length > 0) {
-            var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            for (var i = 0; i < children.length; i++) {
-              var r = children[i].getBoundingClientRect();
-              if (r.width > 0 || r.height > 0) {
-                minX = Math.min(minX, r.left);
-                minY = Math.min(minY, r.top);
-                maxX = Math.max(maxX, r.right);
-                maxY = Math.max(maxY, r.bottom);
-              }
-            }
-            if (isFinite(minX) && isFinite(maxX) && isFinite(minY) && isFinite(maxY)) {
-              contentW = maxX - minX;
-              contentH = maxY - minY;
-            }
+          var calculatedScale = Math.min(availW / contentW, availH / contentH, 1);
+          var isScrollingWebsite = (contentH > availH * 1.35) || (calculatedScale < 0.68);
+
+          var effectiveMode = preferredMode;
+          if (effectiveMode === 'auto') {
+            effectiveMode = isScrollingWebsite ? 'scroll' : 'fit';
           }
 
-          if (contentW <= 0 || contentH <= 0) {
-            contentW = Math.max(body.scrollWidth, body.offsetWidth);
-            contentH = Math.max(body.scrollHeight, body.offsetHeight);
-          }
-
-          var availW = Math.max(10, window.innerWidth - 16);
-          var availH = Math.max(10, window.innerHeight - 16);
-
-          if (contentW > 0 && contentH > 0) {
-            var scale = Math.min(availW / contentW, availH / contentH, 1);
+          if (effectiveMode === 'scroll') {
+            html.classList.add('xare-mode-scroll');
+            body.style.transform = 'none';
+          } else {
+            html.classList.add('xare-mode-fit');
+            var scale = Math.max(0.4, Math.min(availW / contentW, availH / contentH, 1));
             body.style.transform = 'scale(' + scale + ')';
           }
+
+          try {
+            window.parent.postMessage({
+              type: 'XARE_LAYOUT_STATE',
+              activeMode: effectiveMode,
+              isScrollingWebsite: isScrollingWebsite
+            }, '*');
+          } catch(e) {}
         } catch(err) {
-          console.warn('Xare auto-fit warning:', err);
+          console.warn('Xare layout evaluation warning:', err);
         } finally {
-          requestAnimationFrame(function() { isFitting = false; });
+          requestAnimationFrame(function() { isEvaluating = false; });
         }
       }
 
-      window.addEventListener('resize', fit);
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', fit);
-      } else {
-        fit();
-      }
-      window.addEventListener('load', fit);
-      setTimeout(fit, 50);
-      setTimeout(fit, 250);
-      setTimeout(fit, 750);
+      window.addEventListener('resize', evaluateLayout);
+      window.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'XARE_SET_MODE') {
+          preferredMode = e.data.mode;
+          evaluateLayout();
+        }
+      });
 
-      if (typeof ResizeObserver !== 'undefined' && document.body) {
-        try {
-          var roTimer = null;
-          var ro = new ResizeObserver(function() {
-            if (!isFitting) {
-              if (roTimer) cancelAnimationFrame(roTimer);
-              roTimer = requestAnimationFrame(fit);
-            }
-          });
-          ro.observe(document.body);
-        } catch(e) {}
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', evaluateLayout);
+      } else {
+        evaluateLayout();
       }
+      window.addEventListener('load', evaluateLayout);
+      setTimeout(evaluateLayout, 50);
+      setTimeout(evaluateLayout, 250);
+      setTimeout(evaluateLayout, 750);
     })();
   </script>`;
 
@@ -921,6 +971,21 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
         <div className="flex items-center gap-1 sm:gap-1.5">
           {isRunnable && activeTab === 'preview' && (
             <>
+              {/* Fit vs Full Page Scroll View Switcher */}
+              <button 
+                type="button"
+                onClick={handleToggleViewMode}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                  isDarkMode 
+                    ? 'hover:bg-slate-800 text-slate-400 hover:text-cyan-300' 
+                    : 'hover:bg-slate-200 text-slate-600 hover:text-blue-700'
+                }`}
+                title={activeLayoutMode === 'fit' ? "Switch to full-page scroll view" : "Switch to fit-to-screen view"}
+              >
+                {activeLayoutMode === 'fit' ? <FileText className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                <span className="hidden md:inline">{activeLayoutMode === 'fit' ? "Full Page" : "Fit Screen"}</span>
+              </button>
+
               {/* Expand / Compact Height Toggle */}
               <button 
                 type="button"
@@ -1003,6 +1068,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
       {isRunnable && activeTab === 'preview' && !isStreaming ? (
         <div className={`relative w-full overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-[#060911]' : 'bg-white'}`}>
           <iframe
+            ref={inlineIframeRef}
             key={refreshKey}
             srcDoc={previewDoc}
             title="Interactive Visualizer Sandbox"
@@ -1048,6 +1114,17 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
               </div>
 
               <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* View Mode Switcher in Fullscreen */}
+                <button
+                  type="button"
+                  onClick={handleToggleViewMode}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/50' : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'}`}
+                  title={activeLayoutMode === 'fit' ? "Switch to full-page scroll view" : "Switch to fit-to-screen view"}
+                >
+                  {activeLayoutMode === 'fit' ? <FileText className="w-3.5 h-3.5 text-blue-400" /> : <Maximize2 className="w-3.5 h-3.5 text-cyan-400" />}
+                  <span>{activeLayoutMode === 'fit' ? "Full Page" : "Fit Screen"}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleRefresh}
@@ -1083,6 +1160,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
             {/* Modal Iframe */}
             <div className="flex-1 w-full h-full relative overflow-hidden bg-transparent">
               <iframe
+                ref={modalIframeRef}
                 key={`modal_${refreshKey}`}
                 srcDoc={previewDoc}
                 title="Interactive Visualizer Sandbox Fullscreen"
