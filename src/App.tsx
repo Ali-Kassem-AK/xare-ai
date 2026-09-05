@@ -170,10 +170,10 @@ export function classifyRequestError(err: any, status?: number): ClassifiedError
  * - maxAdaptiveSpeed    : Max speed cap for long responses (chars/sec).
  */
 export const STREAMING_CONFIG = {
-  wordsPerSecond: 80,         // Typing speed directly in Words Per Second (WPS)
+  wordsPerSecond: 100,         // Typing speed directly in Words Per Second (WPS)
   tickIntervalMs: 30,         // Render update throttle tick interval in ms (30ms = 33fps optimal liquid tick)
   enableAdaptiveSpeed: true,  // Auto-scale speed for long text/code (>500 chars)
-  maxAdaptiveWPS: 130,         // Max Words Per Second cap for long text
+  maxAdaptiveWPS: 160,         // Max Words Per Second cap for long text
 };
 
 // ==========================================
