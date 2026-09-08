@@ -5101,6 +5101,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     let uploadedFileName: string | null = null;
     let uploadedFileSize: number | null = null;
     let uploadedFileId: string | null = null;
+    let uploadedStorageProvider: string | null = null;
 
     if (preUploadResult) {
       // 🚀 Instant pre-upload was already completed in the background before clicking send!
@@ -5109,6 +5110,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       uploadedFileName = preUploadResult.fileName;
       uploadedFileSize = preUploadResult.fileSize;
       uploadedFileId = preUploadResult.fileId;
+      uploadedStorageProvider = preUploadResult.storageProvider || 'cloudflare-r2';
     } else if (preUploadPromise) {
       // ⏳ Background pre-upload is currently in flight: await the existing promise!
       try {
@@ -5119,6 +5121,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         uploadedFileName = uploadRes.fileName;
         uploadedFileSize = uploadRes.fileSize;
         uploadedFileId = uploadRes.fileId;
+        uploadedStorageProvider = uploadRes.storageProvider || 'cloudflare-r2';
         setUploadProgress(null);
       } catch (uploadErr: any) {
         console.warn("In-flight storage upload failed, attempting automatic fallback:", uploadErr);
@@ -5160,6 +5163,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         uploadedFileName = uploadRes.fileName;
         uploadedFileSize = uploadRes.fileSize;
         uploadedFileId = uploadRes.fileId;
+        uploadedStorageProvider = uploadRes.storageProvider || 'cloudflare-r2';
         setUploadProgress(null);
       } catch (uploadErr: any) {
         console.error("Direct storage upload failed:", uploadErr);
@@ -5380,8 +5384,9 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         payload.file_size = uploadedFileSize;
         payload.mimeType = uploadedMimeType;
         payload.mime_type = uploadedMimeType;
-        payload.storageProvider = 's3';
-        payload.storage_provider = 's3';
+        const effectiveProvider = uploadedStorageProvider || 'cloudflare-r2';
+        payload.storageProvider = effectiveProvider;
+        payload.storage_provider = effectiveProvider;
         payload.message = {
           text: finalMessageText,
           caption: msgText,
@@ -5395,8 +5400,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           fileSize: uploadedFileSize,
           mime_type: uploadedMimeType,
           mimeType: uploadedMimeType,
-          storage_provider: 's3',
-          storageProvider: 's3',
+          storage_provider: effectiveProvider,
+          storageProvider: effectiveProvider,
           chat: { id: targetChatId }
         };
         if (attachmentType === 'audio') payload.message.voice = { file_url: uploadedFileUrl, fileUrl: uploadedFileUrl };

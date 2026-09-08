@@ -4,7 +4,7 @@
 
 | Metric | Value |
 |---|---|
-| timestamp | 2026-09-08T21:59:26.355Z |
+| timestamp | 2026-09-08T22:09:41.931Z |
 | totalDirectories | 17 |
 | totalFiles | 56 |
 | totalSourceFiles | 19 |
@@ -13,8 +13,8 @@
 | totalJsonFiles | 8 |
 | totalConfigFiles | 5 |
 | totalWorkflowFiles | 2 |
-| totalLinesOfSourceCode | 9493 |
-| totalLinesInspected | 30209 |
+| totalLinesOfSourceCode | 9498 |
+| totalLinesInspected | 30277 |
 | totalFilesInspected | 42 |
 | binaryFiles | 14 |
 | generatedFiles | 1 |
@@ -37,7 +37,7 @@
 | `xare-ai-main/api/chat/stream.ts` | source | READ | 238 | 9927 | NO | `4200f62c5038` |
 | `xare-ai-main/api/upload/presign.ts` | source | READ | 355 | 12801 | YES | `6379678a9669` |
 | `xare-ai-main/api/voice/token.ts` | source | READ | 68 | 2165 | NO | `5ae10c2bd994` |
-| `xare-ai-main/DEPLOYMENT_REPORT.md` | documentation | READ | 130 | 7759 | NO | `7baf47ab7d50` |
+| `xare-ai-main/DEPLOYMENT_REPORT.md` | documentation | READ | 143 | 8363 | NO | `6357cdac76b2` |
 | `xare-ai-main/index.html` | source | READ | 31 | 1360 | NO | `9d3a800b149d` |
 | `xare-ai-main/n8n/architecture.png` | binary | BINARY | 0 | 1065582 | NO | `e922b15ea949` |
 | `xare-ai-main/n8n/Global System Topology & Execution Flow.png` | binary | BINARY | 0 | 70248 | NO | `cdb049eedd14` |
@@ -59,25 +59,25 @@
 | `xare-ai-main/public/favicon.svg` | source | READ | 9 | 225666 | NO | `b190e8b0a41d` |
 | `xare-ai-main/public/site.webmanifest` | source | READ | 30 | 615 | NO | `b8e181c512fb` |
 | `xare-ai-main/README.md` | documentation | READ | 90 | 3176 | NO | `3d82f2651581` |
-| `xare-ai-main/repository-audit-after.json` | json | READ | 526 | 16865 | NO | `d8e2e6332327` |
+| `xare-ai-main/repository-audit-after.json` | json | READ | 526 | 16866 | NO | `954aaf0a46b2` |
 | `xare-ai-main/repository-audit-before.json` | json | READ | 407 | 13155 | NO | `9b9db63fe489` |
-| `xare-ai-main/REPOSITORY_AUDIT_AFTER.md` | documentation | READ | 84 | 5992 | NO | `ddedc8f9a25b` |
+| `xare-ai-main/REPOSITORY_AUDIT_AFTER.md` | documentation | READ | 84 | 5993 | NO | `49230177efe1` |
 | `xare-ai-main/REPOSITORY_AUDIT_BEFORE.md` | documentation | READ | 59 | 4782 | NO | `370fb807d586` |
 | `xare-ai-main/scripts/audit_after.cjs` | source | READ | 142 | 4918 | NO | `7d3cbdf8e8aa` |
 | `xare-ai-main/scripts/audit_before.cjs` | source | READ | 185 | 9760 | NO | `1adc08509d8d` |
 | `xare-ai-main/scripts/scan_secrets.cjs` | source | READ | 36 | 1298 | NO | `3c17799db7de` |
 | `xare-ai-main/scripts/update_workflow.cjs` | source | READ | 129 | 5177 | NO | `64d949b165f3` |
-| `xare-ai-main/src/App.tsx` | source | READ | 7015 | 306507 | YES | `917f04299377` |
+| `xare-ai-main/src/App.tsx` | source | READ | 7020 | 306941 | YES | `6e30853f801e` |
 | `xare-ai-main/src/index.css` | source | READ | 119 | 3058 | NO | `fe8d58862f60` |
 | `xare-ai-main/src/main.tsx` | source | READ | 12 | 281 | NO | `093f9b0873c4` |
 | `xare-ai-main/src/services/storage/index.ts` | source | READ | 3 | 61 | YES | `0dd3b9250d7f` |
 | `xare-ai-main/src/services/storage/storageService.ts` | source | READ | 329 | 11161 | YES | `49548c32de84` |
 | `xare-ai-main/src/services/storage/types.ts` | source | READ | 86 | 2010 | YES | `1ee73f02e01c` |
 | `xare-ai-main/src/utils/storage.ts` | source | READ | 9 | 301 | YES | `faff331a7309` |
-| `xare-ai-main/STORAGE_ARCHITECTURE.md` | documentation | READ | 150 | 7796 | NO | `a000f41817e6` |
-| `xare-ai-main/STORAGE_MIGRATION_TEST_REPORT.md` | documentation | READ | 69 | 6995 | NO | `20f234459641` |
+| `xare-ai-main/STORAGE_ARCHITECTURE.md` | documentation | READ | 200 | 9318 | NO | `1cbf5477c998` |
+| `xare-ai-main/STORAGE_MIGRATION_TEST_REPORT.md` | documentation | READ | 69 | 6994 | NO | `431a2811e0b4` |
 | `xare-ai-main/STORAGE_SECURITY_AUDIT.md` | documentation | READ | 41 | 3900 | NO | `94463135c3bb` |
-| `xare-ai-main/SUPABASE_PURGE_REPORT.md` | documentation | READ | 35 | 2435 | NO | `db186244eb56` |
+| `xare-ai-main/SUPABASE_PURGE_REPORT.md` | documentation | READ | 35 | 2446 | NO | `cf84315ffdfc` |
 | `xare-ai-main/tailwind.config.js` | source | READ | 13 | 215 | NO | `f22895ae5263` |
 | `xare-ai-main/tests/storage.test.cjs` | source | READ | 689 | 31895 | YES | `1e862b8817aa` |
 | `xare-ai-main/vite.config.ts` | source | READ | 27 | 682 | NO | `d92fc437f64b` |

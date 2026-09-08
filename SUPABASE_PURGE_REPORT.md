@@ -15,7 +15,7 @@
 |---|---|---|---|
 | `api/upload/presign.ts` | Supabase SDK presign handler | Replaced with `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` | **0 (Zero)** |
 | `src/utils/storage.ts` | Supabase direct upload client | Replaced with provider-neutral abstraction layer delegating to S3 client | **0 (Zero)** |
-| `src/App.tsx` | Supabase upload caller & progress text | Replaced UI status text and payload metadata with `storageProvider: 's3'` | **0 (Zero)** |
+| `src/App.tsx` | Supabase upload caller & progress text | Replaced UI status text and payload metadata with `storageProvider: 'cloudflare-r2'` | **0 (Zero)** |
 | `package.json` | Listed `@supabase/supabase-js` | Uninstalled package cleanly; zero dangling imports | **0 (Zero)** |
 | `N8N_Xare_BACKEND/Xare AI.json` | Supabase nodes & diagnostics | Updated `Identify Media Type`, renamed `Download Supabase File` -> `Download Remote File`, updated connections | **0 (Zero)** |
 

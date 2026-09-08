@@ -147,3 +147,53 @@ STORAGE_SECRET_ACCESS_KEY=<r2_secret>
 # STORAGE_SECRET_ACCESS_KEY=<b2_secret>
 ```
 The application dynamically configures itself at runtime based on these standard environment variables.
+
+---
+
+## 6. Cloudflare R2 Production Bucket Configuration & CORS Policy
+
+To support direct browser uploads via presigned PUT URLs, the Cloudflare R2 bucket must be created and configured with the following Cross-Origin Resource Sharing (CORS) policy:
+
+### Bucket Specification
+- **Bucket Name:** `xare-files`
+- **Region:** `auto` (Cloudflare Anycast global edge)
+
+### Bucket CORS JSON Policy
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://xare-ai.vercel.app",
+      "https://*.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": [
+      "GET",
+      "PUT",
+      "HEAD"
+    ],
+    "AllowedHeaders": [
+      "Content-Type",
+      "Content-Length",
+      "x-amz-*"
+    ],
+    "ExposeHeaders": [
+      "ETag"
+    ],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+### Vercel Production Environment Activation Commands
+Once an R2 API token (Object Read & Write) is created in the Cloudflare dashboard:
+```bash
+npx vercel env add STORAGE_ENDPOINT production         # Value: https://<account_id>.r2.cloudflarestorage.com
+npx vercel env add STORAGE_ACCESS_KEY_ID production     # Value: <access_key_id>
+npx vercel env add STORAGE_SECRET_ACCESS_KEY production # Value: <secret_access_key>
+npx vercel env add STORAGE_BUCKET production            # Value: xare-files
+npx vercel env add STORAGE_REGION production            # Value: auto
+```
+Following variable addition, run `npx vercel --prod` to deploy with storage fully activated.
+

@@ -66,9 +66,9 @@ The test matrix explicitly differentiates between test tiers to eliminate ambigu
 |---|---|---|---|
 | **Client Storage Service** | `src/utils/storage.ts` (Supabase direct) | `src/services/storage/` (Provider-neutral S3 client) | Verified build & typings |
 | **Upload Authorization** | `/api/upload/presign.ts` (`@supabase/supabase-js`) | `/api/upload/presign.ts` (`@aws-sdk/client-s3`) | Verified SigV4 generation & Edge runtime |
-| **Object Key Format** | `users/{uid}/uploads/{id}/{name}` | `users/{uid}/uploads/{id}/{safeName}` | Verified collision-free in 10k runs |
-| **Workflow Ingress** | Node `Has Supabase URL?` | Node `Has Remote File URL?` | 100% graph integrity verified |
-| **Workflow Download** | Node `Download Supabase File` | Node `Download Remote File` | Verified HTTP binary streaming |
+| **Frontend Call Site** | `src/App.tsx` (Supabase caller & 's3' hardcode) | `src/App.tsx` (Dynamic `storageProvider`, defaults to `cloudflare-r2`) | Verified build & typings |
+| **Package Dependencies** | Listed `@supabase/supabase-js` | Uninstalled cleanly; zero dangling imports | Clean build (3.38s) |
+| **Workflow Ingress & Download** | Nodes `Has Supabase URL?` & `Download Supabase File` | Nodes `Has Remote File URL?` & `Download Remote File` | 100% graph integrity verified |
 | **Architecture Introspection** | 5 toolCode nodes citing Supabase | Updated to Cloud Object Storage | All references updated |
 | **Vercel Hosting Secrets** | `SUPABASE_BUCKET_NAME`, `SUPABASE_SECRET_KEY`, `SUPABASE_URL` | Purged completely via Vercel CLI | Zero Supabase credentials remaining |
 
@@ -95,24 +95,37 @@ Specifically:
 6. **Supabase Purge:** 100% complete across repository and Vercel hosting environment.
 
 ### Final Production Activation Steps:
-To achieve `✅ PRODUCTION READY`, provision the following environment variables in Vercel:
-```bash
-npx vercel env add STORAGE_ENDPOINT production
-# Enter: https://<cloudflare_account_id>.r2.cloudflarestorage.com
+To achieve `✅ PRODUCTION READY`:
+1. Create the Cloudflare R2 bucket `xare-files` in the Cloudflare dashboard with the required CORS policy:
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://xare-ai.vercel.app", "https://*.vercel.app", "http://localhost:5173"],
+       "AllowedMethods": ["GET", "PUT", "HEAD"],
+       "AllowedHeaders": ["Content-Type", "Content-Length", "x-amz-*"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+2. Provision the following environment variables in Vercel:
+   ```bash
+   npx vercel env add STORAGE_ENDPOINT production
+   # Enter: https://<cloudflare_account_id>.r2.cloudflarestorage.com
 
-npx vercel env add STORAGE_ACCESS_KEY_ID production
-# Enter: <cloudflare_r2_access_key_id>
+   npx vercel env add STORAGE_ACCESS_KEY_ID production
+   # Enter: <cloudflare_r2_access_key_id>
 
-npx vercel env add STORAGE_SECRET_ACCESS_KEY production
-# Enter: <cloudflare_r2_secret_access_key>
+   npx vercel env add STORAGE_SECRET_ACCESS_KEY production
+   # Enter: <cloudflare_r2_secret_access_key>
 
-npx vercel env add STORAGE_BUCKET production
-# Enter: xare-files
+   npx vercel env add STORAGE_BUCKET production
+   # Enter: xare-files
 
-npx vercel env add STORAGE_REGION production
-# Enter: auto
-```
-Once entered, trigger a zero-downtime redeployment (`npx vercel --prod`), after which `POST /api/upload/presign` will immediately return `HTTP 200` with active AWS SigV4 presigned upload and download URLs.
+   npx vercel env add STORAGE_REGION production
+   # Enter: auto
+   ```
+3. Once entered, trigger a zero-downtime redeployment (`npx vercel --prod`), after which `POST /api/upload/presign` will immediately return `HTTP 200` with active AWS SigV4 presigned upload and download URLs.
 
 ---
 
