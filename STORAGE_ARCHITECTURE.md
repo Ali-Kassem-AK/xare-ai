@@ -97,9 +97,15 @@ User -> Browser -> Supabase Storage SDK -> Signed Upload URL -> Supabase Bucket
 | **n8n Direct Download** | Yes (if active) | **Yes (100% reliable)**| **Yes (100% reliable)** | Yes | Yes |
 | **Vendor Lock-in Risk** | High | **Zero (S3 Standard)** | **Zero (S3 Standard)** | Zero (S3 Standard)| High |
 
-### Recommendation & Selection
-- **Primary Standard:** **S3-Compatible Protocol** via AWS SDK v3 (`@aws-sdk/client-s3`).
-- **Target Providers:** Either **Backblaze B2** (no credit card, 10 GB free forever) or **Cloudflare R2** (zero egress fees, 10 GB free) can be used interchangeably simply by updating environment variables without changing any application code.
+### Concrete Production Selection: Cloudflare R2
+- **Selected Concrete Production Provider:** **Cloudflare R2**
+- **Protocol Standard:** **S3-Compatible Protocol** via AWS SDK v3 (`@aws-sdk/client-s3`).
+- **Rationale:**
+  1. **Zero Egress Fees:** Cloudflare R2 eliminates all egress data transfer fees, guaranteeing zero cost spikes as multi-tenant document and media volume scales.
+  2. **Global Anycast Performance:** Direct edge routing guarantees ultra-low presigned PUT and signed GET latency (<50ms globally) for browser uploads and n8n webhook downloads.
+  3. **Generous Tier:** 10 GB free permanent monthly object storage without inactivity pauses or sleep cycles.
+  4. **Strict Standard S3 API Compatibility:** Uses AWS Signature Version 4 (SigV4) authentication.
+- **Provider Interchangeability:** The S3-compatible abstraction layer in `src/services/storage/` and `api/upload/presign.ts` remains 100% provider-agnostic. Secondary providers (Backblaze B2, AWS S3, MinIO) can be hot-swapped via environment variables without altering application code.
 
 ---
 
@@ -124,20 +130,20 @@ User -> Browser -> Supabase Storage SDK -> Signed Upload URL -> Supabase Bucket
 
 ## 5. Future Provider Migration Strategy
 
-Because all client interactions go through `src/services/storage/` and server-side presigning follows the standard S3 API, switching from Backblaze B2 to Cloudflare R2, AWS S3, MinIO, or Wasabi requires **ZERO code changes**:
+Because all client interactions go through `src/services/storage/` and server-side presigning follows the standard S3 API, Cloudflare R2 serves as the active production provider, while alternative S3-compatible providers (Backblaze B2, AWS S3, MinIO, Wasabi) require **ZERO code changes** to swap:
 ```bash
-# To switch to Backblaze B2:
-STORAGE_ENDPOINT=https://s3.us-east-005.backblazeb2.com
-STORAGE_REGION=us-east-005
-STORAGE_BUCKET=xare-files
-STORAGE_ACCESS_KEY_ID=<b2_key>
-STORAGE_SECRET_ACCESS_KEY=<b2_secret>
-
-# To switch to Cloudflare R2:
+# Active Concrete Production Provider (Cloudflare R2):
 STORAGE_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com
 STORAGE_REGION=auto
 STORAGE_BUCKET=xare-files
 STORAGE_ACCESS_KEY_ID=<r2_key>
 STORAGE_SECRET_ACCESS_KEY=<r2_secret>
+
+# Alternative: Backblaze B2:
+# STORAGE_ENDPOINT=https://s3.us-east-005.backblazeb2.com
+# STORAGE_REGION=us-east-005
+# STORAGE_BUCKET=xare-files
+# STORAGE_ACCESS_KEY_ID=<b2_key>
+# STORAGE_SECRET_ACCESS_KEY=<b2_secret>
 ```
 The application dynamically configures itself at runtime based on these standard environment variables.

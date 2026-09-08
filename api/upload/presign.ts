@@ -140,10 +140,9 @@ function getS3Client(): S3Client | null {
 }
 
 function detectProviderName(): string {
-  if (STORAGE_ENDPOINT?.includes('r2.cloudflarestorage.com') || process.env.R2_ENDPOINT) return 'cloudflare-r2';
   if (STORAGE_ENDPOINT?.includes('backblazeb2.com')) return 'backblaze-b2';
-  if (STORAGE_ENDPOINT?.includes('amazonaws.com') || (!STORAGE_ENDPOINT && STORAGE_ACCESS_KEY_ID)) return 'aws-s3';
-  return 's3-compatible';
+  if (STORAGE_ENDPOINT?.includes('amazonaws.com')) return 'aws-s3';
+  return 'cloudflare-r2';
 }
 
 export default async function handler(req: Request) {

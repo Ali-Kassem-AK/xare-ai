@@ -1,17 +1,17 @@
 {
   "summary": {
-    "timestamp": "2026-09-08T21:43:15.238Z",
-    "totalDirectories": 16,
-    "totalFiles": 53,
+    "timestamp": "2026-09-08T21:59:26.355Z",
+    "totalDirectories": 17,
+    "totalFiles": 56,
     "totalSourceFiles": 19,
     "totalJavaScriptFiles": 7,
     "totalTypeScriptFiles": 10,
-    "totalJsonFiles": 7,
+    "totalJsonFiles": 8,
     "totalConfigFiles": 5,
     "totalWorkflowFiles": 2,
-    "totalLinesOfSourceCode": 9342,
-    "totalLinesInspected": 29811,
-    "totalFilesInspected": 39,
+    "totalLinesOfSourceCode": 9493,
+    "totalLinesInspected": 30209,
+    "totalFilesInspected": 42,
     "binaryFiles": 14,
     "generatedFiles": 1,
     "skippedFiles": 0,
@@ -58,9 +58,18 @@
       "relativePath": "xare-ai-main/.env.example",
       "fileType": "source",
       "status": "READ",
-      "lineCount": 40,
-      "sizeBytes": 1579,
-      "sha256": "f6d6590ca94cc9c70d9a804fd05e84574f6f44c270a4ebebfc1038e5c2d8bb6a",
+      "lineCount": 41,
+      "sizeBytes": 1847,
+      "sha256": "c1ffd45ca5e32e675a76ad43cbd8bb55ebb90387e33bd09a856f0d2633ad4362",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/.env.local",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 3,
+      "sizeBytes": 1337,
+      "sha256": "16c63a398c0e17aa28515a7fb7d78d9c505ca725b7cb5854f071cea263809410",
       "isStorageRelated": false
     },
     {
@@ -70,6 +79,24 @@
       "lineCount": 13,
       "sizeBytes": 95,
       "sha256": "ceaf6966aa27e65fa5ba4c60a6e67833ac73d5682732f6ae741b03bc45521ca6",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/.vercel/project.json",
+      "fileType": "json",
+      "status": "READ",
+      "lineCount": 1,
+      "sizeBytes": 112,
+      "sha256": "90c920a92973657974b66088cd83c7c505bb4bb6f6728803e38411c96bdb0b66",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/.vercel/README.txt",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 12,
+      "sizeBytes": 520,
+      "sha256": "f5d1ed0f5032ae128931f46459b5faa1af6319fc2dfb3e7a5fe54a84bf93dbd6",
       "isStorageRelated": false
     },
     {
@@ -85,9 +112,9 @@
       "relativePath": "xare-ai-main/api/upload/presign.ts",
       "fileType": "source",
       "status": "READ",
-      "lineCount": 356,
-      "sizeBytes": 12963,
-      "sha256": "413765ac601fd1e056e848eb4ba9dacf50bb661750ea302ef2fdb4b940a939d7",
+      "lineCount": 355,
+      "sizeBytes": 12801,
+      "sha256": "6379678a966962e7ff9c66b627b5b454e7827db4c5515acbaf3d6bde018c3f8a",
       "isStorageRelated": true
     },
     {
@@ -103,9 +130,9 @@
       "relativePath": "xare-ai-main/DEPLOYMENT_REPORT.md",
       "fileType": "documentation",
       "status": "READ",
-      "lineCount": 50,
-      "sizeBytes": 2395,
-      "sha256": "e5217f22cc328a436d2babeb54a862a2c9739bf91ffb831fd4e709af3971045b",
+      "lineCount": 130,
+      "sizeBytes": 7759,
+      "sha256": "7baf47ab7d50daaf4a16bb5c375498206b9a07f6da8b1a28b4772b51b44a07ad",
       "isStorageRelated": false
     },
     {
@@ -301,9 +328,9 @@
       "relativePath": "xare-ai-main/repository-audit-after.json",
       "fileType": "json",
       "status": "READ",
-      "lineCount": 436,
-      "sizeBytes": 14375,
-      "sha256": "65c822cf433f18853399a7b8ad20c3aa330d254f49d7fa886c1c8dc8546be772",
+      "lineCount": 526,
+      "sizeBytes": 16865,
+      "sha256": "d8e2e63323278618c9ba89da9235b22ed4308051924d8dbbef3cd66c58037193",
       "isStorageRelated": false
     },
     {
@@ -319,9 +346,9 @@
       "relativePath": "xare-ai-main/REPOSITORY_AUDIT_AFTER.md",
       "fileType": "documentation",
       "status": "READ",
-      "lineCount": 74,
-      "sizeBytes": 5118,
-      "sha256": "ad241c38f9d86eb12b225c8936a35d155b85fffe42b34547b642e7c9ee8623da",
+      "lineCount": 84,
+      "sizeBytes": 5992,
+      "sha256": "ddedc8f9a25beecbfcc28c57a31b39d84b6ff73108ac55acbfe59624cfd6775f",
       "isStorageRelated": false
     },
     {
@@ -436,18 +463,18 @@
       "relativePath": "xare-ai-main/STORAGE_ARCHITECTURE.md",
       "fileType": "documentation",
       "status": "READ",
-      "lineCount": 144,
-      "sizeBytes": 6988,
-      "sha256": "2ba06e648af41c5aa36ef8827a5259dcb1b33b52aa333a605f7fc0abd2d033b2",
+      "lineCount": 150,
+      "sizeBytes": 7796,
+      "sha256": "a000f41817e68e4d7857ee5ab315d2af0512519c9c33b237cf0764b4a280a477",
       "isStorageRelated": false
     },
     {
       "relativePath": "xare-ai-main/STORAGE_MIGRATION_TEST_REPORT.md",
       "fileType": "documentation",
       "status": "READ",
-      "lineCount": 27,
-      "sizeBytes": 3821,
-      "sha256": "aa741e57f3e3c546163289d831934c6a0814f011aa7a9634c90102a4188d8335",
+      "lineCount": 69,
+      "sizeBytes": 6995,
+      "sha256": "20f23445964131a088b38d8746a0128aee583948e206e01071583a10a0ad79e8",
       "isStorageRelated": false
     },
     {
@@ -463,9 +490,9 @@
       "relativePath": "xare-ai-main/SUPABASE_PURGE_REPORT.md",
       "fileType": "documentation",
       "status": "READ",
-      "lineCount": 33,
-      "sizeBytes": 2075,
-      "sha256": "163dc9cc6b02369dc40e6203192a6c5d672ea744fbee0e19f6929c7c550e4220",
+      "lineCount": 35,
+      "sizeBytes": 2435,
+      "sha256": "db186244eb5668946e4436a63c9198452997328384dcde7aafd9f9842ec38100",
       "isStorageRelated": false
     },
     {
@@ -481,9 +508,9 @@
       "relativePath": "xare-ai-main/tests/storage.test.cjs",
       "fileType": "source",
       "status": "READ",
-      "lineCount": 537,
-      "sizeBytes": 24152,
-      "sha256": "f1af7cbbb4441d5c2540a85f8ab3eeb1654b527a89d9ce6f69b4a77d5633d9eb",
+      "lineCount": 689,
+      "sizeBytes": 31895,
+      "sha256": "1e862b8817aa1d111123bf31a0a02dd031acab26f87c7048920e18388a3ea5c8",
       "isStorageRelated": true
     },
     {

@@ -26,7 +26,9 @@
 Any residual occurrences of the token `supabase` across the repository are strictly categorized as:
 1. **Migration Documentation:** Explaining the architectural difference in `STORAGE_ARCHITECTURE.md` and `N8N_ARCHITECTURE_AUDIT.md`.
 2. **Pre-Migration Audit Artifacts:** Historical record in `repository-audit-before.json`.
-3. **Migration Scripts:** Reusable AST/JSON migration tooling in `scripts/update_workflow.cjs`.
+3. **Vercel Hosting Environment Purge:**
+   - Obsolete variables `SUPABASE_BUCKET_NAME`, `SUPABASE_SECRET_KEY`, and `SUPABASE_URL` were formally removed from Vercel Production, Preview, and Development environments via Vercel CLI.
+   - Zero Supabase credentials or environment variables remain configured in the production deployment infrastructure.
 4. **Type Compatibility Variant:** Minor string literal in `StorageProviderType` union type (`'supabase'`) to ensure legacy typing compatibility.
 
-**Conclusion:** Active production dependency on Supabase Storage has been **100% ELIMINATED**.
+**Conclusion:** Active production dependency on Supabase Storage has been **100% ELIMINATED** across frontend code, serverless edge functions, n8n workflow nodes, and hosting platform configuration.
