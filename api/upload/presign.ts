@@ -1,6 +1,10 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
+export const config = {
+  runtime: 'edge',
+};
+
 // Provider-Agnostic S3-Compatible Configuration (Cloudflare R2, Backblaze B2, AWS S3, MinIO)
 const STORAGE_ENDPOINT = process.env.STORAGE_ENDPOINT || process.env.S3_ENDPOINT || process.env.R2_ENDPOINT;
 const STORAGE_REGION = process.env.STORAGE_REGION || process.env.AWS_REGION || 'auto';
