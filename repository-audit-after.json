@@ -1,0 +1,436 @@
+{
+  "summary": {
+    "timestamp": "2026-09-08T21:30:22.969Z",
+    "totalDirectories": 15,
+    "totalFiles": 46,
+    "totalSourceFiles": 18,
+    "totalJavaScriptFiles": 6,
+    "totalTypeScriptFiles": 10,
+    "totalJsonFiles": 5,
+    "totalConfigFiles": 5,
+    "totalWorkflowFiles": 2,
+    "totalLinesOfSourceCode": 9048,
+    "totalLinesInspected": 24119,
+    "totalFilesInspected": 34,
+    "binaryFiles": 12,
+    "generatedFiles": 1,
+    "skippedFiles": 0,
+    "ignoredFiles": 0
+  },
+  "files": [
+    {
+      "relativePath": "N8N_Xare_BACKEND/architecture.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 1065582,
+      "sha256": "e922b15ea9499676a32e9ba417cf68ea20213cee15b4b634441ec9337005d2c0",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "N8N_Xare_BACKEND/Global System Topology & Execution Flow.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 70248,
+      "sha256": "cdb049eedd14465fcd804d1514cf73aeec97c615e1d0ed1cebcdfd3df4ac8d2c",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "N8N_Xare_BACKEND/Xare AI.backup.json",
+      "fileType": "json",
+      "status": "READ",
+      "lineCount": 4739,
+      "sizeBytes": 189687,
+      "sha256": "85e5030061db068f9192824c833961df5a0e8ae6d40953a4f3735efe5e15728a",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "N8N_Xare_BACKEND/Xare AI.json",
+      "fileType": "json",
+      "status": "READ",
+      "lineCount": 4739,
+      "sizeBytes": 190106,
+      "sha256": "05b93ecccd2d8a62c1d687bfe049898abedb81e5a36f82888b211c93b518f271",
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/.env.example",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 40,
+      "sizeBytes": 1540,
+      "sha256": "adb0deb887eee776c614ceb0c4261b9bfbd56c7ca210f69c930727d05604fe96",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/.gitignore",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 12,
+      "sizeBytes": 80,
+      "sha256": "44faa4b3159b25e97ca0fde83e8037c05ab96726934a635f85462d5066cdbef7",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/api/chat/stream.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 238,
+      "sizeBytes": 9927,
+      "sha256": "4200f62c5038603452b3ed4c9a19557854b1a0ba1aba30f17c44bed58941d628",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/api/upload/presign.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 280,
+      "sizeBytes": 10207,
+      "sha256": "6da2eb499fb685e1fce8b5c7e498259dcd9072ce3e6a6fa7b0abcf1f0c20c3cb",
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/api/voice/token.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 68,
+      "sizeBytes": 2165,
+      "sha256": "5ae10c2bd9949e7acf3e6b0db2123f771bbe8edb139e021e868b8f45e944cfe2",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/index.html",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 31,
+      "sizeBytes": 1360,
+      "sha256": "9d3a800b149db81d6c63386ffcd02c36495239aa18c5b75e727379a53616d8c3",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/N8N_ARCHITECTURE_AUDIT.md",
+      "fileType": "documentation",
+      "status": "READ",
+      "lineCount": 182,
+      "sizeBytes": 11099,
+      "sha256": "a95ec7e7e82ff6f18da58f5ed400005284eb7c59d6b7425fa4482c2099652c3a",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/package-lock.json",
+      "fileType": "json",
+      "status": "READ",
+      "lineCount": 4585,
+      "sizeBytes": 165955,
+      "sha256": "ff14f440a230ab828701f363108e4aea510fe38f9c0c2bddf1cd548c9ed454bb",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/package.json",
+      "fileType": "json",
+      "status": "READ",
+      "lineCount": 32,
+      "sizeBytes": 762,
+      "sha256": "bbade2ca82545878b33105ac6132024408e1cae59704d58d5e205a91bc1c4b5f",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/postcss.config.js",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 7,
+      "sizeBytes": 86,
+      "sha256": "374f669f08b18e67d0a7264fa45b71228017e604fe7f6db8a5c1bd5ba27e5c98",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/android-chrome-192x192.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 33915,
+      "sha256": "7eae6f065f53977c1b70f695eaad3b074cff4ac3b3fad5927df41c302c3c6e32",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/android-chrome-512x512.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 168938,
+      "sha256": "c17c156a75bee1651c9d839c7671ef8ea8c77c2726f6dbda0c966ad1223ddb93",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/apple-touch-icon.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 30366,
+      "sha256": "7ed218b8b58d169c6ce7a7639fcf6a1bf954efd4b4c732681d741fb8fe984a8c",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/assets/architecture.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 1065582,
+      "sha256": "e922b15ea9499676a32e9ba417cf68ea20213cee15b4b634441ec9337005d2c0",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/assets/Global System Topology & Execution Flow.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 70248,
+      "sha256": "cdb049eedd14465fcd804d1514cf73aeec97c615e1d0ed1cebcdfd3df4ac8d2c",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon-16x16.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 817,
+      "sha256": "89516babd16b639cc7ffe2e6c3673a62b1aecdf0da53cc15dc1be95caa8458b8",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon-32x32.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 2306,
+      "sha256": "ff6c307c2e7b41d7af0655215615ababe4b312c7c5d2d624043b8d5d0cf3246e",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon-48x48.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 4102,
+      "sha256": "8c9878a2167c5f4edd0184efeac933f7406108393d45ad6dfe5bbd73eb2b05b0",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon.ico",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 7400,
+      "sha256": "4d7ff81ba98a3dfc29fcc608b7b616a6fc3fc70ed1cc51021f942f18154e8f63",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 18006,
+      "sha256": "dd9eb2945e33754a49f4f0ffa125b52aec417a32cc8d32e3bc6647837ba21cfd",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon.svg",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 9,
+      "sizeBytes": 225666,
+      "sha256": "b190e8b0a41dd60fd96c7a45d16c581e22cbaf4e93c8b791729930049c618fbb",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/site.webmanifest",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 30,
+      "sizeBytes": 615,
+      "sha256": "b8e181c512fba228206fba74ee4b0ded20d0af406539b7e8fd6031dc04dd5344",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/README.md",
+      "fileType": "documentation",
+      "status": "READ",
+      "lineCount": 2,
+      "sizeBytes": 11,
+      "sha256": "45fd3549ddebe8643d3defbc96ca8c81cb5b86e97ef769ece1b44cd2f9eaea5d",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/repository-audit-before.json",
+      "fileType": "json",
+      "status": "READ",
+      "lineCount": 407,
+      "sizeBytes": 12749,
+      "sha256": "62bc9cdb4285c47b872dd7bdbecdca19d4121cdd03d5aa301c25d40269523028",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/REPOSITORY_AUDIT_BEFORE.md",
+      "fileType": "documentation",
+      "status": "READ",
+      "lineCount": 59,
+      "sizeBytes": 4724,
+      "sha256": "90a89c25d331cd45cd9d4c0d9d2e5c2b6764fbc5e6ca154e789449e5efd29910",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/scripts/audit_after.cjs",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 142,
+      "sizeBytes": 4777,
+      "sha256": "e2cc93085fbd5fedbfb86579a12c7732abed257da30610b90598417fa00a1dab",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/scripts/audit_before.cjs",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 185,
+      "sizeBytes": 9576,
+      "sha256": "ad74d23b335e0b9df972950ef8edf89972e4f7c2a61fba8d69befb828b5640ad",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/scripts/update_workflow.cjs",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 129,
+      "sizeBytes": 5049,
+      "sha256": "0c476306506553f3a532153ac6f8e61870f1fef4bd7e5b28649bef94864cf767",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/src/App.tsx",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 7015,
+      "sizeBytes": 306507,
+      "sha256": "917f042993775975d18133816461cca04ce50494ac81f7fde036fecf4c46e336",
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/src/index.css",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 119,
+      "sizeBytes": 3058,
+      "sha256": "fe8d58862f60c4f289c88fe6a598562832dfbbe48f5c31c1541e0aad01251785",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/src/main.tsx",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 12,
+      "sizeBytes": 281,
+      "sha256": "093f9b0873c48212bfa233ff083a61febece7cc86251db82307225a333b33c14",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/src/services/storage/index.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 3,
+      "sizeBytes": 59,
+      "sha256": "e4d0e3ef3efbb6e2647153ca724511da28c700734de26e895b712ac527c50e8f",
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/src/services/storage/storageService.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 321,
+      "sizeBytes": 10629,
+      "sha256": "988f2bdcb309945abaf454209355b1f557ee3d57aac4c9f64c0d12cd356e316c",
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/src/services/storage/types.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 86,
+      "sizeBytes": 1925,
+      "sha256": "7cd3060b7fdb539a8ee254d293d026ee4dc9439be2705a55c62841ca87811f5f",
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/src/utils/storage.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 9,
+      "sizeBytes": 293,
+      "sha256": "f9757904a4c81eacbf215923488d21917af8c117a1b805ce1a504596abd86362",
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/STORAGE_ARCHITECTURE.md",
+      "fileType": "documentation",
+      "status": "READ",
+      "lineCount": 144,
+      "sizeBytes": 6845,
+      "sha256": "dde73e35e075908e967be2796324e020d56ec2636c5a598f135a3acdaa00919b",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/STORAGE_MIGRATION_TEST_REPORT.md",
+      "fileType": "documentation",
+      "status": "READ",
+      "lineCount": 19,
+      "sizeBytes": 2352,
+      "sha256": "9b1c7a4f1c1332662cb2d6e67feba7ddff25fd25d74004721c1bd90068359a99",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/STORAGE_SECURITY_AUDIT.md",
+      "fileType": "documentation",
+      "status": "READ",
+      "lineCount": 39,
+      "sizeBytes": 3427,
+      "sha256": "639892096c168b4e3a89a0f9c1252b809767293da65caf9f4e62a013bdf171aa",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/SUPABASE_PURGE_REPORT.md",
+      "fileType": "documentation",
+      "status": "READ",
+      "lineCount": 33,
+      "sizeBytes": 2043,
+      "sha256": "3e07cce13d70e3ab49884baf205e1eb4354f637e98f3f04c91c325ac33ffc731",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/tailwind.config.js",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 13,
+      "sizeBytes": 215,
+      "sha256": "f22895ae5263e6a87f97b8939e4f8e0b337674e92772afac0833f70ffadbd3a2",
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/tests/storage.test.cjs",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 363,
+      "sizeBytes": 15786,
+      "sha256": "204bf75cddf167bafc6f32c43147d42f96838b4703e5c6dfbdfe20752772842d",
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/vite.config.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 27,
+      "sizeBytes": 682,
+      "sha256": "d92fc437f64bad190f6c5d165df15ea8c1c7c0ce779d08ce07dcf0d1b00aa941",
+      "isStorageRelated": false
+    }
+  ]
+}

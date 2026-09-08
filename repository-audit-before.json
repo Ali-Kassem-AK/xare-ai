@@ -1,0 +1,407 @@
+{
+  "summary": {
+    "timestamp": "2026-09-08T21:26:24.321Z",
+    "totalDirectories": 11,
+    "totalFiles": 31,
+    "totalSourceFiles": 11,
+    "totalJavaScriptFiles": 2,
+    "totalTypeScriptFiles": 7,
+    "totalJsonFiles": 4,
+    "totalConfigFiles": 5,
+    "totalWorkflowFiles": 2,
+    "totalLinesOfSourceCode": 8149,
+    "totalLinesInspected": 17236,
+    "totalFilesInspected": 17,
+    "binaryFiles": 13,
+    "generatedFiles": 1,
+    "skippedFiles": 0,
+    "ignoredFiles": 0
+  },
+  "files": [
+    {
+      "relativePath": "N8N_Xare_BACKEND/architecture.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 1065582,
+      "sha256": "e922b15ea9499676a32e9ba417cf68ea20213cee15b4b634441ec9337005d2c0",
+      "role": "Architecture diagram graphic",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "N8N_Xare_BACKEND/Global System Topology & Execution Flow.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 70248,
+      "sha256": "cdb049eedd14465fcd804d1514cf73aeec97c615e1d0ed1cebcdfd3df4ac8d2c",
+      "role": "System topology flow graphic",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "N8N_Xare_BACKEND/Xare AI.backup.json",
+      "fileType": "workflow",
+      "status": "GENERATED",
+      "lineCount": 4739,
+      "sizeBytes": 189687,
+      "sha256": "85e5030061db068f9192824c833961df5a0e8ae6d40953a4f3735efe5e15728a",
+      "role": "Pre-migration backup snapshot of n8n workflow",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "N8N_Xare_BACKEND/Xare AI.json",
+      "fileType": "workflow",
+      "status": "READ",
+      "lineCount": 4739,
+      "sizeBytes": 189687,
+      "sha256": "85e5030061db068f9192824c833961df5a0e8ae6d40953a4f3735efe5e15728a",
+      "role": "Master n8n workflow definition (126 nodes)",
+      "dependencies": [
+        "Groq",
+        "Google Gemini",
+        "Deepgram",
+        "Firestore",
+        "Tavily",
+        "Pollinations.ai",
+        "Supabase Storage"
+      ],
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/.gitignore",
+      "fileType": "config",
+      "status": "READ",
+      "lineCount": 12,
+      "sizeBytes": 80,
+      "sha256": "44faa4b3159b25e97ca0fde83e8037c05ab96726934a635f85462d5066cdbef7",
+      "role": "Git ignore specifications",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/api/chat/stream.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 238,
+      "sizeBytes": 9927,
+      "sha256": "4200f62c5038603452b3ed4c9a19557854b1a0ba1aba30f17c44bed58941d628",
+      "role": "Vercel Edge serverless endpoint for direct Gemini streaming",
+      "dependencies": [
+        "Google Gemini API"
+      ],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/api/upload/presign.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 281,
+      "sizeBytes": 10513,
+      "sha256": "23726f699b51355d27999ffd0e870611c8a40cad2f084d1d640a16b3de4e4f1a",
+      "role": "Vercel Edge serverless upload presigning endpoint",
+      "dependencies": [
+        "@supabase/supabase-js"
+      ],
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/api/voice/token.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 68,
+      "sizeBytes": 2165,
+      "sha256": "5ae10c2bd9949e7acf3e6b0db2123f771bbe8edb139e021e868b8f45e944cfe2",
+      "role": "Vercel Edge serverless endpoint for Deepgram voice token",
+      "dependencies": [
+        "Deepgram API"
+      ],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/index.html",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 31,
+      "sizeBytes": 1360,
+      "sha256": "9d3a800b149db81d6c63386ffcd02c36495239aa18c5b75e727379a53616d8c3",
+      "role": "Main HTML entry point with fonts & metadata",
+      "dependencies": [
+        "/src/main.tsx"
+      ],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/package-lock.json",
+      "fileType": "lockfile",
+      "status": "READ",
+      "lineCount": 4273,
+      "sizeBytes": 153122,
+      "sha256": "3a0d93762a49d9d81d5bae222896e04022df15edd23c4984ef8ea7aa2b1e1af9",
+      "role": "npm dependency lockfile",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/package.json",
+      "fileType": "config",
+      "status": "READ",
+      "lineCount": 31,
+      "sizeBytes": 713,
+      "sha256": "ea2fbbb9b5a62f7653f574ad5311b9695ecb387199abcd4230785b15090b4928",
+      "role": "Node.js package manifest and dependencies",
+      "dependencies": [
+        "react",
+        "firebase",
+        "@supabase/supabase-js",
+        "lucide-react",
+        "katex"
+      ],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/postcss.config.js",
+      "fileType": "config",
+      "status": "READ",
+      "lineCount": 7,
+      "sizeBytes": 86,
+      "sha256": "374f669f08b18e67d0a7264fa45b71228017e604fe7f6db8a5c1bd5ba27e5c98",
+      "role": "PostCSS configuration for Tailwind",
+      "dependencies": [
+        "tailwindcss",
+        "autoprefixer"
+      ],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/android-chrome-192x192.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 33915,
+      "sha256": "7eae6f065f53977c1b70f695eaad3b074cff4ac3b3fad5927df41c302c3c6e32",
+      "role": "PWA icon asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/android-chrome-512x512.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 168938,
+      "sha256": "c17c156a75bee1651c9d839c7671ef8ea8c77c2726f6dbda0c966ad1223ddb93",
+      "role": "PWA icon asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/apple-touch-icon.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 30366,
+      "sha256": "7ed218b8b58d169c6ce7a7639fcf6a1bf954efd4b4c732681d741fb8fe984a8c",
+      "role": "Apple touch icon asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/assets/architecture.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 1065582,
+      "sha256": "e922b15ea9499676a32e9ba417cf68ea20213cee15b4b634441ec9337005d2c0",
+      "role": "Architecture diagram web asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/assets/Global System Topology & Execution Flow.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 70248,
+      "sha256": "cdb049eedd14465fcd804d1514cf73aeec97c615e1d0ed1cebcdfd3df4ac8d2c",
+      "role": "Global flow web asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon-16x16.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 817,
+      "sha256": "89516babd16b639cc7ffe2e6c3673a62b1aecdf0da53cc15dc1be95caa8458b8",
+      "role": "Browser favicon asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon-32x32.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 2306,
+      "sha256": "ff6c307c2e7b41d7af0655215615ababe4b312c7c5d2d624043b8d5d0cf3246e",
+      "role": "Browser favicon asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon-48x48.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 4102,
+      "sha256": "8c9878a2167c5f4edd0184efeac933f7406108393d45ad6dfe5bbd73eb2b05b0",
+      "role": "Browser favicon asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon.ico",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 7400,
+      "sha256": "4d7ff81ba98a3dfc29fcc608b7b616a6fc3fc70ed1cc51021f942f18154e8f63",
+      "role": "Browser favicon asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon.png",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 18006,
+      "sha256": "dd9eb2945e33754a49f4f0ffa125b52aec417a32cc8d32e3bc6647837ba21cfd",
+      "role": "Browser favicon asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/favicon.svg",
+      "fileType": "binary",
+      "status": "BINARY",
+      "lineCount": 0,
+      "sizeBytes": 225666,
+      "sha256": "b190e8b0a41dd60fd96c7a45d16c581e22cbaf4e93c8b791729930049c618fbb",
+      "role": "Vector favicon asset",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/public/site.webmanifest",
+      "fileType": "config",
+      "status": "READ",
+      "lineCount": 30,
+      "sizeBytes": 615,
+      "sha256": "b8e181c512fba228206fba74ee4b0ded20d0af406539b7e8fd6031dc04dd5344",
+      "role": "Web application manifest",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/README.md",
+      "fileType": "documentation",
+      "status": "READ",
+      "lineCount": 2,
+      "sizeBytes": 11,
+      "sha256": "45fd3549ddebe8643d3defbc96ca8c81cb5b86e97ef769ece1b44cd2f9eaea5d",
+      "role": "Project documentation readme",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/src/App.tsx",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 7015,
+      "sizeBytes": 306535,
+      "sha256": "307932f7d344baeaffc484c7576286489648356de996676224fb98b54143107a",
+      "role": "Core single-page application component with UI, state, file handlers, and AI routing",
+      "dependencies": [
+        "react",
+        "firebase/auth",
+        "firebase/firestore",
+        "lucide-react",
+        "katex",
+        "./utils/storage"
+      ],
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/src/index.css",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 119,
+      "sizeBytes": 3058,
+      "sha256": "fe8d58862f60c4f289c88fe6a598562832dfbbe48f5c31c1541e0aad01251785",
+      "role": "Global application stylesheet and animations",
+      "dependencies": [
+        "tailwindcss"
+      ],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/src/main.tsx",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 12,
+      "sizeBytes": 281,
+      "sha256": "093f9b0873c48212bfa233ff083a61febece7cc86251db82307225a333b33c14",
+      "role": "React DOM root renderer",
+      "dependencies": [
+        "react",
+        "react-dom/client",
+        "./App",
+        "./index.css"
+      ],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/src/utils/storage.ts",
+      "fileType": "source",
+      "status": "READ",
+      "lineCount": 338,
+      "sizeBytes": 11346,
+      "sha256": "b6c8b610d90c3c2930e1bb467848ea26cfebb670792c1d4bd5e2bff0afa13a85",
+      "role": "Client-side upload orchestrator with progress simulation and caching",
+      "dependencies": [
+        "firebase/auth",
+        "/api/upload/presign"
+      ],
+      "isStorageRelated": true
+    },
+    {
+      "relativePath": "xare-ai-main/tailwind.config.js",
+      "fileType": "config",
+      "status": "READ",
+      "lineCount": 13,
+      "sizeBytes": 215,
+      "sha256": "f22895ae5263e6a87f97b8939e4f8e0b337674e92772afac0833f70ffadbd3a2",
+      "role": "Tailwind CSS utility configuration",
+      "dependencies": [],
+      "isStorageRelated": false
+    },
+    {
+      "relativePath": "xare-ai-main/vite.config.ts",
+      "fileType": "config",
+      "status": "READ",
+      "lineCount": 27,
+      "sizeBytes": 682,
+      "sha256": "d92fc437f64bad190f6c5d165df15ea8c1c7c0ce779d08ce07dcf0d1b00aa941",
+      "role": "Vite build and chunking configuration",
+      "dependencies": [
+        "@vitejs/plugin-react"
+      ],
+      "isStorageRelated": false
+    }
+  ]
+}

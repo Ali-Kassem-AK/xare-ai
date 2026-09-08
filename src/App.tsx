@@ -5142,7 +5142,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           setIsLoading(false);
           setActiveLoadingChatId(null);
           setLoadingType(null);
-          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to Supabase Storage.'}\n\nPlease check your network connection and retry.`);
+          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to Cloud Storage.'}\n\nPlease check your network connection and retry.`);
           return;
         }
       }
@@ -5185,7 +5185,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           setIsLoading(false);
           setActiveLoadingChatId(null);
           setLoadingType(null);
-          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to Supabase Storage.'}\n\nPlease check your network connection and retry.`);
+          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to Cloud Storage.'}\n\nPlease check your network connection and retry.`);
           return;
         }
       }
@@ -5380,8 +5380,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         payload.file_size = uploadedFileSize;
         payload.mimeType = uploadedMimeType;
         payload.mime_type = uploadedMimeType;
-        payload.storageProvider = 'supabase';
-        payload.storage_provider = 'supabase';
+        payload.storageProvider = 's3';
+        payload.storage_provider = 's3';
         payload.message = {
           text: finalMessageText,
           caption: msgText,
@@ -5395,8 +5395,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           fileSize: uploadedFileSize,
           mime_type: uploadedMimeType,
           mimeType: uploadedMimeType,
-          storage_provider: 'supabase',
-          storageProvider: 'supabase',
+          storage_provider: 's3',
+          storageProvider: 's3',
           chat: { id: targetChatId }
         };
         if (attachmentType === 'audio') payload.message.voice = { file_url: uploadedFileUrl, fileUrl: uploadedFileUrl };
@@ -5977,7 +5977,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       reader.readAsDataURL(file);
     }
 
-    // 3. Start background Supabase direct upload with smooth progress
+    // 3. Start background direct cloud storage upload with smooth progress
     let uploadTaskHandle: any = null;
     const uploadPromise = uploadFileDirectly(file, {
       userId: currentUser?.id,
@@ -6816,7 +6816,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                         <div className="flex items-center justify-between text-xs text-blue-400 mb-1 font-medium">
                           <span className="flex items-center gap-1.5 truncate max-w-[80%]">
                             <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
-                            Uploading {uploadingFileName || 'file'} directly to Supabase Storage...
+                            Uploading {uploadingFileName || 'file'} directly to Cloud Storage...
                           </span>
                           <span className="font-semibold text-blue-300">{uploadProgress}%</span>
                         </div>

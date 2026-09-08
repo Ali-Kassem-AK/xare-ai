@@ -1,13 +1,17 @@
-import { createClient } from '@supabase/supabase-js';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-export const config = {
-  runtime: 'edge', // Using Vercel Edge runtime for lightning-fast sub-10ms response
-};
+// Provider-Agnostic S3-Compatible Configuration (Cloudflare R2, Backblaze B2, AWS S3, MinIO)
+const STORAGE_ENDPOINT = process.env.STORAGE_ENDPOINT || process.env.S3_ENDPOINT || process.env.R2_ENDPOINT;
+const STORAGE_REGION = process.env.STORAGE_REGION || process.env.AWS_REGION || 'auto';
+const STORAGE_BUCKET = process.env.STORAGE_BUCKET || process.env.S3_BUCKET || process.env.R2_BUCKET || 'xare-files';
+const STORAGE_ACCESS_KEY_ID = process.env.STORAGE_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID;
+const STORAGE_SECRET_ACCESS_KEY = process.env.STORAGE_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY;
+const STORAGE_PUBLIC_URL = process.env.STORAGE_PUBLIC_URL || process.env.R2_PUBLIC_URL || process.env.S3_PUBLIC_URL;
+const STORAGE_FORCE_PATH_STYLE = process.env.STORAGE_FORCE_PATH_STYLE === 'true';
 
-// Fail-closed server-side secret management (Supports new Secret key & legacy Service Role key)
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-const SUPABASE_BUCKET_NAME = process.env.SUPABASE_BUCKET_NAME || 'xare-files';
+// Maximum supported upload ceiling
+const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
 function sanitizeFileName(name: string): string {
   const base = name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -23,7 +27,7 @@ function generateFileId(): string {
 
 /**
  * Derives a trusted user ID from the authenticated request headers (Firebase ID token or session)
- * to prevent client-side user spoofing and guarantee strict object-key isolation.
+ * to guarantee strict object-key isolation and tenant isolation.
  */
 function getTrustedUserId(req: Request, clientUserId?: string): string {
   const authHeader = req.headers.get('Authorization');
@@ -48,6 +52,29 @@ function getTrustedUserId(req: Request, clientUserId?: string): string {
     ? clientUserId.replace(/[^a-zA-Z0-9_-]/g, '_') 
     : 'guest_user';
   return safe || 'guest_user';
+}
+
+function getS3Client(): S3Client | null {
+  if (!STORAGE_ACCESS_KEY_ID || !STORAGE_SECRET_ACCESS_KEY) {
+    return null;
+  }
+
+  return new S3Client({
+    endpoint: STORAGE_ENDPOINT || undefined,
+    region: STORAGE_REGION,
+    credentials: {
+      accessKeyId: STORAGE_ACCESS_KEY_ID,
+      secretAccessKey: STORAGE_SECRET_ACCESS_KEY,
+    },
+    forcePathStyle: STORAGE_FORCE_PATH_STYLE,
+  });
+}
+
+function detectProviderName(): string {
+  if (STORAGE_ENDPOINT?.includes('r2.cloudflarestorage.com') || process.env.R2_ENDPOINT) return 'cloudflare-r2';
+  if (STORAGE_ENDPOINT?.includes('backblazeb2.com')) return 'backblaze-b2';
+  if (STORAGE_ENDPOINT?.includes('amazonaws.com') || (!STORAGE_ENDPOINT && STORAGE_ACCESS_KEY_ID)) return 'aws-s3';
+  return 's3-compatible';
 }
 
 export default async function handler(req: Request) {
@@ -88,14 +115,17 @@ export default async function handler(req: Request) {
     }
 
     // 2. Parse Payload
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { action, objectKey, fileName, mimeType, fileSize, userId } = body;
 
-    // Verify Server-Side Supabase Configuration
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    const trustedUserId = getTrustedUserId(req, userId);
+    const s3Client = getS3Client();
+
+    // Verify Server-Side Storage Configuration
+    if (!s3Client) {
       return new Response(JSON.stringify({
-        error: 'SUPABASE_CONFIG_MISSING',
-        message: 'Supabase credentials (SUPABASE_URL, SUPABASE_SECRET_KEY / SUPABASE_SERVICE_ROLE_KEY) are not configured in Vercel environment variables.',
+        error: 'STORAGE_CONFIG_MISSING',
+        message: 'Object storage credentials (STORAGE_ACCESS_KEY_ID, STORAGE_SECRET_ACCESS_KEY, STORAGE_ENDPOINT, STORAGE_BUCKET) are not configured in environment variables.',
       }), {
         status: 503,
         headers: { 
@@ -105,18 +135,10 @@ export default async function handler(req: Request) {
       });
     }
 
-    // Initialize Supabase Client with Server-Side Secret Key
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      }
-    });
-
-    const trustedUserId = getTrustedUserId(req, userId);
+    const providerName = detectProviderName();
 
     // =========================================================================
-    // ACTION: sign-download (Generates verified signed download URL with token)
+    // ACTION: sign-download (Generates verified signed download URL)
     // =========================================================================
     if (action === 'sign-download' || action === 'download') {
       if (!objectKey || typeof objectKey !== 'string') {
@@ -134,41 +156,36 @@ export default async function handler(req: Request) {
         });
       }
 
-      const { data: downloadData, error: downloadError } = await supabase
-        .storage
-        .from(SUPABASE_BUCKET_NAME)
-        .createSignedUrl(objectKey, 7200);
-
-      if (downloadError || !downloadData || !downloadData.signedUrl) {
-        console.error('Supabase Signed Download URL Error:', downloadError);
-        return new Response(JSON.stringify({
-          error: 'SUPABASE_DOWNLOAD_SIGN_FAILED',
-          message: downloadError?.message || 'Failed to generate signed download URL.'
-        }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      let downloadUrl = '';
+      if (STORAGE_PUBLIC_URL) {
+        downloadUrl = `${STORAGE_PUBLIC_URL.replace(/\/$/, '')}/${objectKey}`;
+      } else {
+        const getCmd = new GetObjectCommand({
+          Bucket: STORAGE_BUCKET,
+          Key: objectKey,
         });
+        downloadUrl = await getSignedUrl(s3Client, getCmd, { expiresIn: 7200 });
       }
-
-      const fullDownloadUrl = downloadData.signedUrl.startsWith('http')
-        ? downloadData.signedUrl
-        : `${SUPABASE_URL}/storage/v1/${downloadData.signedUrl.replace(/^\//, '')}`;
 
       return new Response(JSON.stringify({
         success: true,
-        downloadUrl: fullDownloadUrl,
-        fileUrl: fullDownloadUrl,
+        downloadUrl: downloadUrl,
+        fileUrl: downloadUrl,
         objectKey: objectKey,
-        hasToken: fullDownloadUrl.includes('token='),
+        storageProvider: providerName,
         expiresIn: 7200
       }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store'
+        }
       });
     }
 
     // =========================================================================
-    // ACTION: upload presign (Default: Generates signed upload URL for browser)
+    // ACTION: upload presign (Default: Generates presigned upload URL for browser)
     // =========================================================================
     if (!fileName || !fileSize) {
       return new Response(JSON.stringify({ error: 'Bad Request: fileName and fileSize are required' }), {
@@ -180,8 +197,7 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 50MB Hard Application Ceiling (Pre-Upload Validation)
-    const MAX_SIZE = 50 * 1024 * 1024;
+    // 50MB Hard Application Ceiling
     if (fileSize > MAX_SIZE) {
       return new Response(JSON.stringify({ 
         error: 'FILE_TOO_LARGE',
@@ -201,59 +217,42 @@ export default async function handler(req: Request) {
 
     const effectiveMimeType = mimeType || (
       safeName.endsWith('.pdf') ? 'application/pdf' :
-      safeName.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? 'image/jpeg' :
-      safeName.match(/\.(webm|mp3|ogg|wav)$/i) ? 'audio/webm' :
+      safeName.match(/\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i) ? 'image/jpeg' :
+      safeName.match(/\.(webm|mp3|ogg|wav|m4a|flac)$/i) ? 'audio/webm' :
       'application/octet-stream'
     );
 
-    // Generate Signed Upload URL (Valid for 30 minutes for direct browser upload)
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from(SUPABASE_BUCKET_NAME)
-      .createSignedUploadUrl(generatedObjectKey);
+    // Generate S3 Presigned PUT Upload URL (Valid for 30 minutes)
+    const putCmd = new PutObjectCommand({
+      Bucket: STORAGE_BUCKET,
+      Key: generatedObjectKey,
+      ContentType: effectiveMimeType,
+    });
 
-    if (uploadError || !uploadData) {
-      console.error('Supabase Signed Upload URL Error:', uploadError);
-      return new Response(JSON.stringify({
-        error: 'SUPABASE_UPLOAD_SIGN_FAILED',
-        message: uploadError?.message || 'Could not generate signed upload URL from Supabase Storage.'
-      }), {
-        status: 500,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
+    const uploadUrl = await getSignedUrl(s3Client, putCmd, { expiresIn: 1800 });
+
+    // Generate Initial Download URL (either public CDN base or presigned GET)
+    let initialDownloadUrl = '';
+    if (STORAGE_PUBLIC_URL) {
+      initialDownloadUrl = `${STORAGE_PUBLIC_URL.replace(/\/$/, '')}/${generatedObjectKey}`;
+    } else {
+      const getCmd = new GetObjectCommand({
+        Bucket: STORAGE_BUCKET,
+        Key: generatedObjectKey,
       });
+      initialDownloadUrl = await getSignedUrl(s3Client, getCmd, { expiresIn: 7200 });
     }
-
-    // Attempt Signed Download URL generation
-    const { data: downloadData } = await supabase
-      .storage
-      .from(SUPABASE_BUCKET_NAME)
-      .createSignedUrl(generatedObjectKey, 7200);
-
-    let initialDownloadUrl = downloadData?.signedUrl || '';
-    if (initialDownloadUrl && !initialDownloadUrl.startsWith('http')) {
-      initialDownloadUrl = `${SUPABASE_URL}/storage/v1/${initialDownloadUrl.replace(/^\//, '')}`;
-    }
-
-    // Full Upload URL
-    const fullUploadUrl = uploadData.signedUrl.startsWith('http') 
-      ? uploadData.signedUrl 
-      : `${SUPABASE_URL}/storage/v1/${uploadData.signedUrl.replace(/^\//, '')}`;
 
     return new Response(JSON.stringify({
       success: true,
-      uploadUrl: fullUploadUrl,
+      uploadUrl: uploadUrl,
       downloadUrl: initialDownloadUrl,
-      token: uploadData.token,
-      path: uploadData.path || generatedObjectKey,
       fileId: fileId,
       objectKey: generatedObjectKey,
       fileName: safeName,
       fileSize: fileSize,
       mimeType: effectiveMimeType,
-      storageProvider: 'supabase',
+      storageProvider: providerName,
       expiresIn: 1800,
     }), {
       status: 200,
@@ -265,9 +264,9 @@ export default async function handler(req: Request) {
     });
 
   } catch (err: any) {
-    console.error('Supabase Presign Endpoint Error:', err);
+    console.error('Storage Presign Endpoint Error:', err);
     return new Response(JSON.stringify({
-      error: 'Failed to generate Supabase upload authorization',
+      error: 'Failed to generate storage upload authorization',
       message: err.message,
     }), {
       status: 500,

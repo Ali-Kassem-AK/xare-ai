@@ -1,0 +1,4739 @@
+{
+  "name": "Xare AI",
+  "nodes": [
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ typeof $json.body.message }}",
+                    "rightValue": "string",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "06964fc4-e774-4f15-8a2e-e70fc4378b4d"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "39c42eb2-f679-4247-a043-c439b4ffef70",
+                    "leftValue": "={{ $json.body?.message?.voice || $json.body?.voice || ($json.body?.message?.file_url && /\\.(mp3|wav|ogg|webm|m4a|aac|flac|oga)/i.test($json.body.message.file_url)) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "70a5057d-2b73-4c50-ab3c-4c1992eef7a0",
+                    "leftValue": "={{ $json.body?.message?.photo || $json.body?.photo || ($json.body?.message?.file_url && /\\.(jpg|jpeg|png|webp|gif|bmp|svg)/i.test($json.body.message.file_url)) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c1d70890-b024-4986-8d13-c1685aef11a1",
+                    "leftValue": "={{ $json.body?.message?.document || $json.body?.document || $json.body?.message?.file_url || $json.body?.file_url }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": "=false",
+        "options": {
+          "allMatchingOutputs": false
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -5216,
+        -3216
+      ],
+      "id": "f7a4ddf4-f3fc-4d43-81af-4a3f3f332845",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "xare-ai-v2-guALIharika",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -5520,
+        -3184
+      ],
+      "id": "871a7b54-e4f6-4cb1-847b-94f78754c5d5",
+      "name": "Webhook",
+      "webhookId": "9373cba5-102c-4b45-9dbf-5248fd3c40af",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XC3Ge4npYa9QBapV",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "destinationKey": "audioBase64",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1312,
+        -2224
+      ],
+      "id": "5de19765-9d8d-4028-a950-335c70dacd41",
+      "name": "Extract from File1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"image\": \"data:image/jpeg;base64,{{ $json.base64_data }}\"\n}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "image/jpeg"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        832,
+        -4320
+      ],
+      "id": "5e6bdcb2-b587-47b6-bd24-cde2c38aac13",
+      "name": "Respond to Webhook for Gen Image"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ \"text\": $json.content?.parts?.[0]?.text || $json.candidates?.[0]?.content?.parts?.[0]?.text || $json.output?.text || $json.output?.message || (typeof $json.output === 'string' ? $json.output : null) || $json.text || ($json.choices ? $json.choices[0]?.message?.content : null) || $json.error || \"An unknown error occurred.\" }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        944,
+        -1008
+      ],
+      "id": "56be45ee-4eb3-4f92-a0b0-7fcacae5ce25",
+      "name": "Respond to Webhook for Read Image"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"text\": $json.output } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        864,
+        -3024
+      ],
+      "id": "0beea5d2-75c7-41e3-b7c2-259f44af9374",
+      "name": "Respond to Webhook for Text"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  JSON.stringify({\n    \"output\": $('Voice contant Analyst').item.json.output.message,\n    \"audio\": \"data:audio/mpeg;base64,\" + $json.audioBase64\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        880,
+        -2144
+      ],
+      "id": "ddcc393c-4a64-48f4-9745-ac351cd5c37e",
+      "name": "Respond to Webhook for Voice"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  JSON.stringify({\n    \"text\": \n      $json.content?.parts?.[0]?.text ||\n      $json.candidates?.[0]?.content?.parts?.[0]?.text ||\n      $json.output ||\n      $json.text ||\n      $json.choices?.[0]?.message?.content ||\n      $json.response ||\n      $json.error ||\n      \"An unknown error occurred.\"\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        992,
+        208
+      ],
+      "id": "3fd515e1-b89e-4bc1-8a0b-3011fee15295",
+      "name": "Respond to Webhook for PDF"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepgram.com/v1/speak?model=aura-2-cordelia-en",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Token ce7c90ccbeb66ff86aec03be5138f3baab4994a4 "
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.output.message }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1504,
+        -2224
+      ],
+      "id": "71e4a9ae-0de1-4551-8f04-4144e58dcaab",
+      "name": "Deepgram"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "98465a70-2de7-47a1-9de3-2d58f315cfc9",
+              "leftValue": "={{ $json.body.action }}",
+              "rightValue": "=generate_image",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -4976,
+        -3232
+      ],
+      "id": "44be8d58-4a21-422d-bba0-8267fd13a9fe",
+      "name": "Text or Image Gen"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fea21e21-8c5a-44d6-b41c-7ba1f01d8c65",
+              "name": "status",
+              "value": "completed",
+              "type": "string"
+            },
+            {
+              "id": "2ab0bc96-bb9b-4144-a3f5-b82ccc48a877",
+              "name": "result",
+              "value": "={{\n  (() => {\n    try {\n      const out = $('Deep Thinking (Spare) 2').first().json.output;\n      if (out) return out;\n    } catch (e) {}\n\n    try {\n      const out = $('Conversational Content Analyst').first().json.output;\n      if (out) return out;\n    } catch (e) {}\n\n    try {\n      const out = $('Conversational Content Analyst (Spare) 4').first().json.output;\n      if (out) return out;\n    } catch (e) {}\n\n    return $json.output || $json.text || \"\";\n  })()\n}}",
+              "type": "string"
+            },
+            {
+              "id": "a31dc5ba-c2c4-48c2-8e5d-bf3da11d1869",
+              "name": "taskId",
+              "value": "={{ $('Webhook').first().json.body.taskId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        -3024
+      ],
+      "id": "67da2372-cf1a-42b0-a93e-82f82b512810",
+      "name": "Edit Fields (text)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fea21e21-8c5a-44d6-b41c-7ba1f01d8c65",
+              "name": "status",
+              "value": "completed",
+              "type": "string"
+            },
+            {
+              "id": "2ab0bc96-bb9b-4144-a3f5-b82ccc48a877",
+              "name": "result",
+              "value": "=data:image/jpeg;base64,{{ $json.base64_data }}",
+              "type": "string"
+            },
+            {
+              "id": "a31dc5ba-c2c4-48c2-8e5d-bf3da11d1869",
+              "name": "taskId",
+              "value": "={{ $('Webhook').first().json.body.taskId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1088,
+        -4304
+      ],
+      "id": "f6d27fa0-16a0-4055-8a27-137a14ffaad3",
+      "name": "Edit Fields (Gen Image)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"text\": $json.warningMessage } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        832,
+        -3904
+      ],
+      "id": "8fde9f93-90d5-44c4-99f8-3bb7bbcb9742",
+      "name": "Warning of Bad words"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fea21e21-8c5a-44d6-b41c-7ba1f01d8c65",
+              "name": "status",
+              "value": "completed",
+              "type": "string"
+            },
+            {
+              "id": "2ab0bc96-bb9b-4144-a3f5-b82ccc48a877",
+              "name": "result",
+              "value": "={{ $json.warningMessage }}",
+              "type": "string"
+            },
+            {
+              "id": "a31dc5ba-c2c4-48c2-8e5d-bf3da11d1869",
+              "name": "taskId",
+              "value": "={{ $('Webhook').first().json.body.taskId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1104,
+        -3904
+      ],
+      "id": "cfdcbeb4-4398-4467-9ebb-94b1dc842211",
+      "name": "Edit Fields (Warning bad words)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fea21e21-8c5a-44d6-b41c-7ba1f01d8c65",
+              "name": "status",
+              "value": "completed",
+              "type": "string"
+            },
+            {
+              "id": "2ab0bc96-bb9b-4144-a3f5-b82ccc48a877",
+              "name": "result",
+              "value": "={{ $('Image contant Analyst (Spare)').isExecuted ? $('Image contant Analyst (Spare)').item.json.output : $json.choices[0].message.content }}",
+              "type": "string"
+            },
+            {
+              "id": "a31dc5ba-c2c4-48c2-8e5d-bf3da11d1869",
+              "name": "taskId",
+              "value": "={{ $('Webhook').first().json.body.taskId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1184,
+        -1008
+      ],
+      "id": "8a756a6c-a371-41a5-ba35-3f033d82bf0e",
+      "name": "Edit Fields (Image)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fea21e21-8c5a-44d6-b41c-7ba1f01d8c65",
+              "name": "status",
+              "value": "completed",
+              "type": "string"
+            },
+            {
+              "id": "2ab0bc96-bb9b-4144-a3f5-b82ccc48a877",
+              "name": "result",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "a31dc5ba-c2c4-48c2-8e5d-bf3da11d1869",
+              "name": "taskId",
+              "value": "={{ $('Webhook').first().json.body.taskId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1216,
+        208
+      ],
+      "id": "be2e5463-eeca-4f3b-9a07-f42e5109122a",
+      "name": "Edit Fields (PDF)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fea21e21-8c5a-44d6-b41c-7ba1f01d8c65",
+              "name": "status",
+              "value": "completed",
+              "type": "string"
+            },
+            {
+              "id": "2ab0bc96-bb9b-4144-a3f5-b82ccc48a877",
+              "name": "result",
+              "value": "={{ $json.audioBase64 }}",
+              "type": "string"
+            },
+            {
+              "id": "a31dc5ba-c2c4-48c2-8e5d-bf3da11d1869",
+              "name": "taskId",
+              "value": "={{ $('Webhook').first().json.body.taskId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1136,
+        -2144
+      ],
+      "id": "e5fe83b2-1736-4a47-b044-7f8a960c5b0e",
+      "name": "Edit Fields (Voice)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n    const root = item.json || {};\n    const body = root.body || {};\n    const msg = (body && typeof body.message === 'object' && body.message !== null) ? body.message : (root.message || body);\n\n    const rawMediaType =\n      root.mediaType ??\n      root.media_type ??\n      body.mediaType ??\n      body.media_type ??\n      (msg && (msg.mediaType ?? msg.media_type)) ??\n      '';\n\n    const rawMimeType =\n      root.mimeType ??\n      root.mime_type ??\n      body.mimeType ??\n      body.mime_type ??\n      (msg && (msg.mimeType ?? msg.mime_type)) ??\n      '';\n\n    const rawFileName =\n      root.fileName ??\n      root.file_name ??\n      body.fileName ??\n      body.file_name ??\n      (msg && (msg.fileName ?? msg.file_name ?? msg.document?.file_name ?? msg.document?.fileName)) ??\n      '';\n\n    const rawFileUrl =\n      root.fileUrl ??\n      root.file_url ??\n      body.fileUrl ??\n      body.file_url ??\n      (msg && (msg.fileUrl ?? msg.file_url ?? msg.document?.file_url ?? msg.document?.fileUrl ?? msg.photo?.[0]?.file_url ?? msg.photo?.[0]?.fileUrl ?? msg.voice?.file_url ?? msg.voice?.fileUrl)) ??\n      '';\n\n    const rawFileSize =\n      root.fileSize ??\n      root.file_size ??\n      body.fileSize ??\n      body.file_size ??\n      (msg && (msg.fileSize ?? msg.file_size)) ??\n      0;\n\n    const explicit = String(rawMediaType).trim().toLowerCase();\n    const mime = String(rawMimeType).trim().toLowerCase();\n    const name = String(rawFileName).trim().toLowerCase();\n    const url = String(rawFileUrl).trim().toLowerCase();\n\n    let mediaType = '';\n\n    // 1. Explicit mediaType\n    if (['audio', 'image', 'pdf'].includes(explicit)) {\n      mediaType = explicit;\n    }\n    // 2. MIME type\n    else if (mime === 'application/pdf' || mime.includes('pdf')) {\n      mediaType = 'pdf';\n    } else if (mime.startsWith('image/')) {\n      mediaType = 'image';\n    } else if (mime.startsWith('audio/')) {\n      mediaType = 'audio';\n    }\n    // 3. Filename extension\n    else if (name.endsWith('.pdf')) {\n      mediaType = 'pdf';\n    } else if (/\\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(name)) {\n      mediaType = 'image';\n    } else if (/\\.(mp3|wav|webm|m4a|ogg|aac|flac|oga)$/i.test(name)) {\n      mediaType = 'audio';\n    }\n    // 4. Legacy containers\n    else if (msg && msg.photo) {\n      mediaType = 'image';\n    } else if (msg && msg.document) {\n      mediaType = 'pdf';\n    } else if (msg && msg.voice) {\n      mediaType = 'audio';\n    }\n    // 5. URL extension\n    else if (/\\.(pdf)(?:$|[?#])/i.test(url)) {\n      mediaType = 'pdf';\n    } else if (/\\.(jpg|jpeg|png|webp|gif|bmp|svg)(?:$|[?#])/i.test(url)) {\n      mediaType = 'image';\n    } else if (/\\.(mp3|wav|webm|m4a|ogg|aac|flac|oga)(?:$|[?#])/i.test(url)) {\n      mediaType = 'audio';\n    }\n\n    let effectiveMime = rawMimeType;\n    if (!effectiveMime) {\n      if (mediaType === 'pdf') effectiveMime = 'application/pdf';\n      else if (mediaType === 'image') effectiveMime = 'image/jpeg';\n      else if (mediaType === 'audio') effectiveMime = 'audio/webm';\n      else effectiveMime = 'application/octet-stream';\n    }\n\n    const effectiveFileName = rawFileName || (\n      mediaType === 'pdf' ? 'document.pdf' :\n      mediaType === 'image' ? 'image.jpg' :\n      mediaType === 'audio' ? 'audio.webm' : 'file.bin'\n    );\n\n    // Diagnostics / Error check for missing URL or malformed query on direct upload\n    if (rawFileUrl && typeof rawFileUrl === 'string' && rawFileUrl.startsWith('http')) {\n      try {\n        const parsedUrl = new URL(rawFileUrl);\n        if (parsedUrl.search.includes('X-Amz-Signature') && !parsedUrl.search.includes('X-Amz-Credential')) {\n          item.json.warning = 'Presigned storage URL appears to have malformed AWS/S3 query parameters.';\n        }\n      } catch (e) {\n        item.json.warning = 'Invalid file URL syntax.';\n      }\n    }\n\n    // Preserve all incoming metadata while assigning canonical properties\n    item.json.mediaType = mediaType;\n    item.json.mimeType = effectiveMime;\n    item.json.mime_type = effectiveMime;\n    item.json.fileName = effectiveFileName;\n    item.json.file_name = effectiveFileName;\n    item.json.fileUrl = rawFileUrl;\n    item.json.file_url = rawFileUrl;\n    item.json.fileSize = rawFileSize;\n    item.json.file_size = rawFileSize;\n    item.json.isDirectUpload = Boolean(rawFileUrl && String(rawFileUrl).startsWith('http'));\n\n    // Legacy Base64 fallback handling if direct upload is false\n    if (!item.json.isDirectUpload) {\n      let legacyBase64 = '';\n      if (msg && msg.photo && msg.photo[0]) {\n        legacyBase64 = msg.photo[0].file_id || msg.photo[0].fileId || '';\n      } else if (msg && msg.document) {\n        legacyBase64 = msg.document.file_id || msg.document.fileId || '';\n      } else if (msg && msg.voice) {\n        legacyBase64 = msg.voice.file_id || msg.voice.fileId || '';\n      }\n\n      if (legacyBase64 && typeof legacyBase64 === 'string') {\n        const base64Clean = legacyBase64.includes(',') ? legacyBase64.split(',')[1].trim() : legacyBase64.trim();\n        item.binary = {\n          data: {\n            data: base64Clean,\n            mimeType: effectiveMime,\n            fileName: effectiveFileName\n          }\n        };\n      }\n    }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5376,
+        -912
+      ],
+      "id": "d397f5fe-5028-4ddb-8024-be067f42404c",
+      "name": "Identify Media Type"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4776a167-3513-4202-8747-334392c6ef82",
+                    "leftValue": "={{ $json.mediaType || $('Identify Media Type').item.json.mediaType }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5e6a8cba-c2af-4719-a4d5-a41f0f26ad96",
+                    "leftValue": "={{ $json.mediaType || $('Identify Media Type').item.json.mediaType }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "431360dc-f8c1-48ea-91d6-07bbc48ab618",
+                    "leftValue": "={{ $json.mediaType || $('Identify Media Type').item.json.mediaType }}",
+                    "rightValue": "pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -4736,
+        -944
+      ],
+      "id": "6cf559f5-f55e-4941-85d6-15577ca4d3d6",
+      "name": "Route by Media Type"
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  if (item.binary && item.binary.data) {\n    // بنغير اسم الملف والامتداد عشان الـ API يقبله\n    item.binary.data.fileName = item.binary.data.fileName.replace('.oga', '.ogg');\n    item.binary.data.fileExtension = 'ogg';\n  }\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4496,
+        -2112
+      ],
+      "id": "5b29dc2b-e127-4c19-89a6-fc78f5e0d67e",
+      "name": "Rename .oga to .ogg"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "whisper-large-v3"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -4112,
+        -2112
+      ],
+      "id": "c5cead5a-cff9-41f4-a3a1-6d7bebe2cc6a",
+      "name": "Speech-to-Text (Groq)",
+      "credentials": {
+        "groqApi": {
+          "id": "bm2Qb3oFZnsiNGQA",
+          "name": "Groq account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Extract the user's message and convert it to lowercase for easier searching\nconst input = ($json.body?.message || $json.message || $json.chatInput || \"\").toLowerCase();\n\n// 2. Expanded List of banned English words (Added Innuendos and Actions)\nconst bannedWords = [\n  \"sexy\", \"naked\", \"pussy\", \"porn\", \"nude\", \"nudes\", \"nudity\", \"boobs\", \"dick\", \"vagina\", \n  \"sex\", \"nsfw\", \"ass\", \"asshole\", \"bitch\", \"slut\", \"fuck\", \"fucking\", \"motherfucker\", \n  \"cock\", \"tits\", \"titties\", \"cum\", \"cumshot\", \"creampie\", \"blowjob\", \"handjob\", \"titjob\",\n  \"rimjob\", \"masturbate\", \"masturbation\", \"whore\", \"hooker\", \"milf\", \"hentai\", \"erotic\", \n  \"fetish\", \"incest\", \"incestuous\", \"rape\", \"rapist\", \"orgasm\", \"clitoris\", \"clit\", \"penis\", \n  \"semen\", \"sperm\", \"jizz\", \"dildo\", \"vibrator\", \"strapon\", \"stripclub\", \"stripper\", \n  \"onlyfans\", \"kink\", \"kinky\", \"escort\", \"prostitute\", \"brothel\", \"gangbang\", \"threesome\", \n  \"orgy\", \"cunt\", \"dickhead\", \"twat\", \"smut\", \"gore\", \"bestiality\", \"zoophilia\", \"anal\", \n  \"bdsm\", \"bondage\", \"bukkake\", \"cameltoe\", \"cuckold\", \"deepthroat\", \"doggiestyle\", \n  \"doggystyle\", \"dominatrix\", \"ejaculate\", \"ejaculation\", \"facial\", \"fisting\", \"gloryhole\", \n  \"hardcore\", \"horny\", \"milking\", \"nipple\", \"nipples\", \"nympho\", \"paedophile\", \"pedophile\", \n  \"pegging\", \"penetration\", \"playboy\", \"porno\", \"pornography\", \"pubes\", \"sadism\", \"schlong\", \n  \"scrotum\", \"sexting\", \"shag\", \"shemale\", \"shibari\", \"skank\", \"snuff\", \"sodomy\", \"spank\", \n  \"spanking\", \"squirting\", \"swinger\", \"testicles\", \"thong\", \"tramp\", \"tranny\", \"xxx\", \n  \"scat\", \"gaping\", \"bareback\", \"underage\", \"faggot\", \"dyke\", \n  // --- New Innuendos & Actions added ---\n  \"suck\", \"sucking\", \"lick\", \"licking\", \"swallow\", \"swallowing\", \"gag\", \"gagging\", \n  \"choke\", \"choking\", \"nut\", \"nutting\", \"booty\", \"thicc\", \"cleavage\", \"upskirt\"\n];\n\nlet isNSFW = false;\n\n// Words that are often found hidden inside normal words \n// Added \"suck\", \"lick\", \"gag\", \"nut\" to strict check to avoid blocking words like \"click\" or \"peanut\"\nconst shortWordsToStrictCheck = [\n  \"ass\", \"sex\", \"cum\", \"anal\", \"tit\", \"tits\", \"cock\", \"dick\", \"xxx\", \"clit\", \n  \"suck\", \"lick\", \"gag\", \"nut\"\n];\n\n// 3. Search the message for any banned word\nfor (let word of bannedWords) {\n  if (input.includes(word)) {\n    // Extra safety check for short/risky words to prevent false positives\n    if (shortWordsToStrictCheck.includes(word)) {\n      const regex = new RegExp(`\\\\b${word}\\\\b`, 'i');\n      if (regex.test(input)) {\n        isNSFW = true;\n        break;\n      }\n    } else {\n      isNSFW = true;\n      break;\n    }\n  }\n}\n\n// 4. Return the result\nreturn {\n  json: {\n    ...$json, // Pass through the rest of the data as is\n    isSafe: !isNSFW, // true means safe, false means inappropriate\n    warningMessage: \"⚠️ **Content Policy Warning**\\n\\nI cannot generate this image because the prompt contains language that violates our safety guidelines. Please revise your request and try again.\"\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4416,
+        -3984
+      ],
+      "id": "023906ab-f6f9-42fa-8fdc-e650c114877c",
+      "name": "NSFW Content Filter"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8d32935b-c593-40e8-8315-080fe75aa5e6",
+              "leftValue": "={{ $json.isSafe }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -4208,
+        -3984
+      ],
+      "id": "5b4b8290-d678-435a-ba88-ce6a3af566c9",
+      "name": "Safety Check Pass"
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "destinationKey": "base64_data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -2192,
+        -4288
+      ],
+      "id": "ae703a17-b376-49e0-ae44-25f20f65d62f",
+      "name": "Encode Image to Base64"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "upsert",
+        "projectId": "xare-5bc49",
+        "collection": "=users/{{ $('Webhook').first().json.body.userId }}/ai_tasks",
+        "updateKey": "=taskId",
+        "columns": "status, result"
+      },
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1.1,
+      "position": [
+        3248,
+        -2176
+      ],
+      "id": "a94776c7-958d-4b2c-8245-0b2042a22c43",
+      "name": "Create or update a document",
+      "credentials": {
+        "googleApi": {
+          "id": "ABoW4XAMn00XqnYm",
+          "name": "Google Firebase Cloud Firestore account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -3248,
+        -960
+      ],
+      "id": "629c6979-f50a-4e56-8f61-84210b478f3e",
+      "name": "Merge",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fe056dbb-8dce-4da6-84da-6800518768ac",
+              "leftValue": "={{ $('Webhook').item.json.body.action }}",
+              "rightValue": "think",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -4576,
+        -3232
+      ],
+      "id": "a9af5343-5d3f-425c-ab6e-f4341abce67f",
+      "name": "If(Deep Thinking)"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -2464,
+        -4160
+      ],
+      "id": "9ede50af-a29f-4af6-9fcc-03028ec1bbf0",
+      "name": "Download Image",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "98599cac-41e4-45a0-909a-46ea778a6a32",
+              "name": "=imageUrl",
+              "value": "={{ JSON.parse($json.data.split('data: ')[1])[0].url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2704,
+        -4160
+      ],
+      "id": "1645f485-a9d5-4a44-bf90-bf46a0d8e20e",
+      "name": "ImageUrl"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "372b377f-2be5-4934-a7c4-6c6108257c28",
+              "leftValue": "={{ $json.output.is_english }}",
+              "rightValue": "^[a-zA-Z0-9\\s.,!?'\"()-]+$",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1888,
+        -2112
+      ],
+      "id": "c56015e5-c62a-49ad-aa5b-e62e7dd83ddb",
+      "name": "If(Only English)"
+    },
+    {
+      "parameters": {
+        "url": "=https://llamameta-fake-flux-pro-unlimited.hf.space/gradio_api/call/generate_image/{{ $json.event_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "text/event-stream"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -2944,
+        -4160
+      ],
+      "id": "d987bdb3-9ec6-4eaf-94a0-bc7636148057",
+      "name": "Getting the image data",
+      "executeOnce": false,
+      "notesInFlow": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://llamameta-fake-flux-pro-unlimited.hf.space/gradio_api/call/generate_image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"data\": [\n    {{ JSON.stringify($('Webhook').item.json.body.message) }},\n    \"imagen-4-ultra\"\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -3184,
+        -4160
+      ],
+      "id": "4b135ed0-85e3-46c4-b7cc-c9f8bcf57117",
+      "name": "Imagen-4-ultra Image Generator_ID",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2f4c54f6-b300-45a0-a7c7-adcb4ab4a5a3",
+              "leftValue": "={{ $binary.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3872,
+        -4384
+      ],
+      "id": "9ef38e4b-4e2c-4bba-9e0a-91e5c3e92304",
+      "name": "If(General Flux fails)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://image.pollinations.ai/prompt/{{ encodeURIComponent($('Webhook').item.json.body.message) }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "flux"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -4080,
+        -4384
+      ],
+      "id": "59c05760-21dd-43f6-9f4f-33383744f2d9",
+      "name": "Pollinations.ai (General)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "=https://gen.pollinations.ai/image/{{ encodeURIComponent($('Webhook').item.json.body.message) }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "sk_A2M33ohjAls320f8XVOwNpGiKF1Qe9Dp"
+            },
+            {
+              "name": "model",
+              "value": "flux"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -3696,
+        -4288
+      ],
+      "id": "1fe396a0-e380-415f-aa33-36e7819943a9",
+      "name": "Pollinations.ai (Private)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2f4c54f6-b300-45a0-a7c7-adcb4ab4a5a3",
+              "leftValue": "={{ $binary.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3456,
+        -4288
+      ],
+      "id": "8861975f-012d-4e2a-a2f0-ff9d516c40f5",
+      "name": "If(Private Flux fails)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Webhook').first().json.body?.message?.caption || \"Analyze this image and describe its contents in detail.\" }}",
+        "options": {
+          "maxIterations": 5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -2624,
+        -960
+      ],
+      "id": "af0948fc-b76b-4621-913b-a030c358e80c",
+      "name": "Image contant Analyst (Spare)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fea21e21-8c5a-44d6-b41c-7ba1f01d8c65",
+              "name": "status",
+              "value": "completed",
+              "type": "string"
+            },
+            {
+              "id": "2ab0bc96-bb9b-4144-a3f5-b82ccc48a877",
+              "name": "result",
+              "value": "={{ $('Voice contant Analyst').item.json.output + \"\\n\\nSorry, the only available voice message language for now is English, Try again later. 😅\" }}",
+              "type": "string"
+            },
+            {
+              "id": "a31dc5ba-c2c4-48c2-8e5d-bf3da11d1869",
+              "name": "taskId",
+              "value": "={{ $('Webhook').first().json.body.taskId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        -1872
+      ],
+      "id": "ebbc2387-526d-41c0-b3ff-460560bb868d",
+      "name": "Edit Fields (Not English)"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"message\": \"Your conversational response goes here.\",\n  \"is_english\": true\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -3536,
+        -2000
+      ],
+      "id": "8474e212-54cb-4782-bd30-621667ee0df8",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  JSON.stringify({\n    \"output\":$json.output.message + \"\\n\\nSorry, the only available voice message language for now is English.☺️\"\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        -1872
+      ],
+      "id": "3d4fb103-0c96-454e-8738-ca65bae8f96a",
+      "name": "Respond to Text voice messages"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Role: > You are the spoken-voice interface for Xare, an advanced AI system. Your sole function is to generate conversational responses designed to be read out loud by a Text-to-Speech (TTS) engine.\n\nAbsolute Constraints (Failure will break the system):\n\nNO MARKDOWN: You are strictly forbidden from using asterisks (*), underscores (_), hash symbols (#), backticks (`), or any other formatting symbols.\n\nNO STRUCTURED DATA: Never generate tables, bulleted lists, numbered lists, or code blocks. If you need to list items, use natural spoken transitions (e.g., \"First...\", \"Another thing to consider is...\", \"Finally...\").\n\nNO VISUAL SYMBOLS: Do not use emojis, emoticons, or mathematical symbols. Spell out symbols as words (e.g., use \"percent\" instead of \"%\", \"equals\" instead of \"=\").\n\nNUMBERS: Write out small numbers as words (e.g., \"three\" instead of \"3\") to ensure the TTS reads them smoothly. For larger numbers, standard digits are acceptable.\n\nACRONYMS: If an acronym is typically pronounced as individual letters, write it with hyphens or spaces if necessary to force the TTS to spell it out (e.g., \"A I\" or \"A-I\", not \"AI\" if the TTS mispronounces it), otherwise use the standard acronym.\n\nSTRICT LENGTH LIMIT: Your entire response MUST be under 300 words (strictly under 1,800 characters). You must be concise and get straight to the point. If the context provided to you is very long, synthesize and summarize only the most critical information necessary for a quick spoken update. Do not add unnecessary filler or long-winded introductions.\n\nTone & Delivery:\nYour output must read like a natural, human-to-human radio script or phone conversation. Use standard punctuation (commas, periods, question marks) to create natural breathing pauses for the TTS. Keep sentences relatively short and easily digestible. Be warm, professional, and conversational.\n\nYou must strictly output your response as a raw JSON object containing exactly two keys:\n\n\"message\": Your spoken conversational response.\n\n\"is_english\": A boolean (true if the message is in English, false if it is in Arabic or any other language)."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -3792,
+        -2112
+      ],
+      "id": "245ad599-6038-456a-9566-edb6dcaaa967",
+      "name": "Voice contant Analyst"
+    },
+    {
+      "parameters": {
+        "content": "Document OCR & Chunking Pipeline",
+        "height": 1504,
+        "width": 6260,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4576,
+        -176
+      ],
+      "id": "d9fcbb2a-770c-4f6f-9bd6-682f94481620",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Computer Vision & Analysis Pipeline",
+        "height": 960,
+        "width": 6240,
+        "color": "#25505B"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4576,
+        -1360
+      ],
+      "id": "e9f03244-7260-4fb4-b27e-a2e3bbbd9b66",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "Adaptive Complexity Pipeline",
+        "height": 1248,
+        "width": 6224,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4592,
+        -3648
+      ],
+      "id": "93236d1c-df1c-492c-8e4c-71f5e5dbcd58",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "Conversational Logic & NLP Pipeline",
+        "height": 688,
+        "width": 6240,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4592,
+        -2304
+      ],
+      "id": "3e7aa1bd-9a34-4e04-863c-94af917092dd",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "Image Generation Pipeline",
+        "height": 896,
+        "width": 6224,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4592,
+        -4608
+      ],
+      "id": "12ff4794-7ee3-4539-bc28-57451427b920",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -3792,
+        -1952
+      ],
+      "id": "cf6b42e1-7430-40f3-a15a-bd7a926b17f4",
+      "name": "GPT-oss-120b",
+      "credentials": {
+        "groqApi": {
+          "id": "BvkYldsGmvOhlbMJ",
+          "name": "Groq account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -3536,
+        -1840
+      ],
+      "id": "7aa6f336-7730-4446-a759-8ad5f22b3005",
+      "name": "Llama-3.1-8b-instant",
+      "credentials": {
+        "groqApi": {
+          "id": "M0wCgnM2c5lE6Lyf",
+          "name": "Groq account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').first().json.body.sessionId }}",
+        "contextWindowLength": 30
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -2160,
+        -1504
+      ],
+      "id": "0d831b28-3d54-4d9e-a400-7384f0ba544e",
+      "name": "Chat Memory"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -448,
+        768
+      ],
+      "id": "5c09a792-7ee2-4e6f-83ef-a732b3332c4c",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=<user_query>\n{{$('Webhook').item.json.body.message.caption|| $json?.query || $json?.user_message || $json?.chatInput || $json?.input }}\n</user_query>\n\n<document_content>\n{{ $json?.text || $json?.full_extracted_text || $json?.content?.parts?.[0]?.text || '' }}\n</document_content>\n\n<task>\n1. Directly answer the question in <user_query> using the facts in <document_content>.\n2. Respond entirely in the EXACT SAME LANGUAGE as <user_query>.\n3. Adhere strictly to the frontend UI Markdown components.\n</task>",
+        "options": {
+          "systemMessage": "=You are an expert Document Intelligence and Analysis AI engine.\n\nCRITICAL OPERATIONAL RULES:\n1. STRICT LANGUAGE MATCHING (TOP PRIORITY): \n   - Detect the language of <user_query>. \n   - You MUST write 100% of your response in that exact same language (e.g., if the user query asks in language X, your entire response MUST be in that language X).\n   - NEVER default to the document's language if the user's query is in a different language. Translate/explain document terms naturally in the user's language.\n\n2. DIRECT QUESTION ANSWERING:\n   - If the user asks a specific question (e.g., verifying a solution, extracting a specific detail, or solving an equation), answer it directly. \n   - DO NOT generate a generic \"Document Overview & Metadata\" or summary unless the user explicitly requested a summary.\n\n3. ACCURACY & RIGOR:\n   - Verify every step, equation, and logic gate independently against standard academic/technical rules.\n   - Point out exact errors step-by-step if a student's solution is wrong.\n\n[MANDATORY FRONTEND UI STYLING - ALL RESPONSES]\nStructure EVERY response using the frontend Markdown components below:\n- `### Header` -> Section titles (in the user's language).\n- `> Blockquote` -> Key takeaways, final verdicts, and critical rules.\n- `| Table |` -> Comparisons, truth tables, and structured data.\n- `1. `, `2. ` -> Step-by-step solutions and sequences.\n- `- ` / `* ` -> Bullet points.\n- `Key: Value` -> 2-column metric cards.\n- `inline code` & ```lang``` -> Code, variables, and expressions.\n- `$math$` / `$$math$$` -> LaTeX formulas (e.g., $F = A \\cdot B + \\overline{C}$).\n- `---` -> Divider lines between major sections.",
+          "enableStreaming": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -256,
+        112
+      ],
+      "id": "9f40cb0b-5ef6-4fda-b520-627a7e732351",
+      "name": "Document contant Analyst",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b6a785a5-9621-4701-b6c6-909fa320e150",
+              "leftValue": "={{$json?.output}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        256,
+        112
+      ],
+      "id": "84043b39-7a96-46c2-801b-b26d3705a1cb",
+      "name": "If(Document contant Analyst failed)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aliiis-pdf-to-image-api.hf.space/convert",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -192,
+        768
+      ],
+      "id": "7f936c02-fc95-4215-8f2b-e20b6c3b87d4",
+      "name": "pdf-to-image",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Searches the live web using Tavily. Use this tool whenever you need up-to-date info, latest YouTube videos, news, or real-time facts. Always pass a clear search query.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"api_key\": \"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\",\n  \"query\": \"={{ $fromAI('query', 'The search query to look up on the web') }}\",\n  \"search_depth\": \"advanced\",\n  \"include_answer\": false,\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -1440,
+        -2576
+      ],
+      "id": "52fea699-77db-4d32-b181-906cea7f3143",
+      "name": "web_search4"
+    },
+    {
+      "parameters": {
+        "description": "CRITICAL: ALWAYS call this tool whenever the user asks who built Xare, who made Xare, how Xare was built, how it works under the hood, or asks about its backend n8n architecture, pipelines, and AI models[cite: 2].",
+        "jsCode": "return JSON.stringify({\n  sys: { name: \"Xare V2\", arch: \"Ali Kassem\", nodes: 120, cost: \"100% zero-cost\", host: \"Hugging Face Spaces\", cdn: \"Vercel\" },\n  storage: \"Cloud Object Storage (50MB/file direct signed stream)\",\n  cascades: {\n    text: [\n      \"Tier 1: Google gemini-3.5-flash-lite\",\n      \"Tier 2: Groq qwen/qwen3.8-27b\",\n      \"Tier 3: Groq qwen/qwen3.8-27b (Spare)\",\n      \"Tier 4: Google gemini-3.1-flash-lite\",\n      \"Tier 5: Groq qwen/qwen3.8-27b (Spare 2)\",\n      \"Tier 6: Groq qwen/qwen3.8-27b (Spare 3)\"\n    ],\n    thinking: [\n      \"Tier 1: Google gemini-3.7-flash\",\n      \"Tier 2: Google gemini-3.7-flash (Spare)\",\n      \"Tier 3: Groq qwen/qwen3.8-27b\",\n      \"Tier 4: Groq openai/gpt-oss-120b\",\n      \"Output: Structured CoT Reasoning\"\n    ],\n    docPdf: [\n      \"Tier 1: Google gemini-3.1-flash-lite\",\n      \"Tier 2: Google gemini-3.1-flash-lite (Spare)\",\n      \"Tier 3: Google gemini-3.7-flash\",\n      \"Tier 4: Google gemini-3.1-flash-lite (Spare 2)\",\n      \"Tier 5: HF pdf-to-image + Groq qwen/qwen3.8-27b\",\n      \"Tier 6: Google gemini-3.5-flash-lite QA Synthesis\"\n    ],\n    vision: [\n      \"Tier 1: Google gemini-3.1-flash-lite\",\n      \"Tier 2: Groq qwen/qwen3.8-27b (Vision)\",\n      \"Tier 3: Groq qwen/qwen3.8-27b (Spare Vision)\",\n      \"Extractor: Universal Response Extractor\"\n    ],\n    voice: [\n      \"STT: Groq whisper-large-v3\",\n      \"Script: Groq openai/gpt-oss-120b (<300 words)\",\n      \"Validator: Groq llama-3.1-8b-instant\",\n      \"TTS: Deepgram aura-2-cordelia-en\",\n      \"Fallback: Non-English Text Fallback\"\n    ],\n    image: [\n      \"Filter: NSFW Regex Filter\",\n      \"Tier 1: Pollinations.ai flux (General)\",\n      \"Tier 2: Pollinations.ai flux (Private)\",\n      \"Tier 3: HF imagen-4-ultra\",\n      \"Output: Base64 JPEG Stream\"\n    ]\n  },\n  infra: { mem: \"24 turns\", db: \"Firestore\", search: \"Tavily API\", cache: \"IndexedDB (>1MB)\" },\n  links: {\n    app: \"https://xare-ai.vercel.app/\",\n    port: \"https://ali-kassem-portfolio-io.vercel.app/\",\n    li: \"https://www.linkedin.com/in/ali-kassem-7224bb244/\",\n    gh: \"https://github.com/Ali-Kassem-AK\"\n  },\n  images: {\n    diag: \"https://xare-ai.vercel.app/assets/architecture.png\",\n    flow: \"https://xare-ai.vercel.app/assets/Global%20System%20Topology%20%26%20Execution%20Flow.png\"\n  }\n});",
+        "specifyInputSchema": true,
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"query\": {\n      \"type\": \"string\",\n      \"description\": \"The search query or question about Xare architecture\"\n    }\n  },\n  \"required\": []\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -1968,
+        -2720
+      ],
+      "id": "04f5489f-cc3c-4f3e-9b22-aa7da6049dfe",
+      "name": "get_xare_architecture2"
+    },
+    {
+      "parameters": {
+        "description": "CRITICAL: ALWAYS call this tool whenever the user asks who built Xare, who made Xare, how Xare was built, how it works under the hood, or asks about its backend n8n architecture, pipelines, and AI models[cite: 2].",
+        "jsCode": "return JSON.stringify({\n  sys: { name: \"Xare V2\", arch: \"Ali Kassem\", nodes: 120, cost: \"100% zero-cost\", host: \"Hugging Face Spaces\", cdn: \"Vercel\" },\n  storage: \"Cloud Object Storage (50MB/file direct signed stream)\",\n  cascades: {\n    text: [\n      \"Tier 1: Google gemini-3.5-flash-lite\",\n      \"Tier 2: Groq qwen/qwen3.8-27b\",\n      \"Tier 3: Groq qwen/qwen3.8-27b (Spare)\",\n      \"Tier 4: Google gemini-3.1-flash-lite\",\n      \"Tier 5: Groq qwen/qwen3.8-27b (Spare 2)\",\n      \"Tier 6: Groq qwen/qwen3.8-27b (Spare 3)\"\n    ],\n    thinking: [\n      \"Tier 1: Google gemini-3.7-flash\",\n      \"Tier 2: Google gemini-3.7-flash (Spare)\",\n      \"Tier 3: Groq qwen/qwen3.8-27b\",\n      \"Tier 4: Groq openai/gpt-oss-120b\",\n      \"Output: Structured CoT Reasoning\"\n    ],\n    docPdf: [\n      \"Tier 1: Google gemini-3.1-flash-lite\",\n      \"Tier 2: Google gemini-3.1-flash-lite (Spare)\",\n      \"Tier 3: Google gemini-3.7-flash\",\n      \"Tier 4: Google gemini-3.1-flash-lite (Spare 2)\",\n      \"Tier 5: HF pdf-to-image + Groq qwen/qwen3.8-27b\",\n      \"Tier 6: Google gemini-3.5-flash-lite QA Synthesis\"\n    ],\n    vision: [\n      \"Tier 1: Google gemini-3.1-flash-lite\",\n      \"Tier 2: Groq qwen/qwen3.8-27b (Vision)\",\n      \"Tier 3: Groq qwen/qwen3.8-27b (Spare Vision)\",\n      \"Extractor: Universal Response Extractor\"\n    ],\n    voice: [\n      \"STT: Groq whisper-large-v3\",\n      \"Script: Groq openai/gpt-oss-120b (<300 words)\",\n      \"Validator: Groq llama-3.1-8b-instant\",\n      \"TTS: Deepgram aura-2-cordelia-en\",\n      \"Fallback: Non-English Text Fallback\"\n    ],\n    image: [\n      \"Filter: NSFW Regex Filter\",\n      \"Tier 1: Pollinations.ai flux (General)\",\n      \"Tier 2: Pollinations.ai flux (Private)\",\n      \"Tier 3: HF imagen-4-ultra\",\n      \"Output: Base64 JPEG Stream\"\n    ]\n  },\n  infra: { mem: \"24 turns\", db: \"Firestore\", search: \"Tavily API\", cache: \"IndexedDB (>1MB)\" },\n  links: {\n    app: \"https://xare-ai.vercel.app/\",\n    port: \"https://ali-kassem-portfolio-io.vercel.app/\",\n    li: \"https://www.linkedin.com/in/ali-kassem-7224bb244/\",\n    gh: \"https://github.com/Ali-Kassem-AK\"\n  },\n  images: {\n    diag: \"https://xare-ai.vercel.app/assets/architecture.png\",\n    flow: \"https://xare-ai.vercel.app/assets/Global%20System%20Topology%20%26%20Execution%20Flow.png\"\n  }\n});",
+        "specifyInputSchema": true,
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"query\": {\n      \"type\": \"string\",\n      \"description\": \"The search query or question about Xare architecture\"\n    }\n  },\n  \"required\": []\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -1280,
+        -2576
+      ],
+      "id": "5b12f345-fb9f-495c-821c-a4d0bbe528d9",
+      "name": "get_xare_architecture3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the incoming item\nconst item = $input.item;\n\n// If binary file is already downloaded from Object Storage, preserve it and forward directly!\nif (item.binary && item.binary.data && item.binary.data.data) {\n    return item;\n}\n\nlet rawData = null;\nconst msg = item.json.body?.message || item.json?.message;\n\nif (msg && msg.document && msg.document.file_id) {\n    rawData = msg.document.file_id;\n}\n\n// Base64 fallback processing\nif (rawData && typeof rawData === 'string') {\n    const base64Data = rawData.includes(',') ? rawData.split(',')[1].trim() : rawData.trim();\n    item.binary = item.binary || {};\n    item.binary.data = {\n        data: base64Data,\n        mimeType: 'application/pdf',\n        fileName: 'upload_recovered.pdf'\n    };\n    if (item.json.error) {\n        delete item.json.error;\n        item.json.status = \"Recovered via Base64 Fallback\";\n    }\n} else {\n    item.json.fallback_error = \"Could not find a valid base64 document in the message payload.\";\n}\n\nreturn item;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4496,
+        -80
+      ],
+      "id": "c08623c4-a95f-4cb9-a9e7-62e41137b3d8",
+      "name": "Convert Base64 to PDF Binary"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -2656,
+        -3232
+      ],
+      "id": "ee241ddf-5acf-431e-b668-40039a6218d2",
+      "name": "GPT-OSS- 120B",
+      "credentials": {
+        "groqApi": {
+          "id": "bm2Qb3oFZnsiNGQA",
+          "name": "Groq account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Searches the live web using Tavily. Use this tool whenever you need up-to-date info, latest YouTube videos, news, or real-time facts. Always pass a clear search query.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"api_key\": \"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\",\n  \"query\": \"={{ $fromAI('query', 'The search query to look up on the web') }}\",\n  \"search_depth\": \"advanced\",\n  \"include_answer\": false,\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -2080,
+        -2720
+      ],
+      "id": "9870f5d4-85a8-4fbf-9fb7-43fc884817d4",
+      "name": "web_search5"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1792,
+        -864
+      ],
+      "id": "ea3e9233-629b-44ae-86b7-0d26390e92e1",
+      "name": "Merge3",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -3696,
+        192
+      ],
+      "id": "1eca3c9f-d45b-4bdc-af16-fa8a82fad786",
+      "name": "Merge4"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -2016,
+        400
+      ],
+      "id": "f763b3b1-d150-40e4-9e2d-7dff22106594",
+      "name": "Extract from File",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -3024,
+        464
+      ],
+      "id": "354d2c24-3b90-4862-9f3c-6f80d5ba962b",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-lite-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.1-flash-lite-preview",
+          "cachedResultUrl": ""
+        },
+        "text": "={{$('Webhook').item.json.body.message.caption|| $json?.query || $json?.user_message || $json?.chatInput || $json?.input }}",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -3488,
+        192
+      ],
+      "id": "98e49bf1-dde1-41b5-b7b6-9c9ec4bade91",
+      "name": "Analyze pdf (spare)",
+      "executeOnce": false,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wlKvgj1NoePTjoap",
+          "name": "Google Gemini contact"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "description": "CRITICAL: ALWAYS call this tool whenever the user asks who built Xare, who made Xare, how Xare was built, how it works under the hood, or asks about its backend n8n architecture, pipelines, and AI models[cite: 2].",
+        "jsCode": "return JSON.stringify({\n  sys: { name: \"Xare V2\", arch: \"Ali Kassem\", nodes: 120, cost: \"100% zero-cost\", host: \"Hugging Face Spaces\", cdn: \"Vercel\" },\n  storage: \"Cloud Object Storage (50MB/file direct signed stream)\",\n  cascades: {\n    text: [\n      \"Tier 1: Google gemini-3.5-flash-lite\",\n      \"Tier 2: Groq qwen/qwen3.8-27b\",\n      \"Tier 3: Groq qwen/qwen3.8-27b (Spare)\",\n      \"Tier 4: Google gemini-3.1-flash-lite\",\n      \"Tier 5: Groq qwen/qwen3.8-27b (Spare 2)\",\n      \"Tier 6: Groq qwen/qwen3.8-27b (Spare 3)\"\n    ],\n    thinking: [\n      \"Tier 1: Google gemini-3.7-flash\",\n      \"Tier 2: Google gemini-3.7-flash (Spare)\",\n      \"Tier 3: Groq qwen/qwen3.8-27b\",\n      \"Tier 4: Groq openai/gpt-oss-120b\",\n      \"Output: Structured CoT Reasoning\"\n    ],\n    docPdf: [\n      \"Tier 1: Google gemini-3.1-flash-lite\",\n      \"Tier 2: Google gemini-3.1-flash-lite (Spare)\",\n      \"Tier 3: Google gemini-3.7-flash\",\n      \"Tier 4: Google gemini-3.1-flash-lite (Spare 2)\",\n      \"Tier 5: HF pdf-to-image + Groq qwen/qwen3.8-27b\",\n      \"Tier 6: Google gemini-3.5-flash-lite QA Synthesis\"\n    ],\n    vision: [\n      \"Tier 1: Google gemini-3.1-flash-lite\",\n      \"Tier 2: Groq qwen/qwen3.8-27b (Vision)\",\n      \"Tier 3: Groq qwen/qwen3.8-27b (Spare Vision)\",\n      \"Extractor: Universal Response Extractor\"\n    ],\n    voice: [\n      \"STT: Groq whisper-large-v3\",\n      \"Script: Groq openai/gpt-oss-120b (<300 words)\",\n      \"Validator: Groq llama-3.1-8b-instant\",\n      \"TTS: Deepgram aura-2-cordelia-en\",\n      \"Fallback: Non-English Text Fallback\"\n    ],\n    image: [\n      \"Filter: NSFW Regex Filter\",\n      \"Tier 1: Pollinations.ai flux (General)\",\n      \"Tier 2: Pollinations.ai flux (Private)\",\n      \"Tier 3: HF imagen-4-ultra\",\n      \"Output: Base64 JPEG Stream\"\n    ]\n  },\n  infra: { mem: \"24 turns\", db: \"Firestore\", search: \"Tavily API\", cache: \"IndexedDB (>1MB)\" },\n  links: {\n    app: \"https://xare-ai.vercel.app/\",\n    port: \"https://ali-kassem-portfolio-io.vercel.app/\",\n    li: \"https://www.linkedin.com/in/ali-kassem-7224bb244/\",\n    gh: \"https://github.com/Ali-Kassem-AK\"\n  },\n  images: {\n    diag: \"https://xare-ai.vercel.app/assets/architecture.png\",\n    flow: \"https://xare-ai.vercel.app/assets/Global%20System%20Topology%20%26%20Execution%20Flow.png\"\n  }\n});",
+        "specifyInputSchema": true,
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"query\": {\n      \"type\": \"string\",\n      \"description\": \"The search query or question about Xare architecture\"\n    }\n  },\n  \"required\": []\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -2992,
+        -2768
+      ],
+      "id": "c349b8fc-28b1-4a19-8e94-8b49605b4757",
+      "name": "get_xare_architecture4"
+    },
+    {
+      "parameters": {
+        "description": "CRITICAL: ALWAYS call this tool whenever the user asks who built Xare, who made Xare, how Xare was built, how it works under the hood, or asks about its backend n8n architecture, pipelines, and AI models[cite: 2].",
+        "jsCode": "const report=`## Xare V2 — System Architecture & Backend Overview\n### 1. Vision & Zero-Cost Infrastructure\n- **Lead Architect:** Ali Kassem\n- **Topology:** Production multimodal AI orchestration engine with **120 n8n nodes**, running at 100% zero infrastructure cost.\n- **Storage:** **Cloud Object Storage (S3/R2/B2)** with instant background pre-upload + direct signed streaming, up to **50MB/file**, sub-second metadata dispatch.\n- **Hosting/Uptime:** Self-hosted on **Hugging Face Spaces**, kept permanently active via automated **GitHub Actions** cron jobs (zero cold-starts / anti-sleep).\n- **Production:** Global **Vercel Edge CDN** at https://xare-ai.vercel.app/\n### 2. Ingestion & Multi-Stream Routing\n- **Direct Storage Ingestion:** Files upload directly from client to Cloud Object Storage; n8n receives only ~1KB metadata: \\`fileUrl\\`, \\`fileId\\`, \\`fileName\\`, \\`fileSize\\`, \\`mimeType\\`.\n- **Switch-First Routing:** \\`Node #10: Switch\\`\n  1. **Text/Reasoning:** $\\rightarrow$ \\`Node #25: Text or Image Gen\\` for classification, Deep Thinking, and dialogue.\n  2. **Media:** $\\rightarrow$ \\`Node #2: Identify Media Type\\` $\\rightarrow$ \\`Node #48: Download Remote File\\` $\\rightarrow$ \\`Node #3: Route by Media Type\\`.\n- **Streams:** Text/Chat; Voice (\\`.webm\\`/\\`.oga\\`/\\`.ogg\\`, Groq Whisper \\`whisper-large-v3\\`, Deepgram TTS \\`aura-2-cordelia-en\\`); Photo/Vision; Document/PDF (\\`pdf-to-image\\`); Generative Image (\\`action: generate_image\\`).\n### 3. Multi-Tier LLM Fallback Cascade\n**6-stage multi-provider failover** for rate limits, token bottlenecks, and outages:\n| Modality | Tier 1 | Tier 2 | Tier 3 | Tier 4 | Tier 5 | Tier 6 |\n|---|---|---|---|---|---|---|\n| **Conversational Text (6 Agents)** | Google \\`gemini-3.5-flash-lite\\` | Groq \\`qwen/qwen3.8-27b\\` | Groq \\`qwen/qwen3.8-27b\\` (Spare) | Google \\`gemini-3.1-flash-lite\\` | Groq \\`qwen/qwen3.8-27b\\` (Spare 2) | Groq \\`qwen/qwen3.8-27b\\` (Spare 3) |\n| **Deep Thinking (4 Agents)** | Google \\`gemini-3.7-flash\\` | Google \\`gemini-3.7-flash\\` (Spare) | Groq \\`qwen/qwen3.8-27b\\` | Groq \\`openai/gpt-oss-120b\\` | — | Structured CoT Reasoning |\n| **Document / PDF (7 Tiers)** | Google \\`gemini-3.1-flash-lite\\` | Google \\`gemini-3.1-flash-lite\\` (Spare) | Google \\`gemini-3.7-flash\\` | Google \\`gemini-3.1-flash-lite\\` (Spare 2) | HF \\`pdf-to-image\\` + Qwen 3.6 27B | Google \\`gemini-3.5-flash-lite\\` QA Synthesis |\n| **Vision / Multimodal (3 Tiers)** | Google \\`gemini-3.1-flash-lite\\` | Groq \\`qwen/qwen3.8-27b\\` (Vision) | Groq \\`qwen/qwen3.8-27b\\` (Spare Vision) | — | — | Universal Response Extractor |\n| **Voice Subsystem** | Groq Whisper (\\`whisper-large-v3\\`) | Groq \\`openai/gpt-oss-120b\\` (Radio Script) | Groq \\`llama-3.1-8b-instant\\` (Validator) | Deepgram (\\`aura-2-cordelia-en\\`) | — | Non-English Text Fallback |\n| **Image Generation** | NSFW Regex Filter | Pollinations.ai (\\`flux\\` General) | Pollinations.ai (\\`flux\\` Private) | HF (\\`imagen-4-ultra\\`) | — | Base64 JPEG Stream |\n- **Memory:** \\`memoryBufferWindow\\` with **24-turn** conversation history + session isolation.\n- **Web Search:** Native **Tavily Search API** (\\`api.tavily.com\\`).\n### 4. Multimodal Processing Pipelines\n- **Conversational Text:** 6-tier agents with \\`web_search\\` + \\`get_xare_architecture\\`; Gemini 3.5 Flash Lite $\\rightarrow$ multi-account Groq Qwen 3.6 27B $\\rightarrow$ Gemini 3.1 Flash Lite.\n- **Deep Thinking:** Gemini 3.7 Flash $\\rightarrow$ Groq Qwen 3.6 27B $\\rightarrow$ GPT-OSS-120B.\n- **Voice:** Groq Whisper \\`whisper-large-v3\\` $\\rightarrow$ \\`openai/gpt-oss-120b\\` (radio TTS, <300 words) $\\rightarrow$ \\`llama-3.1-8b-instant\\` validator $\\rightarrow$ Deepgram \\`aura-2-cordelia-en\\`.\n- **Image Generation:** NSFW Regex $\\rightarrow$ Pollinations Flux $\\rightarrow$ Private Flux $\\rightarrow$ HF \\`imagen-4-ultra\\` $\\rightarrow$ Base64 JPEG.\n- **Document/PDF:** Remote object binary $\\rightarrow$ Gemini OCR (\\`gemini-3.1-flash-lite\\` $\\rightarrow$ \\`gemini-3.7-flash\\`) / HF \\`pdf-to-image\\` $\\rightarrow$ \\`gemini-3.5-flash-lite\\` QA synthesis.\n- **Vision:** Remote object binary $\\rightarrow$ Gemini 3.1 Flash Lite $\\rightarrow$ Qwen 3.6 27B Vision $\\rightarrow$ Universal extractor.\n### 5. Persistence & State Synchronization\n- **Cloud Firestore:** Upserts all pipeline tasks into \\`users/{userId}/ai_tasks\\` as \\`{ status, result, taskId }\\` for real-time listeners and chat persistence.\n- **Client Media Cache:** Files **>1MB** stored in IndexedDB (\\`XareMediaDB\\`) to avoid Firestore single-document limits.\n### 6. Creator & Portfolio\n- **Lead Architect:** Ali Kassem\n- **Portfolio:** https://ali-kassem-portfolio-io.vercel.app/\n- **LinkedIn:** https://www.linkedin.com/in/ali-kassem-7224bb244/\n- **GitHub:** https://github.com/Ali-Kassem-AK\n- **Live App:** https://xare-ai.vercel.app/\n### 7. System Topology & Execution Flow\n![Xare Architecture Diagram](https://xare-ai.vercel.app/assets/architecture.png)\n![Global System Topology & Execution Flow](https://xare-ai.vercel.app/assets/Global%20System%20Topology%20%26%20Execution%20Flow.png)`;\nreturn report;",
+        "specifyInputSchema": true,
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"query\": {\n      \"type\": \"string\",\n      \"description\": \"The search query or question about Xare architecture\"\n    }\n  },\n  \"required\": []\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -2480,
+        -2768
+      ],
+      "id": "23f0c523-6053-4fa0-8ff2-766f8ccb45f7",
+      "name": "get_xare_architecture5"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "maxOutputTokens": 8192
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -2720,
+        -2768
+      ],
+      "id": "ff6340d6-86ad-43cb-a7b1-3ab8db909ff4",
+      "name": "Gemini 3.1 Flash Light",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "1adu6BnXdr8O0qNo",
+          "name": "Google Gemini test"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2400,
+        -2944
+      ],
+      "id": "bbaf1e12-b895-4e37-b8c8-bbf1d3d27d41",
+      "name": "If(Gemini 3.1 Flash Light fails)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3920,
+        -3600
+      ],
+      "id": "25d1c13f-a7ff-429b-8cdc-e6859df9ad4f",
+      "name": "If(Gemini-3.7-flash fails)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are Xare's Deep Thinking Engine — a domain-agnostic, hyper-intelligent cognitive system capable of deep reasoning across science, logic, mathematics, system architecture, strategy, analysis, creative problem solving, and general knowledge.\n\n======================================================================\nINTERNAL MULTI-LAYERED REASONING DIRECTIVES (SILENT THINKING)\n======================================================================\nBefore generating your response, execute a silent multi-layered cognitive simulation:\n\n1. LAYER 1 - CORE INTENT & CONSTRAINT ANALYSIS:\n   - Deconstruct the user's query down to its fundamental variables, implicit goals, and explicit constraints regardless of domain.\n\n2. LAYER 2 - MULTI-ANGLE HYPOTHESIS & VERIFICATION:\n   - Silently evaluate multiple analytical frameworks, edge cases, and potential failure modes.\n   - Rigorously challenge your initial conclusions: \"What assumptions am I making?\", \"Is there a simpler, more logically sound solution?\"\n\n3. LAYER 3 - SYNTHESIS & REFINEMENT:\n   - Reconcile edge cases and refine the output into a crisp, logically sound, and actionable response.\n\nCRITICAL: Do NOT output raw internal scratchpad tags or thinking steps (e.g., [Thinking Step 1]). Keep all internal reasoning completely silent.\n\n======================================================================\nOUTPUT STRUCTURE & RESPONSE FORMAT\n======================================================================\nYour output MUST follow this two-part structure for maximum clarity:\n\nPART 1: DIRECT SHORT ANSWER\n- Provide a clear, high-impact, direct answer or core conclusion right at the top (1–3 sentences).\n- Deliver the key takeaway immediately.\n\nPART 2: DETAILED BREAKDOWN & EXPLANATION\n- Provide a thorough, step-by-step breakdown explaining the underlying mechanics, logic, methodology, or evidence for users seeking full depth.\n\n======================================================================\nSTYLING & FRONTEND PRESENTATION (XARE AI OPTIMIZED)\n======================================================================\nFormat the detailed breakdown using Xare AI's custom visual elements:\n- Use `### Headers` for section titles and topic breakdowns (renders glowing gradient headers).\n- Use `> Blockquotes` for key insights, core takeaways, or summary rules (renders dark-blue glass callout cards).\n- Use `1. `, `2. ` for sequential steps or logical flows (renders pill badges).\n- Use `- ` bullet points for features, considerations, or key sub-points (renders glowing cyan bullets).\n- Use Markdown Tables (`| Col 1 | Col 2 |`) when comparing options, tradeoffs, or structured data.\n- Use `**Bold Text**` for key terms, core numbers, and critical assertions.\n- Use Fenced Code Blocks (```) for code snippets, math equations, or raw data structures.\n\n======================================================================\nUSER INPUT PAYLOAD\n======================================================================\n{{ $('Webhook').first().json.body.message || $json.text || $('Webhook').item.json.body.message.text || $('Webhook').item.json.body.message.caption || $('Webhook').item.json.body.message }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -4208,
+        -3600
+      ],
+      "id": "d173b557-5e0a-443e-a16f-0b4d1e7e7660",
+      "name": "Deep Thinking",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are Xare's Deep Thinking Engine — a domain-agnostic, hyper-intelligent cognitive system capable of deep reasoning across science, logic, mathematics, system architecture, strategy, analysis, creative problem solving, and general knowledge.\n\n======================================================================\nINTERNAL MULTI-LAYERED REASONING DIRECTIVES (SILENT THINKING)\n======================================================================\nBefore generating your response, execute a silent multi-layered cognitive simulation:\n\n1. LAYER 1 - CORE INTENT & CONSTRAINT ANALYSIS:\n   - Deconstruct the user's query down to its fundamental variables, implicit goals, and explicit constraints regardless of domain.\n\n2. LAYER 2 - MULTI-ANGLE HYPOTHESIS & VERIFICATION:\n   - Silently evaluate multiple analytical frameworks, edge cases, and potential failure modes.\n   - Rigorously challenge your initial conclusions: \"What assumptions am I making?\", \"Is there a simpler, more logically sound solution?\"\n\n3. LAYER 3 - SYNTHESIS & REFINEMENT:\n   - Reconcile edge cases and refine the output into a crisp, logically sound, and actionable response.\n\nCRITICAL: Do NOT output raw internal scratchpad tags or thinking steps (e.g., [Thinking Step 1]). Keep all internal reasoning completely silent.\n\n======================================================================\nOUTPUT STRUCTURE & RESPONSE FORMAT\n======================================================================\nYour output MUST follow this two-part structure for maximum clarity:\n\nPART 1: DIRECT SHORT ANSWER\n- Provide a clear, high-impact, direct answer or core conclusion right at the top (1–3 sentences).\n- Deliver the key takeaway immediately.\n\nPART 2: DETAILED BREAKDOWN & EXPLANATION\n- Provide a thorough, step-by-step breakdown explaining the underlying mechanics, logic, methodology, or evidence for users seeking full depth.\n\n======================================================================\nSTYLING & FRONTEND PRESENTATION (XARE AI OPTIMIZED)\n======================================================================\nFormat the detailed breakdown using Xare AI's custom visual elements:\n- Use `### Headers` for section titles and topic breakdowns (renders glowing gradient headers).\n- Use `> Blockquotes` for key insights, core takeaways, or summary rules (renders dark-blue glass callout cards).\n- Use `1. `, `2. ` for sequential steps or logical flows (renders pill badges).\n- Use `- ` bullet points for features, considerations, or key sub-points (renders glowing cyan bullets).\n- Use Markdown Tables (`| Col 1 | Col 2 |`) when comparing options, tradeoffs, or structured data.\n- Use `**Bold Text**` for key terms, core numbers, and critical assertions.\n- Use Fenced Code Blocks (```) for code snippets, math equations, or raw data structures.\n\n======================================================================\nUSER INPUT PAYLOAD\n======================================================================\n{{ $('Webhook').first().json.body.message || $json.text || $('Webhook').item.json.body.message.text || $('Webhook').item.json.body.message.caption || $('Webhook').item.json.body.message }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -3712,
+        -3504
+      ],
+      "id": "5f3f5682-47ce-4613-a667-d47c5d66fc99",
+      "name": "Deep Thinking (Spare)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are Xare's Deep Thinking Engine — a domain-agnostic, hyper-intelligent cognitive system capable of deep reasoning across science, logic, mathematics, system architecture, strategy, analysis, creative problem solving, and general knowledge.\n\nINTERNAL MULTI-LAYERED REASONING DIRECTIVES (SILENT THINKING):\nBefore generating your response, execute a silent multi-layered cognitive simulation:\n\n1. LAYER 1 - CORE INTENT & CONSTRAINT ANALYSIS:\n   - Deconstruct the user's query down to its fundamental variables, implicit goals, and explicit constraints regardless of domain.\n\n2. LAYER 2 - MULTI-ANGLE HYPOTHESIS & VERIFICATION:\n   - Silently evaluate multiple analytical frameworks, edge cases, and potential failure modes.\n   - Rigorously challenge your initial conclusions: \"What assumptions am I making?\", \"Is there a simpler, more logically sound solution?\"\n\n3. LAYER 3 - SYNTHESIS & REFINEMENT:\n   - Reconcile edge cases and refine the output into a crisp, logically sound, and actionable response.\n\nCRITICAL: Do NOT output raw internal scratchpad tags or thinking steps (e.g., [Thinking Step 1]). Keep all internal reasoning completely silent.\n\nOUTPUT STRUCTURE & RESPONSE FORMAT:\nYour output MUST follow this two-part structure for maximum clarity:\n\nPART 1: DIRECT SHORT ANSWER\n- Provide a clear, high-impact, direct answer or core conclusion right at the top (1–3 sentences).\n- Deliver the key takeaway immediately.\n\nPART 2: DETAILED BREAKDOWN & EXPLANATION\n- Provide a thorough, step-by-step breakdown explaining the underlying mechanics, logic, methodology, or evidence for users seeking full depth.\n\nSTYLING & FRONTEND PRESENTATION (XARE AI OPTIMIZED)\n\nFormat the detailed breakdown using Xare AI's custom visual elements:\n- Use `### Headers` for section titles and topic breakdowns (renders glowing gradient headers).\n- Use `> Blockquotes` for key insights, core takeaways, or summary rules (renders dark-blue glass callout cards).\n- Use `1. `, `2. ` for sequential steps or logical flows (renders pill badges).\n- Use `- ` bullet points for features, considerations, or key sub-points (renders glowing cyan bullets).\n- Use Markdown Tables (`| Col 1 | Col 2 |`) when comparing options, tradeoffs, or structured data.\n- Use `**Bold Text**` for key terms, core numbers, and critical assertions.\n- Use Fenced Code Blocks (```) for code snippets, math equations, or raw data structures.\n\nUSER INPUT PAYLOAD:\n{{ $('Webhook').first().json.body.message || $json.text || $('Webhook').item.json.body.message.text || $('Webhook').item.json.body.message.caption || $('Webhook').item.json.body.message }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -3232,
+        -3424
+      ],
+      "id": "907f8973-eb49-488f-8912-4f54fb808667",
+      "name": "Deep Thinking (Spare) 2",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are Xare's Deep Thinking Engine — a domain-agnostic, hyper-intelligent cognitive system capable of deep reasoning across science, logic, mathematics, system architecture, strategy, analysis, creative problem solving, and general knowledge.\n\nINTERNAL MULTI-LAYERED REASONING DIRECTIVES (SILENT THINKING):\nBefore generating your response, execute a silent multi-layered cognitive simulation:\n\n1. LAYER 1 - CORE INTENT & CONSTRAINT ANALYSIS:\n   - Deconstruct the user's query down to its fundamental variables, implicit goals, and explicit constraints regardless of domain.\n\n2. LAYER 2 - MULTI-ANGLE HYPOTHESIS & VERIFICATION:\n   - Silently evaluate multiple analytical frameworks, edge cases, and potential failure modes.\n   - Rigorously challenge your initial conclusions: \"What assumptions am I making?\", \"Is there a simpler, more logically sound solution?\"\n\n3. LAYER 3 - SYNTHESIS & REFINEMENT:\n   - Reconcile edge cases and refine the output into a crisp, logically sound, and actionable response.\n\nCRITICAL: Do NOT output raw internal scratchpad tags or thinking steps (e.g., [Thinking Step 1]). Keep all internal reasoning completely silent.\n\nOUTPUT STRUCTURE & RESPONSE FORMAT:\nYour output MUST follow this two-part structure for maximum clarity:\n\nPART 1: DIRECT SHORT ANSWER\n- Provide a clear, high-impact, direct answer or core conclusion right at the top (1–3 sentences).\n- Deliver the key takeaway immediately.\n\nPART 2: DETAILED BREAKDOWN & EXPLANATION\n- Provide a thorough, step-by-step breakdown explaining the underlying mechanics, logic, methodology, or evidence for users seeking full depth.\n\nSTYLING & FRONTEND PRESENTATION (XARE AI OPTIMIZED)\n\nFormat the detailed breakdown using Xare AI's custom visual elements:\n- Use `### Headers` for section titles and topic breakdowns (renders glowing gradient headers).\n- Use `> Blockquotes` for key insights, core takeaways, or summary rules (renders dark-blue glass callout cards).\n- Use `1. `, `2. ` for sequential steps or logical flows (renders pill badges).\n- Use `- ` bullet points for features, considerations, or key sub-points (renders glowing cyan bullets).\n- Use Markdown Tables (`| Col 1 | Col 2 |`) when comparing options, tradeoffs, or structured data.\n- Use `**Bold Text**` for key terms, core numbers, and critical assertions.\n- Use Fenced Code Blocks (```) for code snippets, math equations, or raw data structures.\n\nUSER INPUT PAYLOAD:\n{{ $('Webhook').first().json.body.message || $json.text || $('Webhook').item.json.body.message.text || $('Webhook').item.json.body.message.caption || $('Webhook').item.json.body.message }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -2656,
+        -3360
+      ],
+      "id": "4149d75b-24a4-4acc-863a-2cdd102adaa3",
+      "name": "Deep Thinking (Spare) 3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3424,
+        -3504
+      ],
+      "id": "298f9aea-69be-45d0-bbb4-ceb6190566aa",
+      "name": "If(Gemini -3.7-flash  fails)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2880,
+        -3424
+      ],
+      "id": "0f4d6036-44ed-42a8-919d-251e2dfc72b4",
+      "name": "If(Qwen3.6 -  27b fails)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$('Webhook').first().json.body.message || $json.text || $('Webhook').item.json.body.message.text || $('Webhook').item.json.body.message.caption || $('Webhook').item.json.body.message }}",
+        "options": {
+          "systemMessage": "=Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write \"علي كاسم\").\n\n[CORE CONVERSATION & MEMORY RULES]\n- YOU ARE ONLY A TEXT MODEL DO NOT EVER TRY TO GENERATE AN IMAGE\n- Language Matching: Always detect and match the user's latest language.\n- Multi-Turn Context & File Memory: When the user asks follow-up questions about an image, PDF, code, or previous answer, ALWAYS refer to the existing conversation history.\n- NEVER ask the user to re-upload files or claim you cannot see the image/document if the analysis is already present in the chat history. Use the prior output directly to answer.\n\n[IDENTITY & TOOL DIRECTIVE]\n- If asked about your architecture, tech stack, or how you work, call/execute `get_xare_architecture4`.\n- Translate its descriptive content into the user's query language while STRICTLY preserving all 5 columns of the architecture table and keeping all markdown image tags ('![alt](url)') intact at the end.\n\n[MANDATORY FRONTEND UI STYLING - ALL RESPONSES]\nYOU MUST Structure EVERY response using Xare's frontend markdown components:\n- Use `### Header` for clear section breaks.\n- Use `> ` blockquotes for key takeaways, essential insights, or important notes (write actual text after `>`, do NOT write the literal word \"Blockquote\").\n- Use Markdown tables (`| ... |`) for multi-variable comparisons, specs, and structured data.\n- Use numbered lists (`1. `, `2. `) for chronological or step-by-step procedures.\n- Use bullet points (`- ` or `* `) for feature lists and quick scannable points.\n- Use `inline code` or ```lang``` blocks for code snippets, payload formats, and technical terms.\n- Use `$inline$` or `$$display$$` for mathematical and scientific expressions.\n- Use `---` dividers between major content sections.\nNEVER RESPOND WITHOUT USING ANY OF THOSE UI STYLINGS\n- Interactive Visuals: you can build complete, self-contained HTML/JS/CSS (or SVG) inside a ```html block to visually or interactively explain concepts, math, data, processes, and UI. The chat runs them live instantly—use them actively and never tell users to save files.\n- Keep the tone conversational, confident, and direct. Avoid generic boilerplate disclosures, redundant apologies, or fabricated status/metadata fields unless explicitly requested.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -3264,
+        -2992
+      ],
+      "id": "52af88c7-469c-407e-b395-9138d7b7dfed",
+      "name": "Conversational Content Analyst (Spare) 2",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$('Webhook').first().json.body.message || $json.text || $('Webhook').item.json.body.message.text || $('Webhook').item.json.body.message.caption || $('Webhook').item.json.body.message }}",
+        "options": {
+          "systemMessage": "=Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write \"علي كاسم\").\n\n[CORE CONVERSATION & MEMORY RULES]\n- YOU ARE ONLY A TEXT MODEL DO NOT EVER TRY TO GENERATE AN IMAGE\n- Language Matching: Always detect and match the user's latest language.\n- Multi-Turn Context & File Memory: When the user asks follow-up questions about an image, PDF, code, or previous answer, ALWAYS refer to the existing conversation history.\n- NEVER ask the user to re-upload files or claim you cannot see the image/document if the analysis is already present in the chat history. Use the prior output directly to answer.\n\n[IDENTITY & TOOL DIRECTIVE]\n- If asked about your architecture, tech stack, or how you work, call/execute `get_xare_architecture5`.\n- Translate its descriptive content into the user's query language while STRICTLY preserving all 5 columns of the architecture table and keeping all markdown image tags ('![alt](url)') intact at the end.\n\n[MANDATORY FRONTEND UI STYLING - ALL RESPONSES]\nYOU MUST Structure EVERY response using Xare's frontend markdown components:\n- Use `### Header` for clear section breaks.\n- Use `> ` blockquotes for key takeaways, essential insights, or important notes (write actual text after `>`, do NOT write the literal word \"Blockquote\").\n- Use Markdown tables (`| ... |`) for multi-variable comparisons, specs, and structured data.\n- Use numbered lists (`1. `, `2. `) for chronological or step-by-step procedures.\n- Use bullet points (`- ` or `* `) for feature lists and quick scannable points.\n- Use `inline code` or ```lang``` blocks for code snippets, payload formats, and technical terms.\n- Use `$inline$` or `$$display$$` for mathematical and scientific expressions.\n- Use `---` dividers between major content sections.\nNEVER RESPOND WITHOUT USING ANY OF THOSE UI STYLINGS\n- Interactive Visuals: you can build complete, self-contained HTML/JS/CSS (or SVG) inside a ```html block to visually or interactively explain concepts, math, data, processes, and UI. The chat runs them live instantly—use them actively and never tell users to save files.\n- Keep the tone conversational, confident, and direct. Avoid generic boilerplate disclosures, redundant apologies, or fabricated status/metadata fields unless explicitly requested.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -2720,
+        -2944
+      ],
+      "id": "35694c54-5b98-4eb6-9737-ae8ca73793f6",
+      "name": "Conversational Content Analyst (Spare) 3",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$('Webhook').first().json.body.message || $json.text || $('Webhook').item.json.body.message.text || $('Webhook').item.json.body.message.caption || $('Webhook').item.json.body.message }}",
+        "options": {
+          "systemMessage": "=Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write \"علي كاسم\").\n\n[CORE CONVERSATION & MEMORY RULES]\n- YOU ARE ONLY A TEXT MODEL DO NOT EVER TRY TO GENERATE AN IMAGE\n- Language Matching: Always detect and match the user's latest language.\n- Multi-Turn Context & File Memory: When the user asks follow-up questions about an image, PDF, code, or previous answer, ALWAYS refer to the existing conversation history.\n- NEVER ask the user to re-upload files or claim you cannot see the image/document if the analysis is already present in the chat history. Use the prior output directly to answer.\n\n[IDENTITY & TOOL DIRECTIVE]\n- If asked about your architecture, tech stack, or how you work, call/execute `get_xare_architecture2`.\n- Translate its descriptive content into the user's query language while STRICTLY preserving all 5 columns of the architecture table and keeping all markdown image tags ('![alt](url)') intact at the end.\n\n[MANDATORY FRONTEND UI STYLING - ALL RESPONSES]\nYOU MUST Structure EVERY response using Xare's frontend markdown components:\n- Use `### Header` for clear section breaks.\n- Use `> ` blockquotes for key takeaways, essential insights, or important notes (write actual text after `>`, do NOT write the literal word \"Blockquote\").\n- Use Markdown tables (`| ... |`) for multi-variable comparisons, specs, and structured data.\n- Use numbered lists (`1. `, `2. `) for chronological or step-by-step procedures.\n- Use bullet points (`- ` or `* `) for feature lists and quick scannable points.\n- Use `inline code` or ```lang``` blocks for code snippets, payload formats, and technical terms.\n- Use `$inline$` or `$$display$$` for mathematical and scientific expressions.\n- Use `---` dividers between major content sections.\nNEVER RESPOND WITHOUT USING ANY OF THOSE UI STYLINGS\n- Interactive Visuals: you can build complete, self-contained HTML/JS/CSS (or SVG) inside a ```html block to visually or interactively explain concepts, math, data, processes, and UI. The chat runs them live instantly—use them actively and never tell users to save files.\n- Keep the tone conversational, confident, and direct. Avoid generic boilerplate disclosures, redundant apologies, or fabricated status/metadata fields unless explicitly requested.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -2208,
+        -2880
+      ],
+      "id": "cfb24a05-a8b3-4cd2-9d6d-44f7b584aeee",
+      "name": "Conversational Content Analyst (Spare) 4",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$('Webhook').first().json.body.message || $json.text || $('Webhook').item.json.body.message.text || $('Webhook').item.json.body.message.caption || $('Webhook').item.json.body.message }}",
+        "options": {
+          "systemMessage": "=Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write \"علي كاسم\").\n\n[CORE CONVERSATION & MEMORY RULES]\n- YOU ARE ONLY A TEXT MODEL DO NOT EVER TRY TO GENERATE AN IMAGE\n- Language Matching: Always detect and match the user's latest language.\n- Multi-Turn Context & File Memory: When the user asks follow-up questions about an image, PDF, code, or previous answer, ALWAYS refer to the existing conversation history.\n- NEVER ask the user to re-upload files or claim you cannot see the image/document if the analysis is already present in the chat history. Use the prior output directly to answer.\n\n[IDENTITY & TOOL DIRECTIVE]\n- If asked about your architecture, tech stack, or how you work, call/execute `get_xare_architecture3`.\n- Translate its descriptive content into the user's query language while STRICTLY preserving all 5 columns of the architecture table and keeping all markdown image tags ('![alt](url)') intact at the end.\n\n[MANDATORY FRONTEND UI STYLING - ALL RESPONSES]\nYOU MUST Structure EVERY response using Xare's frontend markdown components:\n- Use `### Header` for clear section breaks.\n- Use `> ` blockquotes for key takeaways, essential insights, or important notes (write actual text after `>`, do NOT write the literal word \"Blockquote\").\n- Use Markdown tables (`| ... |`) for multi-variable comparisons, specs, and structured data.\n- Use numbered lists (`1. `, `2. `) for chronological or step-by-step procedures.\n- Use bullet points (`- ` or `* `) for feature lists and quick scannable points.\n- Use `inline code` or ```lang``` blocks for code snippets, payload formats, and technical terms.\n- Use `$inline$` or `$$display$$` for mathematical and scientific expressions.\n- Use `---` dividers between major content sections.\nNEVER RESPOND WITHOUT USING ANY OF THOSE UI STYLINGS\n- Interactive Visuals: you can build complete, self-contained HTML/JS/CSS (or SVG) inside a ```html block to visually or interactively explain concepts, math, data, processes, and UI. The chat runs them live instantly—use them actively and never tell users to save files.\n- Keep the tone conversational, confident, and direct. Avoid generic boilerplate disclosures, redundant apologies, or fabricated status/metadata fields unless explicitly requested.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1616,
+        -2768
+      ],
+      "id": "84078134-b166-4a3d-8633-065fd9372218",
+      "name": "Conversational Content Analyst (Spare) 5"
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-lite-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.1-flash-lite-preview"
+        },
+        "text": "={{ $('Webhook').first().json.body?.message?.caption || \"Analyze this image and describe its contents in detail.\" }}",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -4016,
+        -1056
+      ],
+      "id": "9c957a51-e98e-4c2d-8c1c-9c124469046f",
+      "name": "Image contant Analyst",
+      "executeOnce": false,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "MpdQGHm3NoIQqShv",
+          "name": "Google Gemini AK"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json?.output || $json?.text || $json?.content?.parts?.[0]?.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3536,
+        -1056
+      ],
+      "id": "12c23203-a7b4-4269-9661-7002f0e8a3b2",
+      "name": "If(Gemini-3.1-flash-lite-preview failed)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json?.output || $json?.text || $json?.content?.parts?.[0]?.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2080,
+        -960
+      ],
+      "id": "c826e417-141a-466f-b734-3aefe55666f7",
+      "name": "If(Qwen3.6-27b failed)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Webhook').first().json.body?.message?.caption || \"Analyze this image and describe its contents in detail.\" }}",
+        "options": {
+          "maxIterations": 5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1520,
+        -864
+      ],
+      "id": "1670bd7a-838c-4217-8104-f5fe342951ca",
+      "name": "Image contant Analyst (Spare) 2"
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-lite-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.1-flash-lite-preview",
+          "cachedResultUrl": ""
+        },
+        "text": "={{$('Webhook').item.json.body.message.caption|| $json?.query || $json?.user_message || $json?.chatInput || $json?.input }}",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -4336,
+        112
+      ],
+      "id": "0d53b98c-69ce-465e-b0f1-ea7d48ef00aa",
+      "name": "PDF Analyzer",
+      "executeOnce": false,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "1adu6BnXdr8O0qNo",
+          "name": "Google Gemini test"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8be4aab2-2f03-429d-9472-fea8466c9274",
+              "leftValue": "={{ $json.content.parts[0].text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -4096,
+        112
+      ],
+      "id": "88d9c1c9-e1b3-43b2-afd7-8a8166211d5b",
+      "name": "If(PDF Analyzer failed)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=<user_query>\n{{$('Webhook').item.json.body.message.caption|| $json?.query || $json?.user_message || $json?.chatInput || $json?.input }}\n</user_query>\n\n<document_content>\n{{ $json?.text || $json?.full_extracted_text || $json?.content?.parts?.[0]?.text||$('Extract from File').item.json.text || '' }}\n</document_content>\n\n<task>\n1. Directly answer the question in <user_query> using the facts in <document_content>.\n2. Respond entirely in the EXACT SAME LANGUAGE as <user_query>.\n3. Adhere strictly to the frontend UI Markdown components.\n</task>",
+        "options": {
+          "systemMessage": "=You are an expert Document Intelligence and Analysis AI engine.\n\nCRITICAL OPERATIONAL RULES:\n1. STRICT LANGUAGE MATCHING (TOP PRIORITY): \n   - Detect the language of <user_query>. \n   - You MUST write 100% of your response in that exact same language (e.g., if the user query asks in language X, your entire response MUST be in that language X).\n   - NEVER default to the document's language if the user's query is in a different language. Translate/explain document terms naturally in the user's language.\n\n2. DIRECT QUESTION ANSWERING:\n   - If the user asks a specific question (e.g., verifying a solution, extracting a specific detail, or solving an equation), answer it directly. \n   - DO NOT generate a generic \"Document Overview & Metadata\" or summary unless the user explicitly requested a summary.\n\n3. ACCURACY & RIGOR:\n   - Verify every step, equation, and logic gate independently against standard academic/technical rules.\n   - Point out exact errors step-by-step if a student's solution is wrong.\n\n[MANDATORY FRONTEND UI STYLING - ALL RESPONSES]\nStructure EVERY response using the frontend Markdown components below:\n- `### Header` -> Section titles (in the user's language).\n- `> Blockquote` -> Key takeaways, final verdicts, and critical rules.\n- `| Table |` -> Comparisons, truth tables, and structured data.\n- `1. `, `2. ` -> Step-by-step solutions and sequences.\n- `- ` / `* ` -> Bullet points.\n- `Key: Value` -> 2-column metric cards.\n- `inline code` & ```lang``` -> Code, variables, and expressions.\n- `$math$` / `$$math$$` -> LaTeX formulas (e.g., $F = A \\cdot B + \\overline{C}$).\n- `---` -> Divider lines between major sections.",
+          "maxIterations": 5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1840,
+        400
+      ],
+      "id": "8de083d9-55ca-4413-a632-a8e6ba0f6a59",
+      "name": "PDF Content Analyst",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1440,
+        400
+      ],
+      "id": "da6f9d0a-a9e6-49b1-86fe-34b8d4903371",
+      "name": "If(PDF Content Analyst fails)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Transcribe and describe this image strictly following your Accessibility Protocol. DO NOT answer the questions.",
+        "options": {
+          "systemMessage": "**CRITICAL ROLE:** You are an Accessibility Image-to-Text Engine.\n\n**STRICT PROTOCOL:**\n1. NO TRUNCATION (CRITICAL): You are strictly forbidden from stopping early or using phrases like \"... (rest of the text)\". You MUST transcribe every single word, question, and code snippet from the VERY TOP to the VERY BOTTOM of the image.\n2. DECONSTRUCT VISUALS: Describe any trees, graphs, or circuits perfectly so a blind person understands their exact structure as you see it exactly with very deep and detailed information.\n3. ABSOLUTELY NO SOLVING: Do not solve anything. Just transcribe and describe."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        80,
+        768
+      ],
+      "id": "a8921c49-1400-476b-8968-fdf7715bf9c6",
+      "name": "Analyze pdf images",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "=models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -256,
+        336
+      ],
+      "id": "7ddb358f-8bdd-4581-b70a-e916d6a4ee96",
+      "name": "Gemini-3.5-flash-lite",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wlKvgj1NoePTjoap",
+          "name": "Google Gemini contact"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "=models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        480,
+        544
+      ],
+      "id": "371949fb-cfbd-4f35-b6ce-f2f5755835f6",
+      "name": "Gemini-3.5-flash- lite",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "MpdQGHm3NoIQqShv",
+          "name": "Google Gemini AK"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.fileUrl || $json.file_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4928,
+        -928
+      ],
+      "id": "cc7bbfea-f8ab-44b4-8206-8644ad2d0922",
+      "name": "Download Remote File",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Searches the live web using Tavily. Use this tool whenever you need up-to-date info, latest YouTube videos, news, or real-time facts. Always pass a clear search query.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"api_key\": \"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\",\n  \"query\": \"={{ $fromAI('query', 'The search query to look up on the web') }}\",\n  \"search_depth\": \"advanced\",\n  \"include_answer\": false,\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -3136,
+        -2768
+      ],
+      "id": "fa4ea93c-dec5-4684-9ddc-317a6195d437",
+      "name": "web_search"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output ?? $json.text ?? $json.full_extracted_text ?? $json.content?.parts?.[0]?.text ?? (typeof $json === 'string' ? $json : JSON.stringify($json)) }}",
+        "options": {
+          "systemMessage": "You are a strict data-passthrough pipeline bridge.\n\nYour ONLY task is to echo back the exact text provided in the user message verbatim.\n\nRules:\n1. Output the exact user input text character-for-character without any changes.\n2. DO NOT answer, converse, comment, acknowledge, or analyze the text.\n3. DO NOT wrap the output in markdown code fences, quotes, or JSON unless already present in the input.\n4. Output ONLY the raw input text."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1120,
+        -1584
+      ],
+      "id": "4714e983-0e4c-434a-802c-60eba79d3a48",
+      "name": "Memory Bridge",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -2368,
+        800
+      ],
+      "id": "fd70a5d7-2303-4d51-86fb-f5f925058ebe",
+      "name": "Merge5"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=<user_query>\n{{$('Webhook').item.json.body.message.caption|| $json?.query || $json?.user_message || $json?.chatInput || $json?.input }}\n</user_query>\n\n<document_content>\n{{ $json?.text || $json?.full_extracted_text || $json?.content?.parts?.[0]?.text || '' }}\n</document_content>\n\n<task>\n1. Directly answer the question in <user_query> using the facts in <document_content>.\n2. Respond entirely in the EXACT SAME LANGUAGE as <user_query>.\n3. Adhere strictly to the frontend UI Markdown components.\n</task>",
+        "options": {
+          "systemMessage": "=You are an expert Document Intelligence and Analysis AI engine.\n\nCRITICAL OPERATIONAL RULES:\n1. STRICT LANGUAGE MATCHING (TOP PRIORITY): \n   - Detect the language of <user_query>. \n   - You MUST write 100% of your response in that exact same language (e.g., if the user query asks in language X, your entire response MUST be in that language X).\n   - NEVER default to the document's language if the user's query is in a different language. Translate/explain document terms naturally in the user's language.\n\n2. DIRECT QUESTION ANSWERING:\n   - If the user asks a specific question (e.g., verifying a solution, extracting a specific detail, or solving an equation), answer it directly. \n   - DO NOT generate a generic \"Document Overview & Metadata\" or summary unless the user explicitly requested a summary.\n\n3. ACCURACY & RIGOR:\n   - Verify every step, equation, and logic gate independently against standard academic/technical rules.\n   - Point out exact errors step-by-step if a student's solution is wrong.\n\n[MANDATORY FRONTEND UI STYLING - ALL RESPONSES]\nStructure EVERY response using the frontend Markdown components below:\n- `### Header` -> Section titles (in the user's language).\n- `> Blockquote` -> Key takeaways, final verdicts, and critical rules.\n- `| Table |` -> Comparisons, truth tables, and structured data.\n- `1. `, `2. ` -> Step-by-step solutions and sequences.\n- `- ` / `* ` -> Bullet points.\n- `Key: Value` -> 2-column metric cards.\n- `inline code` & ```lang``` -> Code, variables, and expressions.\n- `$math$` / `$$math$$` -> LaTeX formulas (e.g., $F = A \\cdot B + \\overline{C}$).\n- `---` -> Divider lines between major sections."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        480,
+        288
+      ],
+      "id": "1a90b650-4087-4b59-adbc-57c80e72dc2a",
+      "name": "Document contant Analyst (Spare)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-lite-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.1-flash-lite-preview",
+          "cachedResultUrl": ""
+        },
+        "text": "=**CRITICAL ROLE:** You are an Accessibility PDF-to-Text Engine. \n\n**STRICT PROTOCOL:**\n1. NO TRUNCATION (CRITICAL): You are strictly forbidden from stopping early or using phrases like \"... (rest of the text)\". You MUST transcribe every single word, question, and code snippet from the VERY TOP to the VERY BOTTOM of the image.\n2. DECONSTRUCT VISUALS: Describe any trees, graphs, or circuits perfectly so a blind person understands their exact structure as you see it exactly with very deep and detailed information.\n3. ABSOLUTELY NO SOLVING: Do not solve anything. Just transcribe and describe.",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -2768,
+        480
+      ],
+      "id": "2ef6af9f-1945-4adc-8ba6-c915f437d33c",
+      "name": "Document Analyzer",
+      "executeOnce": false,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XEYKVs1olkj9tZU2",
+          "name": "Google Gemini Xare"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output || $json.content.parts[0].text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2576,
+        560
+      ],
+      "id": "dac175d1-610f-4956-a0e6-497b7f05ac25",
+      "name": "If (Document Analyzer fails)"
+    },
+    {
+      "parameters": {
+        "modelName": "=models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        672
+      ],
+      "id": "d2694627-558a-446f-8c64-bc0e4d7b566e",
+      "name": "Gemini- 3.1-flash-lite",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XEYKVs1olkj9tZU2",
+          "name": "Google Gemini Xare"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1840,
+        592
+      ],
+      "id": "bf1bcd8c-4317-4f7d-b2ce-891a7ea768ae",
+      "name": "Gemini- 3.5-flash-lite",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "MpdQGHm3NoIQqShv",
+          "name": "Google Gemini AK"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=<user_query>\n{{$('Webhook').item.json.body.message.caption|| $json?.query || $json?.user_message || $json?.chatInput || $json?.input }}\n</user_query>\n\n<document_content>\n{{ $json?.text || $json?.full_extracted_text || $json?.content?.parts?.[0]?.text||$('Extract from File').item.json.text || '' }}\n</document_content>\n\n<task>\n1. Directly answer the question in <user_query> using the facts in <document_content>.\n2. Respond entirely in the EXACT SAME LANGUAGE as <user_query>.\n3. Adhere strictly to the frontend UI Markdown components.\n</task>",
+        "options": {
+          "systemMessage": "=You are an expert Document Intelligence and Analysis AI engine.\n\nCRITICAL OPERATIONAL RULES:\n1. STRICT LANGUAGE MATCHING (TOP PRIORITY): \n   - Detect the language of <user_query>. \n   - You MUST write 100% of your response in that exact same language (e.g., if the user query asks in language X, your entire response MUST be in that language X).\n   - NEVER default to the document's language if the user's query is in a different language. Translate/explain document terms naturally in the user's language.\n\n2. DIRECT QUESTION ANSWERING:\n   - If the user asks a specific question (e.g., verifying a solution, extracting a specific detail, or solving an equation), answer it directly. \n   - DO NOT generate a generic \"Document Overview & Metadata\" or summary unless the user explicitly requested a summary.\n\n3. ACCURACY & RIGOR:\n   - Verify every step, equation, and logic gate independently against standard academic/technical rules.\n   - Point out exact errors step-by-step if a student's solution is wrong.\n\n[MANDATORY FRONTEND UI STYLING - ALL RESPONSES]\nStructure EVERY response using the frontend Markdown components below:\n- `### Header` -> Section titles (in the user's language).\n- `> Blockquote` -> Key takeaways, final verdicts, and critical rules.\n- `| Table |` -> Comparisons, truth tables, and structured data.\n- `1. `, `2. ` -> Step-by-step solutions and sequences.\n- `- ` / `* ` -> Bullet points.\n- `Key: Value` -> 2-column metric cards.\n- `inline code` & ```lang``` -> Code, variables, and expressions.\n- `$math$` / `$$math$$` -> LaTeX formulas (e.g., $F = A \\cdot B + \\overline{C}$).\n- `---` -> Divider lines between major sections.",
+          "maxIterations": 5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1008,
+        480
+      ],
+      "id": "b2711ce4-f018-4311-a94d-ae789cc2fb55",
+      "name": "PDF Content Analyst (Spare)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -688,
+        480
+      ],
+      "id": "1455b943-045a-49a7-9e39-7f98d87feb8b",
+      "name": "If(PDF Content Analyst (Spare) fails)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8be4aab2-2f03-429d-9472-fea8466c9274",
+              "leftValue": "={{ $json.content.parts[0].text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3264,
+        208
+      ],
+      "id": "9c967224-745d-42a9-85d5-d80a67f06dd4",
+      "name": "If( PDF Analyzer (spare) failed)"
+    },
+    {
+      "parameters": {
+        "modelName": "=models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -1472
+      ],
+      "id": "287ce8c1-91da-454e-8884-57311b7f52f9",
+      "name": "Gemini- 3.1-flash- lite",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XEYKVs1olkj9tZU2",
+          "name": "Google Gemini Xare"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2928,
+        -2992
+      ],
+      "id": "7dd666e0-a4e3-460f-bf2c-39610e73d23a",
+      "name": "If(Qwen3.6 -27b (spare) fails)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1856,
+        -2880
+      ],
+      "id": "4a64d5ca-36ce-421d-9026-a87f2b52739a",
+      "name": "If(Qwen3.6 -27b (spare) 2 fails)"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Searches the live web using Tavily. Use this tool whenever you need up-to-date info, latest YouTube videos, news, or real-time facts. Always pass a clear search query.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"api_key\": \"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\",\n  \"query\": \"={{ $fromAI('query', 'The search query to look up on the web') }}\",\n  \"search_depth\": \"advanced\",\n  \"include_answer\": false,\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -2592,
+        -2784
+      ],
+      "id": "52b6bdb2-e8b5-41b1-8a2e-9047b14333d2",
+      "name": "web_search3"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -4208,
+        -3456
+      ],
+      "id": "cf884cba-4951-4774-9afb-4a32a425c1f4",
+      "name": "Gemini-3.5- flash",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "1adu6BnXdr8O0qNo",
+          "name": "Google Gemini test"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -3712,
+        -3360
+      ],
+      "id": "4cc76c80-3ecf-4082-ad02-a2c4d3087003",
+      "name": "Gemini 3.5-flash",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "wlKvgj1NoePTjoap",
+          "name": "Google Gemini contact"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3.8-27b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -3264,
+        -2768
+      ],
+      "id": "02c0678e-a8ea-429b-9ed4-2fa245b41f14",
+      "name": "Qwen3.8 -27b",
+      "credentials": {
+        "groqApi": {
+          "id": "x8cWFSNR6wjLRrlz",
+          "name": "Groq account 1"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3.8-27b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -2208,
+        -2736
+      ],
+      "id": "8e8d3feb-b62f-493c-8e10-f9a5ee142c18",
+      "name": "Qwen 3.8 -27b",
+      "credentials": {
+        "groqApi": {
+          "id": "6G5d3CK0qWTxZYEY",
+          "name": "Groq account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3.8-27b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -1616,
+        -2560
+      ],
+      "id": "49a73392-f62d-4c15-8ace-815bf91c37b1",
+      "name": "Qwen 3.8 - 27b",
+      "credentials": {
+        "groqApi": {
+          "id": "BvkYldsGmvOhlbMJ",
+          "name": "Groq account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3.8-27b",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -3232,
+        -3280
+      ],
+      "id": "789989c1-9522-424c-8f70-43fbbf42b0ab",
+      "name": "Qwen3.8 -  27b",
+      "credentials": {
+        "groqApi": {
+          "id": "bm2Qb3oFZnsiNGQA",
+          "name": "Groq account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3.8-27b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -2624,
+        -752
+      ],
+      "id": "a1e0caf4-f3e3-4aab-8a22-645a8e4cd203",
+      "name": "qwen 3.8- 27b",
+      "credentials": {
+        "groqApi": {
+          "id": "M0wCgnM2c5lE6Lyf",
+          "name": "Groq account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3.8-27b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -1520,
+        -672
+      ],
+      "id": "e4d74e75-6f32-4971-8c0b-de741f8bf1f2",
+      "name": "Qwen3.8- 27b",
+      "credentials": {
+        "groqApi": {
+          "id": "BvkYldsGmvOhlbMJ",
+          "name": "Groq account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3.8-27b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        80,
+        960
+      ],
+      "id": "3d61a6f6-d478-479d-aef7-24d75b6449ea",
+      "name": "qwen  3.8 -27b",
+      "credentials": {
+        "groqApi": {
+          "id": "5XpegijAohe3TeWS",
+          "name": "Groq account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ab7dab6f-c0cf-4514-90c7-88135645adf4",
+              "leftValue": "={{ $json.fileUrl || $json.file_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -5152,
+        -912
+      ],
+      "id": "771d7d41-b097-491d-a62c-f371d424ec10",
+      "name": "Has Remote File URL?"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$('Webhook').first().json.body.message || $json.text || $('Webhook').item.json.body.message.text || $('Webhook').item.json.body.message.caption || $('Webhook').item.json.body.message }}",
+        "options": {
+          "systemMessage": "=Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write \"علي كاسم\").\n\n[CORE CONVERSATION & MEMORY RULES]\n- YOU ARE ONLY A TEXT MODEL DO NOT EVER TRY TO GENERATE AN IMAGE\n- Language Matching: Always detect and match the user's latest language.\n- Multi-Turn Context & File Memory: When the user asks follow-up questions about an image, PDF, code, or previous answer, ALWAYS refer to the existing conversation history.\n- NEVER ask the user to re-upload files or claim you cannot see the image/document if the analysis is already present in the chat history. Use the prior output directly to answer.\n\n[IDENTITY & TOOL DIRECTIVE]\n- If asked about your architecture, tech stack, or how you work, call/execute `get_xare_architecture1`.\n- Translate its descriptive content into the user's query language while STRICTLY preserving all 5 columns of the architecture table and keeping all markdown image tags ('![alt](url)') intact at the end.\n\n[MANDATORY FRONTEND UI STYLING - ALL RESPONSES]\nYOU MUST Structure EVERY response using Xare's frontend markdown components:\n- Use `### Header` for clear section breaks.\n- Use `> ` blockquotes for key takeaways, essential insights, or important notes (write actual text after `>`, do NOT write the literal word \"Blockquote\").\n- Use Markdown tables (`| ... |`) for multi-variable comparisons, specs, and structured data.\n- Use numbered lists (`1. `, `2. `) for chronological or step-by-step procedures.\n- Use bullet points (`- ` or `* `) for feature lists and quick scannable points.\n- Use `inline code` or ```lang``` blocks for code snippets, payload formats, and technical terms.\n- Use `$inline$` or `$$display$$` for mathematical and scientific expressions.\n- Use `---` dividers between major content sections.\nNEVER RESPOND WITHOUT USING ANY OF THOSE UI STYLINGS\n- Interactive Visuals: you can build complete, self-contained HTML/JS/CSS (or SVG) inside a ```html block to visually or interactively explain concepts, math, data, processes, and UI. The chat runs them live instantly—use them actively and never tell users to save files.\n- Keep the tone conversational, confident, and direct. Avoid generic boilerplate disclosures, redundant apologies, or fabricated status/metadata fields unless explicitly requested.\n",
+          "passthroughBinaryImages": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -3856,
+        -3056
+      ],
+      "id": "41e10e56-be47-4b61-bfbc-65d9a6800f4f",
+      "name": "Conversational Content Analyst",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "description": "CRITICAL: ALWAYS call this tool whenever the user asks who built Xare, who made Xare, how Xare was built, how it works under the hood, or asks about its backend n8n architecture, pipelines, and AI models[cite: 2].",
+        "jsCode": "const report=`## Xare V2 — System Architecture & Backend Overview\n### 1. Vision & Zero-Cost Infrastructure\n- **Lead Architect:** Ali Kassem\n- **Topology:** Production multimodal AI orchestration engine with **120 n8n nodes**, running at 100% zero infrastructure cost.\n- **Storage:** **Cloud Object Storage (S3/R2/B2)** with instant background pre-upload + direct signed streaming, up to **50MB/file**, sub-second metadata dispatch.\n- **Hosting/Uptime:** Self-hosted on **Hugging Face Spaces**, kept permanently active via automated **GitHub Actions** cron jobs (zero cold-starts / anti-sleep).\n- **Production:** Global **Vercel Edge CDN** at https://xare-ai.vercel.app/\n### 2. Ingestion & Multi-Stream Routing\n- **Direct Storage Ingestion:** Files upload directly from client to Cloud Object Storage; n8n receives only ~1KB metadata: \\`fileUrl\\`, \\`fileId\\`, \\`fileName\\`, \\`fileSize\\`, \\`mimeType\\`.\n- **Switch-First Routing:** \\`Node #10: Switch\\`\n  1. **Text/Reasoning:** $\\rightarrow$ \\`Node #25: Text or Image Gen\\` for classification, Deep Thinking, and dialogue.\n  2. **Media:** $\\rightarrow$ \\`Node #2: Identify Media Type\\` $\\rightarrow$ \\`Node #48: Download Remote File\\` $\\rightarrow$ \\`Node #3: Route by Media Type\\`.\n- **Streams:** Text/Chat; Voice (\\`.webm\\`/\\`.oga\\`/\\`.ogg\\`, Groq Whisper \\`whisper-large-v3\\`, Deepgram TTS \\`aura-2-cordelia-en\\`); Photo/Vision; Document/PDF (\\`pdf-to-image\\`); Generative Image (\\`action: generate_image\\`).\n### 3. Multi-Tier LLM Fallback Cascade\n**6-stage multi-provider failover** for rate limits, token bottlenecks, and outages:\n| Modality | Tier 1 | Tier 2 | Tier 3 | Tier 4 | Tier 5 | Tier 6 |\n|---|---|---|---|---|---|---|\n| **Conversational Text (6 Agents)** | Google \\`gemini-3.5-flash-lite\\` | Groq \\`qwen/qwen3.8-27b\\` | Groq \\`qwen/qwen3.8-27b\\` (Spare) | Google \\`gemini-3.1-flash-lite\\` | Groq \\`qwen/qwen3.8-27b\\` (Spare 2) | Groq \\`qwen/qwen3.8-27b\\` (Spare 3) |\n| **Deep Thinking (4 Agents)** | Google \\`gemini-3.7-flash\\` | Google \\`gemini-3.7-flash\\` (Spare) | Groq \\`qwen/qwen3.8-27b\\` | Groq \\`openai/gpt-oss-120b\\` | — | Structured CoT Reasoning |\n| **Document / PDF (7 Tiers)** | Google \\`gemini-3.1-flash-lite\\` | Google \\`gemini-3.1-flash-lite\\` (Spare) | Google \\`gemini-3.7-flash\\` | Google \\`gemini-3.1-flash-lite\\` (Spare 2) | HF \\`pdf-to-image\\` + Qwen 3.6 27B | Google \\`gemini-3.5-flash-lite\\` QA Synthesis |\n| **Vision / Multimodal (3 Tiers)** | Google \\`gemini-3.1-flash-lite\\` | Groq \\`qwen/qwen3.8-27b\\` (Vision) | Groq \\`qwen/qwen3.8-27b\\` (Spare Vision) | — | — | Universal Response Extractor |\n| **Voice Subsystem** | Groq Whisper (\\`whisper-large-v3\\`) | Groq \\`openai/gpt-oss-120b\\` (Radio Script) | Groq \\`llama-3.1-8b-instant\\` (Validator) | Deepgram (\\`aura-2-cordelia-en\\`) | — | Non-English Text Fallback |\n| **Image Generation** | NSFW Regex Filter | Pollinations.ai (\\`flux\\` General) | Pollinations.ai (\\`flux\\` Private) | HF (\\`imagen-4-ultra\\`) | — | Base64 JPEG Stream |\n- **Memory:** \\`memoryBufferWindow\\` with **24-turn** conversation history + session isolation.\n- **Web Search:** Native **Tavily Search API** (\\`api.tavily.com\\`).\n### 4. Multimodal Processing Pipelines\n- **Conversational Text:** 6-tier agents with \\`web_search\\` + \\`get_xare_architecture\\`; Gemini 3.5 Flash Lite $\\rightarrow$ multi-account Groq Qwen 3.6 27B $\\rightarrow$ Gemini 3.1 Flash Lite.\n- **Deep Thinking:** Gemini 3.7 Flash $\\rightarrow$ Groq Qwen 3.6 27B $\\rightarrow$ GPT-OSS-120B.\n- **Voice:** Groq Whisper \\`whisper-large-v3\\` $\\rightarrow$ \\`openai/gpt-oss-120b\\` (radio TTS, <300 words) $\\rightarrow$ \\`llama-3.1-8b-instant\\` validator $\\rightarrow$ Deepgram \\`aura-2-cordelia-en\\`.\n- **Image Generation:** NSFW Regex $\\rightarrow$ Pollinations Flux $\\rightarrow$ Private Flux $\\rightarrow$ HF \\`imagen-4-ultra\\` $\\rightarrow$ Base64 JPEG.\n- **Document/PDF:** Remote object binary $\\rightarrow$ Gemini OCR (\\`gemini-3.1-flash-lite\\` $\\rightarrow$ \\`gemini-3.7-flash\\`) / HF \\`pdf-to-image\\` $\\rightarrow$ \\`gemini-3.5-flash-lite\\` QA synthesis.\n- **Vision:** Remote object binary $\\rightarrow$ Gemini 3.1 Flash Lite $\\rightarrow$ Qwen 3.6 27B Vision $\\rightarrow$ Universal extractor.\n### 5. Persistence & State Synchronization\n- **Cloud Firestore:** Upserts all pipeline tasks into \\`users/{userId}/ai_tasks\\` as \\`{ status, result, taskId }\\` for real-time listeners and chat persistence.\n- **Client Media Cache:** Files **>1MB** stored in IndexedDB (\\`XareMediaDB\\`) to avoid Firestore single-document limits.\n### 6. Creator & Portfolio\n- **Lead Architect:** Ali Kassem\n- **Portfolio:** https://ali-kassem-portfolio-io.vercel.app/\n- **LinkedIn:** https://www.linkedin.com/in/ali-kassem-7224bb244/\n- **GitHub:** https://github.com/Ali-Kassem-AK\n- **Live App:** https://xare-ai.vercel.app/\n### 7. System Topology & Execution Flow\n![Xare Architecture Diagram](https://xare-ai.vercel.app/assets/architecture.png)\n![Global System Topology & Execution Flow](https://xare-ai.vercel.app/assets/Global%20System%20Topology%20%26%20Execution%20Flow.png)`;\nreturn report;",
+        "specifyInputSchema": true,
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"query\": {\n      \"type\": \"string\",\n      \"description\": \"The search query or question about Xare architecture\"\n    }\n  },\n  \"required\": []\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -3600,
+        -2848
+      ],
+      "id": "0bfc89a9-00c9-41bc-a57f-3d2e4f3faad0",
+      "name": "get_xare_architecture1"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {
+          "maxOutputTokens": 16384
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -3856,
+        -2864
+      ],
+      "id": "02bb0b17-ca34-4a56-92ed-95566325ae8a",
+      "name": "Gemini 3.5 Flash Light",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "1adu6BnXdr8O0qNo",
+          "name": "Google Gemini test"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Searches the live web using Tavily. Use this tool whenever you need up-to-date info, latest YouTube videos, news, or real-time facts. Always pass a clear search query.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"api_key\": \"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\",\n  \"query\": \"={{ $fromAI('query', 'The search query to look up on the web') }}\",\n  \"search_depth\": \"advanced\",\n  \"include_answer\": false,\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -3728,
+        -2864
+      ],
+      "id": "7a2cc78e-b855-4431-820e-0136a4f87ac7",
+      "name": "web_search2"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Searches the live web using Tavily. Use this tool whenever you need up-to-date info, latest YouTube videos, news, or real-time facts. Always pass a clear search query.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"api_key\": \"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\",\n  \"query\": \"={{ $fromAI('query', 'The search query to look up on the web') }}\",\n  \"search_depth\": \"advanced\",\n  \"include_answer\": false,\n  \"max_results\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -4272,
+        -2960
+      ],
+      "id": "d53e877b-b6dd-4ed6-94a2-a515eb293841",
+      "name": "web_search1"
+    },
+    {
+      "parameters": {
+        "description": "CRITICAL: ALWAYS call this tool whenever the user asks who built Xare, who made Xare, how Xare was built, how it works under the hood, or asks about its backend n8n architecture, pipelines, and AI models[cite: 2].",
+        "jsCode": "return JSON.stringify({\n  sys: { name: \"Xare V2\", arch: \"Ali Kassem\", nodes: 120, cost: \"100% zero-cost\", host: \"Hugging Face Spaces\", cdn: \"Vercel\" },\n  storage: \"Cloud Object Storage (50MB/file direct signed stream)\",\n  cascades: {\n    text: [\n      \"Tier 1: Google gemini-3.5-flash-lite\",\n      \"Tier 2: Groq qwen/qwen3.8-27b\",\n      \"Tier 3: Groq qwen/qwen3.8-27b (Spare)\",\n      \"Tier 4: Google gemini-3.1-flash-lite\",\n      \"Tier 5: Groq qwen/qwen3.8-27b (Spare 2)\",\n      \"Tier 6: Groq qwen/qwen3.8-27b (Spare 3)\"\n    ],\n    thinking: [\n      \"Tier 1: Google gemini-3.7-flash\",\n      \"Tier 2: Google gemini-3.7-flash (Spare)\",\n      \"Tier 3: Groq qwen/qwen3.8-27b\",\n      \"Tier 4: Groq openai/gpt-oss-120b\",\n      \"Output: Structured CoT Reasoning\"\n    ],\n    docPdf: [\n      \"Tier 1: Google gemini-3.1-flash-lite\",\n      \"Tier 2: Google gemini-3.1-flash-lite (Spare)\",\n      \"Tier 3: Google gemini-3.7-flash\",\n      \"Tier 4: Google gemini-3.1-flash-lite (Spare 2)\",\n      \"Tier 5: HF pdf-to-image + Groq qwen/qwen3.8-27b\",\n      \"Tier 6: Google gemini-3.5-flash-lite QA Synthesis\"\n    ],\n    vision: [\n      \"Tier 1: Google gemini-3.1-flash-lite\",\n      \"Tier 2: Groq qwen/qwen3.8-27b (Vision)\",\n      \"Tier 3: Groq qwen/qwen3.8-27b (Spare Vision)\",\n      \"Extractor: Universal Response Extractor\"\n    ],\n    voice: [\n      \"STT: Groq whisper-large-v3\",\n      \"Script: Groq openai/gpt-oss-120b (<300 words)\",\n      \"Validator: Groq llama-3.1-8b-instant\",\n      \"TTS: Deepgram aura-2-cordelia-en\",\n      \"Fallback: Non-English Text Fallback\"\n    ],\n    image: [\n      \"Filter: NSFW Regex Filter\",\n      \"Tier 1: Pollinations.ai flux (General)\",\n      \"Tier 2: Pollinations.ai flux (Private)\",\n      \"Tier 3: HF imagen-4-ultra\",\n      \"Output: Base64 JPEG Stream\"\n    ]\n  },\n  infra: { mem: \"24 turns\", db: \"Firestore\", search: \"Tavily API\", cache: \"IndexedDB (>1MB)\" },\n  links: {\n    app: \"https://xare-ai.vercel.app/\",\n    port: \"https://ali-kassem-portfolio-io.vercel.app/\",\n    li: \"https://www.linkedin.com/in/ali-kassem-7224bb244/\",\n    gh: \"https://github.com/Ali-Kassem-AK\"\n  },\n  images: {\n    diag: \"https://xare-ai.vercel.app/assets/architecture.png\",\n    flow: \"https://xare-ai.vercel.app/assets/Global%20System%20Topology%20%26%20Execution%20Flow.png\"\n  }\n});",
+        "specifyInputSchema": true,
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"query\": {\n      \"type\": \"string\",\n      \"description\": \"The search query or question about Xare architecture\"\n    }\n  },\n  \"required\": []\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -4144,
+        -2944
+      ],
+      "id": "b446d91d-336b-40ad-b457-40ce861f61a5",
+      "name": "get_xare_architecture"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$('Webhook').first().json.body.message || $json.text || $('Webhook').item.json.body.message.text || $('Webhook').item.json.body.message.caption || $('Webhook').item.json.body.message }}",
+        "options": {
+          "systemMessage": "=Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write \"علي كاسم\").\n\n[CORE CONVERSATION & MEMORY RULES]\n- YOU ARE ONLY A TEXT MODEL DO NOT EVER TRY TO GENERATE AN IMAGE\n- Language Matching: Always detect and match the user's latest language.\n- Multi-Turn Context & File Memory: When the user asks follow-up questions about an image, PDF, code, or previous answer, ALWAYS refer to the existing conversation history.\n- NEVER ask the user to re-upload files or claim you cannot see the image/document if the analysis is already present in the chat history. Use the prior output directly to answer.\n\n[IDENTITY & TOOL DIRECTIVE]\n- If asked about your architecture, tech stack, or how you work, call/execute `get_xare_architecture`.\n- Translate its descriptive content into the user's query language while STRICTLY preserving all 5 columns of the architecture table and keeping all markdown image tags ('![alt](url)') intact at the end.\n\n[MANDATORY FRONTEND UI STYLING - ALL RESPONSES]\nYOU MUST Structure EVERY response using Xare's frontend markdown components:\n- Use `### Header` for clear section breaks.\n- Use `> ` blockquotes for key takeaways, essential insights, or important notes (write actual text after `>`, do NOT write the literal word \"Blockquote\").\n- Use Markdown tables (`| ... |`) for multi-variable comparisons, specs, and structured data.\n- Use numbered lists (`1. `, `2. `) for chronological or step-by-step procedures.\n- Use bullet points (`- ` or `* `) for feature lists and quick scannable points.\n- Use `inline code` or ```lang``` blocks for code snippets, payload formats, and technical terms.\n- Use `$inline$` or `$$display$$` for mathematical and scientific expressions.\n- Use `---` dividers between major content sections.\nNEVER RESPOND WITHOUT USING ANY OF THOSE UI STYLINGS\n- Interactive Visuals: you can build complete, self-contained HTML/JS/CSS (or SVG) inside a ```html block to visually or interactively explain concepts, math, data, processes, and UI. The chat runs them live instantly—use them actively and never tell users to save files.\n- Keep the tone conversational, confident, and direct. Avoid generic boilerplate disclosures, redundant apologies, or fabricated status/metadata fields unless explicitly requested.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -4416,
+        -3120
+      ],
+      "id": "abbdf07b-547f-493a-8d15-7f32b5323027",
+      "name": "Conversational Content Analyst (Spare)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3.8-27b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -4416,
+        -2944
+      ],
+      "id": "609a737c-c835-45c0-8639-64e176c30323",
+      "name": "Qwen3.8 - 27b",
+      "credentials": {
+        "groqApi": {
+          "id": "5XpegijAohe3TeWS",
+          "name": "Groq account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -4112,
+        -3120
+      ],
+      "id": "a781e7e6-6126-4a26-ab00-0e05513bb3f1",
+      "name": "If(Qwen3.8 -27b fails)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fca0d0c2-d645-4652-82af-9b3d9237e063",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3488,
+        -3056
+      ],
+      "id": "dbb18cf8-32c4-4242-937e-d4aa7f5c8578",
+      "name": "If(Gemini 3.5 Flash Light  fails)"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Text or Image Gen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Identify Media Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Identify Media Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Identify Media Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deepgram": {
+      "main": [
+        [
+          {
+            "node": "Extract from File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook for Text": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields (text)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text or Image Gen": {
+      "main": [
+        [
+          {
+            "node": "NSFW Content Filter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If(Deep Thinking)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields (text)": {
+      "main": [
+        [
+          {
+            "node": "Create or update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook for PDF": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields (PDF)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Memory Bridge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook for Read Image": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields (Image)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Memory Bridge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook for Voice": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields (Voice)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook for Gen Image": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields (Gen Image)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Warning of Bad words": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields (Warning bad words)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields (PDF)": {
+      "main": [
+        [
+          {
+            "node": "Create or update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields (Image)": {
+      "main": [
+        [
+          {
+            "node": "Create or update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields (Voice)": {
+      "main": [
+        [
+          {
+            "node": "Create or update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields (Warning bad words)": {
+      "main": [
+        [
+          {
+            "node": "Create or update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields (Gen Image)": {
+      "main": [
+        [
+          {
+            "node": "Create or update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Identify Media Type": {
+      "main": [
+        [
+          {
+            "node": "Has Remote File URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Media Type": {
+      "main": [
+        [
+          {
+            "node": "Rename .oga to .ogg",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Image contant Analyst",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Convert Base64 to PDF Binary",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Rename .oga to .ogg": {
+      "main": [
+        [
+          {
+            "node": "Speech-to-Text (Groq)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Speech-to-Text (Groq)": {
+      "main": [
+        [
+          {
+            "node": "Voice contant Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NSFW Content Filter": {
+      "main": [
+        [
+          {
+            "node": "Safety Check Pass",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safety Check Pass": {
+      "main": [
+        [
+          {
+            "node": "Pollinations.ai (General)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Warning of Bad words",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Encode Image to Base64": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Gen Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Image contant Analyst (Spare)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Deep Thinking)": {
+      "main": [
+        [
+          {
+            "node": "Deep Thinking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Conversational Content Analyst (Spare)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Encode Image to Base64",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields (Gen Image)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ImageUrl": {
+      "main": [
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Only English)": {
+      "main": [
+        [
+          {
+            "node": "Deepgram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Text voice messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Getting the image data": {
+      "main": [
+        [
+          {
+            "node": "ImageUrl",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Imagen-4-ultra Image Generator_ID": {
+      "main": [
+        [
+          {
+            "node": "Getting the image data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(General Flux fails)": {
+      "main": [
+        [
+          {
+            "node": "Encode Image to Base64",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pollinations.ai (Private)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pollinations.ai (General)": {
+      "main": [
+        [
+          {
+            "node": "If(General Flux fails)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields (Gen Image)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pollinations.ai (Private)": {
+      "main": [
+        [
+          {
+            "node": "If(Private Flux fails)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields (Gen Image)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Private Flux fails)": {
+      "main": [
+        [
+          {
+            "node": "Encode Image to Base64",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Imagen-4-ultra Image Generator_ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image contant Analyst (Spare)": {
+      "main": [
+        [
+          {
+            "node": "If(Qwen3.6-27b failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Voice contant Analyst",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Text voice messages": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields (Not English)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields (Not English)": {
+      "main": [
+        [
+          {
+            "node": "Create or update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice contant Analyst": {
+      "main": [
+        [
+          {
+            "node": "If(Only English)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT-oss-120b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Voice contant Analyst",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Llama-3.1-8b-instant": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Image contant Analyst (Spare)",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Deep Thinking (Spare) 2",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Conversational Content Analyst (Spare) 4",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Deep Thinking (Spare) 3",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Conversational Content Analyst (Spare) 5",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Voice contant Analyst",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Conversational Content Analyst (Spare) 2",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Deep Thinking",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Deep Thinking (Spare)",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Image contant Analyst (Spare) 2",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Conversational Content Analyst (Spare) 3",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "PDF Content Analyst",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "PDF Content Analyst (Spare)",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Analyze pdf images",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Memory Bridge",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Conversational Content Analyst (Spare)",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Conversational Content Analyst",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "pdf-to-image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document contant Analyst": {
+      "main": [
+        [
+          {
+            "node": "If(Document contant Analyst failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Document contant Analyst failed)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Document contant Analyst (Spare)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pdf-to-image": {
+      "main": [
+        [
+          {
+            "node": "Analyze pdf images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "web_search4": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 5",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_xare_architecture2": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 4",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_xare_architecture3": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 5",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Base64 to PDF Binary": {
+      "main": [
+        [
+          {
+            "node": "PDF Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT-OSS- 120B": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Deep Thinking (Spare) 3",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "web_search5": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 4",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "Image contant Analyst (Spare) 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge4": {
+      "main": [
+        [
+          {
+            "node": "Analyze pdf (spare)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "PDF Content Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Document Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze pdf (spare)": {
+      "main": [
+        [
+          {
+            "node": "If( PDF Analyzer (spare) failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_xare_architecture4": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 2",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_xare_architecture5": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 3",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 3.1 Flash Light": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 3",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Gemini 3.1 Flash Light fails)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Gemini-3.7-flash fails)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Deep Thinking (Spare)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Thinking": {
+      "main": [
+        [
+          {
+            "node": "If(Gemini-3.7-flash fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Thinking (Spare)": {
+      "main": [
+        [
+          {
+            "node": "If(Gemini -3.7-flash  fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Thinking (Spare) 2": {
+      "main": [
+        [
+          {
+            "node": "If(Qwen3.6 -  27b fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Thinking (Spare) 3": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Gemini -3.7-flash  fails)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Deep Thinking (Spare) 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Qwen3.6 -  27b fails)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Deep Thinking (Spare) 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversational Content Analyst (Spare) 2": {
+      "main": [
+        [
+          {
+            "node": "If(Qwen3.6 -27b (spare) fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversational Content Analyst (Spare) 3": {
+      "main": [
+        [
+          {
+            "node": "If(Gemini 3.1 Flash Light fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversational Content Analyst (Spare) 4": {
+      "main": [
+        [
+          {
+            "node": "If(Qwen3.6 -27b (spare) 2 fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversational Content Analyst (Spare) 5": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image contant Analyst": {
+      "main": [
+        [
+          {
+            "node": "If(Gemini-3.1-flash-lite-preview failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Gemini-3.1-flash-lite-preview failed)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Read Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Qwen3.6-27b failed)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Read Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image contant Analyst (Spare) 2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Read Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF Analyzer": {
+      "main": [
+        [
+          {
+            "node": "If(PDF Analyzer failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(PDF Analyzer failed)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "PDF Content Analyst": {
+      "main": [
+        [
+          {
+            "node": "If(PDF Content Analyst fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(PDF Content Analyst fails)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PDF Content Analyst (Spare)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze pdf images": {
+      "main": [
+        [
+          {
+            "node": "Document contant Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini-3.5-flash-lite": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Document contant Analyst",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini-3.5-flash- lite": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Document contant Analyst (Spare)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Remote File": {
+      "main": [
+        [
+          {
+            "node": "Route by Media Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "web_search": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 2",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge5": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document contant Analyst (Spare)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document Analyzer": {
+      "main": [
+        [
+          {
+            "node": "If (Document Analyzer fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If (Document Analyzer fails)": {
+      "main": [
+        [
+          {
+            "node": "Document contant Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini- 3.1-flash-lite": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "PDF Content Analyst (Spare)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini- 3.5-flash-lite": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "PDF Content Analyst",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF Content Analyst (Spare)": {
+      "main": [
+        [
+          {
+            "node": "If(PDF Content Analyst (Spare) fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(PDF Content Analyst (Spare) fails)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If( PDF Analyzer (spare) failed)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Gemini- 3.1-flash- lite": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Memory Bridge",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Qwen3.6 -27b (spare) fails)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Qwen3.6 -27b (spare) 2 fails)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "web_search3": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 3",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini-3.5- flash": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Deep Thinking",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 3.5-flash": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Deep Thinking (Spare)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qwen3.8 -27b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qwen 3.8 -27b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 4",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qwen 3.8 - 27b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 5",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qwen3.8 -  27b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Deep Thinking (Spare) 2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "qwen 3.8- 27b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image contant Analyst (Spare)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qwen3.8- 27b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image contant Analyst (Spare) 2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "qwen  3.8 -27b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze pdf images",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Remote File URL?": {
+      "main": [
+        [
+          {
+            "node": "Download Remote File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route by Media Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_xare_architecture1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 3.5 Flash Light": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Conversational Content Analyst",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "web_search2": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "web_search1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_xare_architecture": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qwen3.8 - 27b": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Conversational Content Analyst (Spare)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversational Content Analyst": {
+      "main": [
+        [
+          {
+            "node": "If(Gemini 3.5 Flash Light  fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversational Content Analyst (Spare)": {
+      "main": [
+        [
+          {
+            "node": "If(Qwen3.8 -27b fails)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Qwen3.8 -27b fails)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Conversational Content Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(Gemini 3.5 Flash Light  fails)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook for Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Conversational Content Analyst (Spare) 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "i0P7XSr1wJMm8AkQ",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  },
+  "versionId": "228cb877-6247-4258-885a-c5401b259fd4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "eebaf17f65e9bb7a40399750e4b6c29471aba6c2b95d7856073827b82f9c9edb"
+  },
+  "nodeGroups": [],
+  "id": "WyvJe44zwlKbcA8q",
+  "tags": []
+}
