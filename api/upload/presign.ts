@@ -17,10 +17,35 @@ const STORAGE_FORCE_PATH_STYLE = process.env.STORAGE_FORCE_PATH_STYLE === 'true'
 // Maximum supported upload ceiling
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
-function sanitizeFileName(name: string): string {
-  const base = name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const cleaned = base.replace(/^\.+/, '');
-  return cleaned.substring(0, 120) || 'file.bin';
+/**
+ * Strips path traversal sequences and dangerous control characters while preserving
+ * authentic user filename (including Unicode and Arabic text) for user-facing metadata.
+ */
+function sanitizeFileName(name: string): { originalClean: string; storageKeySafe: string } {
+  // 1. Strip directory paths (/ and \) to neutralize path traversal
+  const rawBase = name.split(/[/\\]/).pop() || 'file.bin';
+
+  // 2. Strip control characters and filesystem-illegal characters (< > : " / \ | ? *)
+  const originalClean = rawBase
+    .replace(/[\x00-\x1f\x7f<>:"/\\|?*]/g, '')
+    .replace(/^\.+/, '')
+    .trim() || 'file.bin';
+
+  // 3. Extract extension safely
+  const extMatch = originalClean.match(/\.([a-zA-Z0-9]+)$/);
+  const ext = extMatch ? extMatch[1].toLowerCase() : '';
+  const baseWithoutExt = ext ? originalClean.slice(0, -(ext.length + 1)) : originalClean;
+
+  // 4. Generate URL/ASCII-safe slug for object storage keys
+  const asciiSlug = baseWithoutExt
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .substring(0, 80) || 'file';
+
+  const storageKeySafe = ext ? `${asciiSlug}.${ext}` : asciiSlug;
+
+  return { originalClean, storageKeySafe };
 }
 
 function generateFileId(): string {
@@ -30,20 +55,24 @@ function generateFileId(): string {
 }
 
 /**
- * Derives a trusted user ID from the authenticated request headers (Firebase ID token or session)
- * to guarantee strict object-key isolation and tenant isolation.
+ * Derives a trusted user ID from authenticated request headers (Firebase ID token or session)
+ * with robust base64url padding to guarantee strict object-key isolation.
  */
 function getTrustedUserId(req: Request, clientUserId?: string): string {
   const authHeader = req.headers.get('Authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
+    const token = authHeader.substring(7).trim();
     try {
       const parts = token.split('.');
       if (parts.length === 3) {
-        const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4 !== 0) {
+          base64 += '=';
+        }
+        const payloadStr = atob(base64);
         const payload = JSON.parse(payloadStr);
         if (payload.sub || payload.user_id) {
-          return (payload.sub || payload.user_id).replace(/[^a-zA-Z0-9_-]/g, '_');
+          return String(payload.sub || payload.user_id).replace(/[^a-zA-Z0-9_-]/g, '_');
         }
       }
     } catch (e) {}
@@ -58,13 +87,49 @@ function getTrustedUserId(req: Request, clientUserId?: string): string {
   return safe || 'guest_user';
 }
 
+function inferMimeType(fileName: string, providedMime?: string): string {
+  if (providedMime && providedMime.trim() !== '' && providedMime !== 'application/octet-stream') {
+    return providedMime;
+  }
+  const ext = (fileName.split('.').pop() || '').toLowerCase();
+  const mimeMap: Record<string, string> = {
+    pdf: 'application/pdf',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    svg: 'image/svg+xml',
+    bmp: 'image/bmp',
+    ico: 'image/x-icon',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    ogg: 'audio/ogg',
+    oga: 'audio/ogg',
+    webm: 'audio/webm',
+    m4a: 'audio/mp4',
+    aac: 'audio/aac',
+    flac: 'audio/flac',
+    txt: 'text/plain',
+    json: 'application/json',
+    csv: 'text/csv',
+    zip: 'application/zip',
+  };
+  return mimeMap[ext] || 'application/octet-stream';
+}
+
 function getS3Client(): S3Client | null {
   if (!STORAGE_ACCESS_KEY_ID || !STORAGE_SECRET_ACCESS_KEY) {
     return null;
   }
 
+  let endpoint = STORAGE_ENDPOINT;
+  if (endpoint && !endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
+    endpoint = `https://${endpoint}`;
+  }
+
   return new S3Client({
-    endpoint: STORAGE_ENDPOINT || undefined,
+    endpoint: endpoint || undefined,
     region: STORAGE_REGION,
     credentials: {
       accessKeyId: STORAGE_ACCESS_KEY_ID,
@@ -152,8 +217,8 @@ export default async function handler(req: Request) {
         });
       }
 
-      // Security check: verify path belongs to trusted user
-      if (!objectKey.startsWith(`users/${trustedUserId}/`) && trustedUserId !== 'guest_user') {
+      // Strict tenant isolation security check: verify path belongs to trusted user
+      if (!objectKey.startsWith(`users/${trustedUserId}/`)) {
         return new Response(JSON.stringify({ error: 'Forbidden: Access denied to object path' }), {
           status: 403,
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
@@ -191,8 +256,19 @@ export default async function handler(req: Request) {
     // =========================================================================
     // ACTION: upload presign (Default: Generates presigned upload URL for browser)
     // =========================================================================
-    if (!fileName || !fileSize) {
-      return new Response(JSON.stringify({ error: 'Bad Request: fileName and fileSize are required' }), {
+    if (!fileName || typeof fileName !== 'string' || fileName.trim() === '') {
+      return new Response(JSON.stringify({ error: 'Bad Request: Valid fileName is required' }), {
+        status: 400,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+      });
+    }
+
+    const numSize = Number(fileSize);
+    if (!fileSize || isNaN(numSize) || numSize <= 0) {
+      return new Response(JSON.stringify({ error: 'Bad Request: Valid positive fileSize is required' }), {
         status: 400,
         headers: { 
           'Content-Type': 'application/json',
@@ -202,10 +278,10 @@ export default async function handler(req: Request) {
     }
 
     // 50MB Hard Application Ceiling
-    if (fileSize > MAX_SIZE) {
+    if (numSize > MAX_SIZE) {
       return new Response(JSON.stringify({ 
         error: 'FILE_TOO_LARGE',
-        message: `File too large. Maximum supported size is 50MB. (Provided: ${(fileSize / (1024 * 1024)).toFixed(1)} MB)` 
+        message: `File too large. Maximum supported size is 50MB. (Provided: ${(numSize / (1024 * 1024)).toFixed(1)} MB)` 
       }), {
         status: 413,
         headers: { 
@@ -215,16 +291,11 @@ export default async function handler(req: Request) {
       });
     }
 
-    const safeName = sanitizeFileName(fileName);
+    const { originalClean, storageKeySafe } = sanitizeFileName(fileName);
     const fileId = generateFileId();
-    const generatedObjectKey = `users/${trustedUserId}/uploads/${fileId}/${safeName}`;
+    const generatedObjectKey = `users/${trustedUserId}/uploads/${fileId}/${storageKeySafe}`;
 
-    const effectiveMimeType = mimeType || (
-      safeName.endsWith('.pdf') ? 'application/pdf' :
-      safeName.match(/\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i) ? 'image/jpeg' :
-      safeName.match(/\.(webm|mp3|ogg|wav|m4a|flac)$/i) ? 'audio/webm' :
-      'application/octet-stream'
-    );
+    const effectiveMimeType = inferMimeType(originalClean, mimeType);
 
     // Generate S3 Presigned PUT Upload URL (Valid for 30 minutes)
     const putCmd = new PutObjectCommand({
@@ -253,8 +324,8 @@ export default async function handler(req: Request) {
       downloadUrl: initialDownloadUrl,
       fileId: fileId,
       objectKey: generatedObjectKey,
-      fileName: safeName,
-      fileSize: fileSize,
+      fileName: originalClean,
+      fileSize: numSize,
       mimeType: effectiveMimeType,
       storageProvider: providerName,
       expiresIn: 1800,
@@ -281,3 +352,4 @@ export default async function handler(req: Request) {
     });
   }
 }
+

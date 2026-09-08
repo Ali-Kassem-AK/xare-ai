@@ -2,17 +2,25 @@
 
 | Test ID | Test Name | Type | Expected | Actual | Status | Duration | Notes |
 |---|---|---|---|---|---|---|---|
-| TEST-001 | Filename with spaces | Unit | my_quarterly_report_2026.pdf | my_quarterly_report_2026.pdf | **PASS** | 0.1ms | — |
-| TEST-002 | Filename with Arabic characters (safe ascii normalization) | Security/Unit | sanitized ascii string with .pdf | ____________________________.pdf | **PASS** | 0.0ms | Dangerous non-ascii codepoints converted to safe underscores |
-| TEST-003 | Path traversal sequence prevention | Security | Traversal neutralized | _.._.._etc_passwd.jpg | **PASS** | 0.0ms | Sanitized to: _.._.._etc_passwd.jpg |
-| TEST-004 | File ID collision resistance (10,000 iterations) | Stress/Unit | 10000 unique IDs | 10000 unique IDs | **PASS** | 6.4ms | Zero collisions across 10,000 consecutive generations |
-| TEST-005 | Oversized file rejection (>50MB) | Validation | Rejection | Rejection | **PASS** | 0.0ms | — |
-| TEST-006 | S3-compatible Presigned PUT URL generation | Integration | Valid AWS Signature V4 URL | Signed PUT URL generated | **PASS** | 19.9ms | — |
-| TEST-007 | S3-compatible Presigned GET URL generation (2hr TTL) | Integration | Valid AWS Signature V4 GET URL | Signed GET URL generated | **PASS** | 1.6ms | — |
-| TEST-008 | Identify Media Type - PDF classification | Unit | pdf | pdf | **PASS** | 0.2ms | — |
-| TEST-009 | Identify Media Type - Image classification via MIME | Unit | image | image | **PASS** | 0.0ms | — |
-| TEST-010 | Identify Media Type - Audio classification via .wav | Unit | audio | audio | **PASS** | 0.2ms | — |
-| TEST-011 | Malformed S3 query diagnostic detection | Unit | warning assigned | Presigned storage URL appears to have malformed AWS/S3 query parameters. | **PASS** | 0.0ms | — |
-| TEST-012 | N8N Workflow Connection Graph Integrity | Verification | 0 missing nodes | 0 missing nodes | **PASS** | 2.1ms | — |
-| TEST-013 | Live E2E Image Pipeline via n8n Webhook | E2E/Integration | HTTP 200 with AI analysis | HTTP 200 (936 bytes) | **PASS** | 9324.9ms | Vision model successfully downloaded remote URL and analyzed image |
-| TEST-014 | Live E2E PDF Pipeline via n8n Webhook | E2E/Integration | HTTP 200 with PDF analysis | HTTP 200 (316 bytes) | **PASS** | 27602.8ms | Document agent successfully analyzed PDF |
+| TEST-001 | Small image (<1MB) | Unit | image / image/png | image / image/png | **PASS** | 0.2ms | — |
+| TEST-002 | Large image (~5MB) | Unit | image (5MB) | image (5242880 bytes) | **PASS** | 0.0ms | — |
+| TEST-003 | PDF (Standard document) | Unit | pdf | pdf | **PASS** | 0.0ms | — |
+| TEST-004 | Large PDF (>5MB) | Unit | pdf direct upload | pdf isDirectUpload=true | **PASS** | 0.0ms | — |
+| TEST-005 | Audio (.webm/.mp3) | Unit | audio | audio | **PASS** | 0.0ms | — |
+| TEST-006 | Large audio (>5MB) | Unit | audio direct upload | audio isDirectUpload=true | **PASS** | 0.0ms | — |
+| TEST-007 | Unsupported / Oversized file rejection (>50MB) | Validation | Rejected (>50MB) | Clean Rejection (413 Payload Too Large) | **PASS** | 0.0ms | — |
+| TEST-008 | Expired URL handling | Security | Graceful expiration detection | Expired signature rejected | **PASS** | 0.0ms | — |
+| TEST-009 | Invalid / Malformed URL syntax detection | Unit | Warning flag assigned | Presigned storage URL appears to have malformed AWS/S3 query parameters. | **PASS** | 0.2ms | — |
+| TEST-010 | Duplicate filename collision resistance (10k iterations) | Stress/Unit | 10,000 unique IDs | 10000 unique IDs | **PASS** | 5.6ms | Zero collisions across 10,000 generations |
+| TEST-011 | Filename with spaces | Unit | Original name preserved & safe key created | my quarterly report 2026.pdf -> my_quarterly_report_2026.pdf | **PASS** | 0.2ms | — |
+| TEST-012 | Filename with Arabic characters (Authentic name preservation) | Localization/Security | تقرير_مشروع_الذكاء_الاصطناعي.pdf | Preserved: "تقرير_مشروع_الذكاء_الاصطناعي.pdf" (Key: file.pdf) | **PASS** | 0.1ms | Authentic Arabic filename preserved for user & n8n; safe storage key generated |
+| TEST-013 | Path traversal sequence prevention & special chars | Security | Traversal neutralized | passwdillegal.jpg (Key: passwdillegal.jpg) | **PASS** | 0.0ms | — |
+| TEST-014 | Missing MIME (Accurate extension fallback) | Unit | image/png, audio/wav, application/pdf | image/png, audio/wav, application/pdf | **PASS** | 0.1ms | — |
+| TEST-015 | Missing extension (MIME-based detection) | Unit | image via mimeType | image (image/png) | **PASS** | 0.0ms | — |
+| TEST-016 | S3-compatible Presigned PUT URL generation (SigV4) | Integration | Valid AWS Signature V4 PUT URL | Signed PUT URL generated | **PASS** | 17.4ms | — |
+| TEST-017 | S3-compatible Presigned GET URL generation (2hr TTL) | Integration | Valid AWS Signature V4 GET URL | Signed GET URL generated | **PASS** | 1.3ms | — |
+| TEST-018 | Strict Tenant Isolation & Path Security | Security | 403 Forbidden for cross-tenant access | All cross-tenant attempts blocked (403) | **PASS** | 0.0ms | Guest user and authenticated user cross-path access strictly denied |
+| TEST-019 | N8N Workflow Connection Graph Integrity (126 nodes) | Verification | 0 missing nodes across 126 nodes | 0 missing nodes | **PASS** | 2.0ms | 100% graph integrity with zero broken links |
+| TEST-020 | Live E2E Image Pipeline via n8n Webhook | E2E/Integration | HTTP 200 with AI analysis | HTTP 200 (920 bytes) | **PASS** | 8870.7ms | Gemini vision agent successfully downloaded remote URL and analyzed image |
+| TEST-021 | Live E2E PDF Pipeline via n8n Webhook | E2E/Integration | HTTP 200 with PDF analysis | HTTP 200 (526 bytes) | **PASS** | 9036.7ms | Document agent successfully analyzed PDF |
+| TEST-022 | Live E2E Audio Pipeline via n8n Webhook | E2E/Integration | HTTP 200 with spoken TTS audio | HTTP 200 (97588 bytes) | **PASS** | 13637.6ms | Groq Whisper STT + LLM + Deepgram TTS voice pipeline executed end-to-end |

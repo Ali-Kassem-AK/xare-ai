@@ -127,8 +127,16 @@ export async function uploadFileDirectly(
     throw new Error(`File too large. Maximum supported size is ${maxMb}MB. (Provided: ${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
   }
 
-  const auth = getAuth();
-  const currentUserId = options.userId || auth.currentUser?.uid || 'guest_user';
+  let currentUserId = options.userId || 'guest_user';
+  let auth: any = null;
+  try {
+    auth = getAuth();
+    if (!options.userId && auth?.currentUser?.uid) {
+      currentUserId = auth.currentUser.uid;
+    }
+  } catch (e) {
+    // Gracefully ignore if Firebase has not yet been initialized (e.g. tests)
+  }
 
   // 2. Check in-memory cache for instant zero-overhead retry
   const cacheKey = getFileCacheKey(file, currentUserId);
@@ -158,7 +166,7 @@ export async function uploadFileDirectly(
   // 4. Obtain ID token from current Firebase Auth session if available
   let authHeaderValue = 'Bearer anonymous_guest';
   try {
-    if (auth.currentUser) {
+    if (auth?.currentUser) {
       const idToken = await auth.currentUser.getIdToken();
       if (idToken) authHeaderValue = `Bearer ${idToken}`;
     }
