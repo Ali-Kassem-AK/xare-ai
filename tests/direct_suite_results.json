@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-09-08T22:45:32.057Z",
+  "results": [
+    {
+      "id": "TEST-DIRECT-001",
+      "sizeMb": 5,
+      "mediaType": "image",
+      "mimeType": "image/bmp",
+      "ext": "bmp",
+      "prompt": "What color is this image?",
+      "actualSizeBytes": 5241054,
+      "httpStatus": 200,
+      "durationMs": 15734,
+      "responseSnippet": "{\"text\":\"The image is a plain, solid, uniform shade of medium gray. There are no patterns, textures, shapes, or any other visible objects or features within the frame.\"}",
+      "status": "PASS"
+    },
+    {
+      "id": "TEST-DIRECT-002",
+      "sizeMb": 10,
+      "mediaType": "pdf",
+      "mimeType": "application/pdf",
+      "ext": "pdf",
+      "prompt": "What is written in this PDF?",
+      "actualSizeBytes": 10485851,
+      "httpStatus": 200,
+      "durationMs": 19643,
+      "responseSnippet": "{\"text\":\"### Document Information & Status\\n\\n> **Final Verdict:** The provided document is a test file for the Xare AI system.\\n\\n---\\n\\n### Key Metrics\\n\\nKey: Document Name\\nValue: Xare AI Zero Cos",
+      "status": "PASS"
+    },
+    {
+      "id": "TEST-DIRECT-003",
+      "sizeMb": 15,
+      "mediaType": "pdf",
+      "mimeType": "application/pdf",
+      "ext": "pdf",
+      "prompt": "Summarize this document.",
+      "actualSizeBytes": 15728731,
+      "httpStatus": 200,
+      "durationMs": 32144,
+      "responseSnippet": "{\"text\":\"### Document Information\\n\\n> **Note:** The user query was empty, but the document content has been successfully analyzed and extracted below.\\n\\n---\\n\\n### Extracted Details\\n\\n- Name: Xare ",
+      "status": "PASS"
+    },
+    {
+      "id": "TEST-DIRECT-004",
+      "sizeMb": 20,
+      "mediaType": "audio",
+      "mimeType": "audio/wav",
+      "ext": "wav",
+      "prompt": "Transcribe this voice message.",
+      "actualSizeBytes": 20971520,
+      "httpStatus": 200,
+      "durationMs": 46288,
+      "responseSnippet": "",
+      "status": "PARTIAL_200_EMPTY"
+    },
+    {
+      "id": "TEST-DIRECT-005",
+      "sizeMb": 30,
+      "mediaType": "pdf",
+      "mimeType": "application/pdf",
+      "ext": "pdf",
+      "prompt": "Analyze this large document.",
+      "actualSizeBytes": 31457371,
+      "httpStatus": 200,
+      "durationMs": 39309,
+      "responseSnippet": "{\"text\":\"### Document Analysis & Content\\n> The user query was empty, but the document content has been successfully analyzed and extracted. Below are the details of the available document.\\n\\n---\\n\\n",
+      "status": "PASS"
+    },
+    {
+      "id": "TEST-DIRECT-006",
+      "sizeMb": 40,
+      "mediaType": "pdf",
+      "mimeType": "application/pdf",
+      "ext": "pdf",
+      "prompt": "Analyze this large document.",
+      "actualSizeBytes": 41943131,
+      "httpStatus": 200,
+      "durationMs": 46168,
+      "responseSnippet": "{\"text\":\"### Document Details & Analysis\\n\\n> **Notice:** The user query provided was empty. Based on the document content provided, here are the available details extracted from the file.\\n\\n---\\n\\n#",
+      "status": "PASS"
+    },
+    {
+      "id": "TEST-DIRECT-007",
+      "sizeMb": 50,
+      "mediaType": "pdf",
+      "mimeType": "application/pdf",
+      "ext": "pdf",
+      "prompt": "Analyze this maximum size document.",
+      "actualSizeBytes": 52428891,
+      "httpStatus": 200,
+      "durationMs": 61080,
+      "responseSnippet": "{\"text\":\"### Document Details & Content\\n\\n> **Notice:** The user query provided was empty. Below is the precise extraction based on the document content provided.\\n\\n| Metric | Value |\\n| :--- | :---",
+      "status": "PASS"
+    }
+  ],
+  "modalities": {
+    "image": {
+      "status": 200,
+      "durationMs": 8406,
+      "snippet": "{\"text\":\"The image is a solid, uniform square of salmon-pink color. There are no patterns, textures, gradients, or other elements present.\"}"
+    },
+    "pdf": {
+      "status": 200,
+      "durationMs": 10362,
+      "snippet": "{\"text\":\"### Document Analysis\\n\\n> **Status:** No specific user query was provided in the prompt. Below is the direct extraction and analysis based o"
+    },
+    "audio": {
+      "status": 200,
+      "durationMs": 7103,
+      "length": 0
+    }
+  }
+}

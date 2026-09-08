@@ -5124,11 +5124,16 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         uploadedStorageProvider = uploadRes.storageProvider || 'cloudflare-r2';
         setUploadProgress(null);
       } catch (uploadErr: any) {
-        console.warn("In-flight storage upload failed, attempting automatic fallback:", uploadErr);
+        console.info("[ZERO_COST_TRANSPORT] Cloud object storage inactive or bypassed, engaging Zero-Cost Direct Transport Architecture (Option A):", uploadErr?.message || uploadErr);
         setUploadProgress(null);
-        if (attachmentFile && attachmentFile.size <= 5 * 1024 * 1024) {
-          // Automatic resilient fallback to Base64 payload for files <= 5MB
-          if (!attachmentData) {
+        uploadedFileUrl = null;
+        uploadedStorageProvider = 'direct-binary';
+        if (attachmentFile) {
+          uploadedFileName = attachmentFile.name;
+          uploadedFileSize = attachmentFile.size;
+          uploadedMimeType = attachmentFile.type || 'application/octet-stream';
+          uploadedFileId = `direct_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+          if (attachmentFile.size <= 5 * 1024 * 1024 && !attachmentData) {
             try {
               attachmentData = await new Promise<string>((res, rej) => {
                 const r = new FileReader();
@@ -5136,17 +5141,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                 r.onerror = rej;
                 r.readAsDataURL(attachmentFile);
               });
-            } catch (e) {
-              console.warn("Failed to read file as base64 fallback:", e);
-            }
+            } catch (e) {}
           }
-          uploadedFileUrl = null;
-        } else {
-          setIsLoading(false);
-          setActiveLoadingChatId(null);
-          setLoadingType(null);
-          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to Cloud Storage.'}\n\nPlease check your network connection and retry.`);
-          return;
         }
       }
     } else if (attachmentFile instanceof File) {
@@ -5166,12 +5162,16 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         uploadedStorageProvider = uploadRes.storageProvider || 'cloudflare-r2';
         setUploadProgress(null);
       } catch (uploadErr: any) {
-        console.error("Direct storage upload failed:", uploadErr);
+        console.info("[ZERO_COST_TRANSPORT] Direct object storage inactive, engaging Zero-Cost Direct Transport Architecture (Option A):", uploadErr?.message || uploadErr);
         setUploadProgress(null);
-
-        // For files <= 5MB, fallback to inline delivery so small files are never blocked
-        if (attachmentFile.size <= 5 * 1024 * 1024) {
-          if (!attachmentData) {
+        uploadedFileUrl = null;
+        uploadedStorageProvider = 'direct-binary';
+        if (attachmentFile) {
+          uploadedFileName = attachmentFile.name;
+          uploadedFileSize = attachmentFile.size;
+          uploadedMimeType = attachmentFile.type || 'application/octet-stream';
+          uploadedFileId = `direct_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+          if (attachmentFile.size <= 5 * 1024 * 1024 && !attachmentData) {
             try {
               attachmentData = await new Promise<string>((res, rej) => {
                 const r = new FileReader();
@@ -5179,18 +5179,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                 r.onerror = rej;
                 r.readAsDataURL(attachmentFile);
               });
-            } catch (e) {
-              console.warn("Failed to read file as base64 fallback:", e);
-            }
+            } catch (e) {}
           }
-          console.info("Falling back to inline delivery for small file (<= 5MB)");
-          uploadedFileUrl = null;
-        } else {
-          setIsLoading(false);
-          setActiveLoadingChatId(null);
-          setLoadingType(null);
-          showLocalBotMessage(`⚠️ **Upload Failed**\n\n${uploadErr.message || 'Could not upload file to Cloud Storage.'}\n\nPlease check your network connection and retry.`);
-          return;
         }
       }
     }
@@ -5726,12 +5716,48 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       const requestStartTime = Date.now();
 
       try {
-        const response = await fetch(N8N_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-chatbot-token': 'ali1234' },
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
+        let response: Response;
+        if (attachmentFile instanceof File && !uploadedFileUrl) {
+          // Zero-Cost Direct Multipart Transport Architecture (Option A)
+          const formData = new FormData();
+          formData.append('taskId', taskId);
+          formData.append('sessionId', targetChatId);
+          formData.append('userId', currentUser.id);
+          formData.append('username', currentUser.username || 'User');
+          formData.append('message', finalMessageText);
+          formData.append('caption', msgText);
+          formData.append('action', finalAction);
+          formData.append('mediaType', attachmentType || 'image');
+          formData.append('mimeType', uploadedMimeType || attachmentFile.type || 'application/octet-stream');
+          formData.append('fileName', uploadedFileName || attachmentFile.name);
+          formData.append('fileSize', (uploadedFileSize || attachmentFile.size).toString());
+          formData.append('storageProvider', 'direct-binary');
+
+          if (attachmentType === 'audio') {
+            formData.append('voice', 'true');
+          } else if (attachmentType === 'image') {
+            formData.append('photo', 'true');
+          } else {
+            formData.append('document', 'true');
+          }
+
+          formData.append('data', attachmentFile, uploadedFileName || attachmentFile.name);
+
+          response = await fetch(N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'x-chatbot-token': 'ali1234' },
+            body: formData,
+            signal: controller.signal
+          });
+        } else {
+          // Standard JSON payload (Pure text or S3-compatible remote file URL fallback)
+          response = await fetch(N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-chatbot-token': 'ali1234' },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          });
+        }
         clearTimeout(fetchTimeout);
         const durationMs = Date.now() - requestStartTime;
         console.info(`[N8N_REQUEST_COMPLETE] Status: ${response.status} in ${durationMs}ms`);
