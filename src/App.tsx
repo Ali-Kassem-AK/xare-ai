@@ -740,7 +740,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
   const [refreshKey, setRefreshKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isExpandedHeight, setIsExpandedHeight] = useState(false);
-  const [activeLayoutMode, setActiveLayoutMode] = useState<'fit' | 'scroll'>('fit');
+  const [activeLayoutMode, setActiveLayoutMode] = useState<'fit' | 'scroll'>('scroll');
   const inlineIframeRef = useRef<HTMLIFrameElement | null>(null);
   const modalIframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -758,7 +758,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
   }, []);
 
   const handleToggleViewMode = useCallback(() => {
-    const newMode = activeLayoutMode === 'fit' ? 'scroll' : 'fit';
+    const newMode = activeLayoutMode === 'scroll' ? 'fit' : 'scroll';
     setActiveLayoutMode(newMode);
     const msg = { type: 'XARE_SET_MODE', mode: newMode };
     inlineIframeRef.current?.contentWindow?.postMessage(msg, '*');
@@ -858,7 +858,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
     }
     html {
       width: 100% !important;
-      height: 100% !important;
+      min-height: 100% !important;
       margin: 0 !important;
       padding: 0 !important;
       background: ${isDarkMode ? '#060911' : '#ffffff'};
@@ -874,9 +874,10 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
       will-change: transform;
     }
 
-    /* Scroll Mode: natural full-width responsive layout for full websites, landing pages, and long documents */
+    /* Scroll Mode: natural full-width responsive layout for full websites, landing pages, visualizers and games */
     html.xare-mode-scroll {
       overflow-y: auto !important;
+      overflow-x: hidden !important;
       display: block !important;
     }
     html.xare-mode-scroll body {
@@ -887,26 +888,19 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
       display: block !important;
     }
 
-    /* Fit Mode: zero-scrollbar auto-scaled layout for single-screen visualizers, canvas demos, and widgets */
+    /* Fit Mode: scaled layout for single-screen visualizers without collapsing content dimensions */
     html.xare-mode-fit {
+      width: 100% !important;
+      height: 100% !important;
       overflow: hidden !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
+      display: block !important;
     }
     html.xare-mode-fit body {
+      width: 100% !important;
+      height: 100% !important;
       overflow: hidden !important;
-      transform-origin: center center !important;
-      min-width: min-content !important;
-      min-height: min-content !important;
-      width: auto !important;
-      display: flex !important;
-      flex-direction: column !important;
-      align-items: center !important;
-      justify-content: center !important;
-    }
-    html.xare-mode-fit body > * {
-      flex-shrink: 0 !important;
+      transform-origin: top center !important;
+      display: block !important;
     }
 
     /* Sleek slim scrollbars */
@@ -929,7 +923,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
     const autoFitScript = `
   <script id="xare-autofit-script">
     (function() {
-      var preferredMode = 'auto';
+      var preferredMode = 'scroll'; // DEFAULT TO FULL PAGE
       var isEvaluating = false;
 
       function evaluateLayout() {
@@ -948,29 +942,24 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
           } catch(e) {}
 
           html.classList.remove('xare-mode-fit', 'xare-mode-scroll');
-          body.style.transform = 'none';
 
-          var availW = Math.max(10, window.innerWidth - 20);
-          var availH = Math.max(10, window.innerHeight - 20);
+          var availW = Math.max(10, window.innerWidth);
+          var availH = Math.max(10, window.innerHeight);
 
           var contentH = Math.max(body.scrollHeight, body.offsetHeight, html.scrollHeight);
           var contentW = Math.max(body.scrollWidth, body.offsetWidth, html.scrollWidth);
 
-          var calculatedScale = Math.min(availW / contentW, availH / contentH, 1);
-          var isScrollingWebsite = (contentH > availH * 1.35) || (calculatedScale < 0.68);
+          var isScrollingWebsite = (contentH > availH * 1.25);
+          var effectiveMode = preferredMode || 'scroll';
 
-          var effectiveMode = preferredMode;
-          if (effectiveMode === 'auto') {
-            effectiveMode = isScrollingWebsite ? 'scroll' : 'fit';
-          }
-
-          if (effectiveMode === 'scroll') {
+          if (effectiveMode === 'fit') {
+            html.classList.add('xare-mode-fit');
+            var scale = Math.max(0.4, Math.min(availW / Math.max(contentW, 1), availH / Math.max(contentH, 1), 1));
+            body.style.transform = scale < 0.98 ? 'scale(' + scale + ')' : 'none';
+          } else {
+            // Full Page (natural responsive layout)
             html.classList.add('xare-mode-scroll');
             body.style.transform = 'none';
-          } else {
-            html.classList.add('xare-mode-fit');
-            var scale = Math.max(0.4, Math.min(availW / contentW, availH / contentH, 1));
-            body.style.transform = 'scale(' + scale + ')';
           }
 
           try {
@@ -1032,7 +1021,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
     return processedHtml;
   }, [code, cleanLang, isDarkMode]);
 
-  const iframeHeightClass = isExpandedHeight ? 'h-[500px] sm:h-[580px]' : 'h-[340px] sm:h-[390px]';
+  const iframeHeightClass = isExpandedHeight ? 'h-[550px] sm:h-[650px]' : 'h-[400px] sm:h-[480px]';
 
   return (
     <div className={`my-4 rounded-2xl overflow-hidden border shadow-lg transition-all ${isDarkMode ? 'border-slate-800/90 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'}`}>
@@ -1086,15 +1075,19 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
               <button 
                 type="button"
                 onClick={handleToggleViewMode}
-                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                  isDarkMode 
-                    ? 'hover:bg-slate-800 text-slate-400 hover:text-cyan-300' 
-                    : 'hover:bg-slate-200 text-slate-600 hover:text-blue-700'
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  activeLayoutMode === 'scroll'
+                    ? (isDarkMode 
+                        ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' 
+                        : 'bg-blue-50 text-blue-700 border border-blue-200')
+                    : (isDarkMode 
+                        ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                        : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900')
                 }`}
-                title={activeLayoutMode === 'fit' ? "Switch to full-page scroll view" : "Switch to fit-to-screen view"}
+                title={activeLayoutMode === 'scroll' ? "Full Page layout active (click to switch to Fit Screen)" : "Fit Screen layout active (click to switch to Full Page)"}
               >
-                {activeLayoutMode === 'fit' ? <FileText className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                <span className="hidden md:inline">{activeLayoutMode === 'fit' ? "Full Page" : "Fit Screen"}</span>
+                {activeLayoutMode === 'scroll' ? <FileText className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                <span className="hidden md:inline">{activeLayoutMode === 'scroll' ? "Full Page" : "Fit Screen"}</span>
               </button>
 
               {/* Expand / Compact Height Toggle */}
@@ -1248,11 +1241,15 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
                 <button
                   type="button"
                   onClick={handleToggleViewMode}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/50' : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'}`}
-                  title={activeLayoutMode === 'fit' ? "Switch to full-page scroll view" : "Switch to fit-to-screen view"}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    activeLayoutMode === 'scroll'
+                      ? (isDarkMode ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200')
+                      : (isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/50' : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700')
+                  }`}
+                  title={activeLayoutMode === 'scroll' ? "Full Page layout active (click to switch to Fit Screen)" : "Fit Screen layout active (click to switch to Full Page)"}
                 >
-                  {activeLayoutMode === 'fit' ? <FileText className="w-3.5 h-3.5 text-blue-400" /> : <Maximize2 className="w-3.5 h-3.5 text-cyan-400" />}
-                  <span>{activeLayoutMode === 'fit' ? "Full Page" : "Fit Screen"}</span>
+                  {activeLayoutMode === 'scroll' ? <FileText className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize2 className="w-3.5 h-3.5 text-slate-400" />}
+                  <span>{activeLayoutMode === 'scroll' ? "Full Page" : "Fit Screen"}</span>
                 </button>
 
                 <button

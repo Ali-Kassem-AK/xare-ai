@@ -397,6 +397,20 @@ runTest('Should detect Build mode in isVisualizationPrompt for diverse creative 
   assert.strictEqual(isVisualizationPrompt('build an interactive particle physics simulator'), true);
 });
 
+runTest('Should verify Full Page (scroll) is default layout mode in CodeBlock and sandbox', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const appTsx = fs.readFileSync(path.join(__dirname, '..', 'src', 'App.tsx'), 'utf8');
+
+  // Verify CodeBlock defaults to scroll (Full Page)
+  assert.ok(appTsx.includes("useState<'fit' | 'scroll'>('scroll')"), 'CodeBlock must default to scroll (Full Page)');
+  // Verify autoFitScript defaults to scroll
+  assert.ok(appTsx.includes("var preferredMode = 'scroll'"), 'autoFitScript must default preferredMode to scroll');
+  // Verify html.xare-mode-scroll has full-width responsive styles
+  assert.ok(appTsx.includes('html.xare-mode-scroll'), 'Must define xare-mode-scroll styles');
+  assert.ok(!appTsx.includes('min-width: min-content !important; width: auto !important;'), 'Must not collapse body with min-content');
+});
+
 console.log('\n=== ALL TESTS COMPLETE: ' + passed + '/' + total + ' PASSED ===\n');
 if (passed !== total) process.exit(1);
 
