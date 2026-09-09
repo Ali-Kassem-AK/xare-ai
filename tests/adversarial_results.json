@@ -1,0 +1,147 @@
+{
+  "passed": 14,
+  "total": 14,
+  "timestamp": "2026-09-09T13:12:44.740Z",
+  "results": [
+    {
+      "id": "ADV-001",
+      "name": "0-Byte File Boundary (Upload, 0B Download, 404 Post-Delete)",
+      "category": "Size Boundary",
+      "expected": "HTTP 200 with 0B; HTTP 404 post-delete",
+      "actual": "0 bytes verified; post-delete HTTP 404",
+      "status": "PASS",
+      "durationMs": 772,
+      "notes": "Zero-byte edge case handled without server crash"
+    },
+    {
+      "id": "ADV-002",
+      "name": "Exactly 5 MB Boundary (5,242,880 B) - Base64 Gating & Network Ingress",
+      "category": "Size Boundary",
+      "expected": "Predicate TRUE; Content-Length 5242880",
+      "actual": "<=5MB is TRUE; Verified 5242880 bytes on wire",
+      "status": "PASS",
+      "durationMs": 5457,
+      "notes": "Precision boundary correctly permits local preview and streams cleanly"
+    },
+    {
+      "id": "ADV-003",
+      "name": "5 MB + 1 Byte Boundary (5,242,881 B) - Memory Clamp Verification",
+      "category": "Memory Safety",
+      "expected": "Predicate FALSE; Base64 suppressed",
+      "actual": "Bypasses Base64 allocation; streams raw File object",
+      "status": "PASS",
+      "durationMs": 2,
+      "notes": "Guarantees 2GB low-end mobile devices avoid V8 heap OOM crashes"
+    },
+    {
+      "id": "ADV-004",
+      "name": "Exactly 50 MB Boundary (52,428,800 B) - Maximum Allowed Ceiling",
+      "category": "Size Boundary",
+      "expected": "Predicate FALSE (>50MB is false); Allowed",
+      "actual": "Accepted by client and storage service validation",
+      "status": "PASS",
+      "durationMs": 0,
+      "notes": "Strict > operator permits exactly 50 MB payload"
+    },
+    {
+      "id": "ADV-005",
+      "name": "Oversized Client Rejection (>50MB, 50.1MB, 60MB) with 0 Bytes Sent",
+      "category": "Boundary Rejection",
+      "expected": "Immediate client-side error, 0 network bytes sent",
+      "actual": "Rejected synchronously; 0 bytes transmitted over network",
+      "status": "PASS",
+      "durationMs": 1,
+      "notes": "Blocks oversized payloads before socket creation"
+    },
+    {
+      "id": "ADV-006",
+      "name": "Arabic Filename & Content Preservation (UTF-8 Integrity)",
+      "category": "Internationalization",
+      "expected": "Valid upload; SHA-256 match; .pdf retained",
+      "actual": "Hash verified (d7ea72e3dc7ee853...); URL: https://kappa.lol/71BqCy.pdf",
+      "status": "PASS",
+      "durationMs": 513,
+      "notes": "Arabic title 'تقرير_الذكاء_الاصطناعي_٢٠٢٦.pdf' processed cleanly"
+    },
+    {
+      "id": "ADV-007",
+      "name": "Multilingual Unicode & Emoji Filenames (CJK, Cyrillic, Emoji)",
+      "category": "Internationalization",
+      "expected": "Uploads succeed; extensions preserved",
+      "actual": "All multilingual filenames handled without corruption",
+      "status": "PASS",
+      "durationMs": 1345,
+      "notes": "Safe id generation handles arbitrary Unicode sequences"
+    },
+    {
+      "id": "ADV-008",
+      "name": "Whitespace & Special Symbol Filenames (Punctuation, Quotes, Spaces)",
+      "category": "Negative Filenames",
+      "expected": "Sanitized upload; HTTP 200",
+      "actual": "Passed without multipart boundary or HTTP header corruption",
+      "status": "PASS",
+      "durationMs": 2134,
+      "notes": "Handles non-standard characters safely"
+    },
+    {
+      "id": "ADV-009",
+      "name": "Binary Content Integrity (Null Bytes, High Bytes 0xFF, 64KB)",
+      "category": "Binary Fidelity",
+      "expected": "100% SHA-256 byte parity",
+      "actual": "Bit-for-bit verified (334dd68f6e4c4da5...)",
+      "status": "PASS",
+      "durationMs": 790,
+      "notes": "No string coercion or null-byte truncation"
+    },
+    {
+      "id": "ADV-010",
+      "name": "Accurate MIME Header Preservation (Image, PDF, Audio)",
+      "category": "Protocol Fidelity",
+      "expected": "HTTP Content-Type matches client MIME",
+      "actual": "Verified image/png, application/pdf, audio/wav",
+      "status": "PASS",
+      "durationMs": 2104,
+      "notes": "Direct raw retrieval returns exact MIME headers needed by n8n"
+    },
+    {
+      "id": "ADV-011",
+      "name": "Immediate Post-Processing Purge (<500ms) & Subsequent 404 Proof",
+      "category": "Privacy & Cleanup",
+      "expected": "Deletion < 500ms; HTTP 404 on subsequent GET",
+      "actual": "Deleted in 281ms; Subsequent fetch returned HTTP 404",
+      "status": "PASS",
+      "durationMs": 510,
+      "notes": "Ephemeral data wiped instantly from public access"
+    },
+    {
+      "id": "ADV-012",
+      "name": "Negative Storage Key Queries (404/400 Rejections & Client Safety)",
+      "category": "Error Handling",
+      "expected": "HTTP 404 on non-existent file; HTTP 400 on bad delete key; No unhandled throws",
+      "actual": "HTTP 404 & HTTP 400 received cleanly; safe boolean return",
+      "status": "PASS",
+      "durationMs": 127,
+      "notes": "Client error wrappers gracefully catch non-200 responses"
+    },
+    {
+      "id": "ADV-013",
+      "name": "n8n Graph onError Resilience Configuration (Download Remote File)",
+      "category": "Workflow Audit",
+      "expected": "onError: continueRegularOutput on Download node",
+      "actual": "Verified on node cc7bbfea-f8ab-44b4-8206-8644ad2d0922 (Download Remote File)",
+      "status": "PASS",
+      "durationMs": 2,
+      "notes": "Ensures workflow pipeline continues regular output on HTTP 404 errors"
+    },
+    {
+      "id": "ADV-014",
+      "name": "Live n8n Webhook Resilience Under 404/Deleted File Ingress",
+      "category": "Live Resilience",
+      "expected": "HTTP 200 Webhook Response (Graceful Degradation)",
+      "actual": "HTTP 200 (20792ms)",
+      "status": "PASS",
+      "durationMs": 20792,
+      "notes": "Workflow completed gracefully without crashing or throwing HTTP 500"
+    }
+  ]
+}

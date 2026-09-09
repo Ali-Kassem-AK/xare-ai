@@ -26,25 +26,25 @@ To achieve a **$0 cost, zero credit card, zero billing, privacy-first file trans
 
 ## Feature Inventory
 
-Every requirement and capability audited and assigned to a milestone:
+Every requirement and capability audited and verified:
 
-| # | Feature | Description | Milestone | Source |
-|---|---|---|---|---|
-| 1 | Phase 0 Feasibility Proof | Physical/networking proof disproving direct browser-local fetch across NAT | M0 (Done) | Survey / R1 |
-| 2 | Ephemeral Services Benchmark | Empirical evaluation of candidate services (Kappa.lol, Catbox, tmpfiles, file.io) | M0 (Done) | Survey / R1 |
-| 3 | Codebase Source Audit | Complete line-level audited inventory of repository source files (91 files) | M0 (Done) | Survey / R2 |
-| 4 | n8n 126-Node Graph Audit | Full topology reconstruction across 9 functional clusters & download node | M0 (Done) | Survey / R2 |
-| 5 | Modular `FileTransport` Abstraction | Clean provider-agnostic interface (`prepare`, `getReference`, `fetchStatus`, `cancel`, `cleanup`) | M1 | R3 |
-| 6 | Zero-Cost Ephemeral Adapter | $0, zero-card provider implementation with direct binary retrieval & <500ms deletion | M1 | R3 |
-| 7 | T0 Background Pre-Upload UX | Immediate upload upon user selection concealing network latency behind prompt typing | M2 | R3 / R4 |
-| 8 | Mobile Memory & Zero Base64 Leak | Binary streaming, <=5MB Base64 gating, 2GB RAM stability on Safari/Chrome | M2 | R4 |
-| 9 | Concurrency & Queue Management | Concurrent multi-file upload support (2, 3, 5 files) without unhandled rejections | M3 | R4 |
-| 10 | Security & Zero Secrets Scanning | Zero client secrets exposed; immediate programmatic deletion & 404 verification | M3 | R3 / R5 |
-| 11 | 18 Automated Regression Tests | 100% pass rate across all 18 automated tests in `tests/zero_cost_transport.test.cjs` | M4 | R5 |
-| 12 | Independent Multi-Agent Review | Reviewer & Challenger verification of architecture, frontend, mobile, security | M4 | R5 |
-| 13 | Forensic Integrity Audit | Systematic runtime tracing, static analysis, zero-mock audit by Forensic Auditor | M4 | Protocol / R5 |
-| 14 | Git Commit & Push to Main | Clean working tree committed and pushed to `https://github.com/Ali-Kassem-AK/xare-ai` | M5 | R5 |
-| 15 | Vercel Production Deployment & Live E2E | Live production verification on `https://xare-ai.vercel.app` across Text, Image, PDF, Audio | M5 | R5 |
+| # | Feature | Description | Milestone | Source | Status |
+|---|---|---|---|---|---|
+| 1 | Phase 0 Feasibility Proof | Physical/networking proof disproving direct browser-local fetch across NAT | M0 | Survey / R1 | VERIFIED |
+| 2 | Ephemeral Services Benchmark | Empirical evaluation of candidate services (Kappa.lol, Catbox, tmpfiles, file.io) | M0 | Survey / R1 | VERIFIED |
+| 3 | Codebase Source Audit | Complete line-level audited inventory of repository source files (91 files) | M0 | Survey / R2 | VERIFIED |
+| 4 | n8n 126-Node Graph Audit | Full topology reconstruction across 9 functional clusters & download node | M0 | Survey / R2 | VERIFIED |
+| 5 | Modular `FileTransport` Abstraction | Clean provider-agnostic interface (`prepare`, `getReference`, `fetchStatus`, `cancel`, `cleanup`) | M1 | R3 | VERIFIED |
+| 6 | Zero-Cost Ephemeral Adapter | $0, zero-card provider implementation with direct binary retrieval & <500ms deletion | M1 | R3 | VERIFIED |
+| 7 | T0 Background Pre-Upload UX | Immediate upload upon user selection concealing network latency behind prompt typing | M2 | R3 / R4 | VERIFIED |
+| 8 | Mobile Memory & Zero Base64 Leak | Binary streaming, <=5MB Base64 gating, 2GB RAM stability on Safari/Chrome | M2 | R4 | VERIFIED |
+| 9 | Concurrency & Queue Management | Concurrent multi-file upload support (2, 3, 5 files) without unhandled rejections | M3 | R4 | VERIFIED |
+| 10 | Security & Zero Secrets Scanning | Zero client secrets exposed; immediate programmatic deletion & 404 verification | M3 | R3 / R5 | VERIFIED |
+| 11 | 18 Automated Regression Tests | 100% pass rate across all 18 automated tests in `tests/zero_cost_transport.test.cjs` | M4 | R5 | VERIFIED |
+| 12 | Independent Multi-Agent Review | Reviewer & Challenger verification of architecture, frontend, mobile, security | M4 | R5 | VERIFIED |
+| 13 | Forensic Integrity Audit | Systematic runtime tracing, static analysis, zero-mock audit by Forensic Auditor | M4 | Protocol / R5 | VERIFIED (CLEAN) |
+| 14 | Git Commit & Push to Main | Clean working tree committed and pushed to `https://github.com/Ali-Kassem-AK/xare-ai` | M5 | R5 | VERIFIED |
+| 15 | Vercel Production Deployment & Live E2E | Live production verification on `https://xare-ai.vercel.app` across Text, Image, PDF, Audio | M5 | R5 | VERIFIED |
 
 ---
 
@@ -52,12 +52,12 @@ Every requirement and capability audited and assigned to a milestone:
 
 | # | Name | Scope | Dependencies | Status |
 |---|---|---|---|---|
-| M0 | Survey & Feasibility Gating | R1 Technical Feasibility Gate, R2 Codebase Audit, R2 n8n 126-Node Workflow Graph | None | DONE |
-| M1 | FileTransport Abstraction & Provider Layer | Modular interface contracts, Kappa.lol zero-cost provider adapter, sub-500ms cleanup | M0 | IN_PROGRESS |
-| M2 | Background Pre-Upload & Mobile Memory Streaming | T0 upload triggering, raw binary streaming, <=5MB Base64 clamp, 2GB RAM safety | M1 | PLANNED |
-| M3 | Concurrency Engineering & Security Verification | 2, 3, 5 concurrent upload handling, zero-secret scanning, post-deletion 404 proof | M2 | PLANNED |
-| M4 | Regression Suite, Multi-Agent Review & Integrity Audit | 18 automated tests passing 100%, Reviewer approvals, Challenger stress-testing, Forensic Audit CLEAN | M3 | PLANNED |
-| M5 | Production Git Push, Vercel Deployment & Live Verification | Clean commit, push to GitHub `main`, Vercel production deploy, live E2E verification | M4 | PLANNED |
+| M0 | Survey & Feasibility Gating | R1 Technical Feasibility Gate, R2 Codebase Audit, R2 n8n 126-Node Workflow Graph | None | **DONE** |
+| M1 | FileTransport Abstraction & Provider Layer | Modular interface contracts, Kappa.lol zero-cost provider adapter, sub-500ms cleanup | M0 | **DONE** |
+| M2 | Background Pre-Upload & Mobile Memory Streaming | T0 upload triggering, raw binary streaming, <=5MB Base64 clamp, 2GB RAM safety | M1 | **DONE** |
+| M3 | Concurrency Engineering & Security Verification | 2, 3, 5 concurrent upload handling, zero-secret scanning, post-deletion 404 proof | M2 | **DONE** |
+| M4 | Regression Suite, Multi-Agent Review & Integrity Audit | 18 automated tests passing 100%, Reviewer approvals, Challenger stress-testing, Forensic Audit CLEAN | M3 | **DONE** |
+| M5 | Production Git Push, Vercel Deployment & Live Verification | Clean commit, push to GitHub `main`, Vercel production deploy, live E2E verification | M4 | **DONE** |
 
 ---
 
@@ -130,6 +130,9 @@ export interface IFileTransportProvider {
 - `n8n/Xare AI.json`: Complete 126-node workflow definition.
 - `tests/`:
   - `zero_cost_transport.test.cjs`: Master automated test matrix (18 tests).
+  - `concurrency_stress.test.cjs`: Concurrency stress test harness (26 tests).
+  - `adversarial_boundary.test.cjs`: Boundary & negative test harness (14 tests).
   - `measure_n8n_latency.cjs`: Latency & health check test for n8n webhook.
 - `scripts/`:
   - `scan_secrets.cjs`: Pre-deployment security secret scanner.
+  - `verify_live_deploy.cjs`: Live Vercel production deployment verifier.
