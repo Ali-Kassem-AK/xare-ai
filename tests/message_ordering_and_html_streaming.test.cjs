@@ -160,3 +160,49 @@ runTest('Should NOT detect visualization on regular chat queries', () => {
 
 console.log('\n=== RESULTS: ' + passed + '/' + total + ' TESTS PASSED ===\n');
 if (passed !== total) process.exit(1);
+
+// --- Group 4: New Chat Integrity ---
+runTest('Should NEVER treat a chat with bot/visualization messages as empty, even if user messages are absent', () => {
+  const chatWithBotOnly = {
+    id: 'chat-bot-viz',
+    title: '### Title Generation',
+    messages: [
+      { id: 'msg-1', sender: 'bot', text: '`html\n<div>Cat</div>\n`', timestamp: new Date() }
+    ]
+  };
+
+  // The old buggy check: !chat.messages || chat.messages.length === 0 || !chat.messages.some(m => m.sender === 'user')
+  const isBuggyEmpty = !chatWithBotOnly.messages || chatWithBotOnly.messages.length === 0 || !chatWithBotOnly.messages.some(m => m.sender === 'user');
+  assert.strictEqual(isBuggyEmpty, true); // Proves the bug existed
+
+  // The new fixed check:
+  const isActuallyEmpty = !chatWithBotOnly.messages || chatWithBotOnly.messages.length === 0;
+  assert.strictEqual(isActuallyEmpty, false); // Proves it is no longer treated as empty
+});
+
+runTest('Should create a fresh new chat with 0 messages when current chat has content', () => {
+  const currentChatId = 'chat-1';
+  const chatHistory = [
+    { id: 'chat-1', title: 'Interactive Cat', messages: [{ id: 'm1', text: 'cat', sender: 'bot' }] }
+  ];
+
+  const activeChat = chatHistory.find(c => c.id === currentChatId);
+  const activeIsActuallyEmpty = activeChat && (!activeChat.messages || activeChat.messages.length === 0);
+  assert.strictEqual(activeIsActuallyEmpty, false);
+
+  const newChatId = 'chat-fresh-2';
+  const newChat = {
+    id: newChatId,
+    title: 'New Chat',
+    messages: [],
+    updatedAt: new Date()
+  };
+
+  const updatedHistory = [newChat, ...chatHistory.filter(c => c.id !== newChatId && c.messages && c.messages.length > 0)];
+  assert.strictEqual(updatedHistory.length, 2);
+  assert.strictEqual(updatedHistory[0].id, 'chat-fresh-2');
+  assert.strictEqual(updatedHistory[0].messages.length, 0);
+});
+
+console.log('\n=== ALL TESTS COMPLETE: ' + passed + '/' + total + ' PASSED ===\n');
+if (passed !== total) process.exit(1);

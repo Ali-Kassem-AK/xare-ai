@@ -6,7 +6,7 @@ import {
   LogOut, AlignLeft, CheckCircle, Code, Languages, 
   Globe, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AudioLines, Copy, Brain, Download,
   Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, Minimize2, ExternalLink, ArrowUp,
-  Info, Lightbulb, AlertTriangle, AlertCircle
+  Info, Lightbulb, AlertTriangle, AlertCircle, Trash2
 } from 'lucide-react';
 import katex from 'katex';
 
@@ -16,7 +16,7 @@ import {
   updateProfile, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup
 } from 'firebase/auth';
 import { 
-  getFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment 
+  getFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment, deleteDoc 
 } from 'firebase/firestore';
 import { uploadFileDirectly, deleteTemporaryFile, UploadResult, transportLedger } from './utils/storage';
 
@@ -4986,25 +4986,60 @@ const AI_PRESETS = [
     }
   };
 
-  const createNewChat = async () => {
+  const deleteChat = (chatId: string) => {
     if (streamingAnimFrameRef.current) {
       cancelAnimationFrame(streamingAnimFrameRef.current);
       streamingAnimFrameRef.current = null;
     }
     setStreamingMessageId(null);
-    if (!currentUser) return;
+    setChatHistory(prev => prev.filter(c => c.id !== chatId));
 
-    const existingEmptyChat = chatHistory.find(
-      (chat) => !chat.messages || chat.messages.length === 0 || !chat.messages.some(m => m.sender === 'user')
-    );
-
-    if (existingEmptyChat) {
-      setCurrentChatId(existingEmptyChat.id);
-      setSuggestions([]);
-      if (window.innerWidth < 1024) setIsSidebarOpen(false);
-      return; 
+    if (currentUser && currentUser.id !== 'guest-user' && currentUser.id !== 'preview-user') {
+      deleteDoc(doc(db, 'users', currentUser.id, 'chats', chatId)).catch(err => {
+        console.warn("Failed to delete chat doc from Firestore:", err);
+      });
     }
 
+    if (currentChatId === chatId) {
+      const remainingChats = chatHistory.filter(c => c.id !== chatId);
+      if (remainingChats.length > 0) {
+        setCurrentChatId(remainingChats[0].id);
+      } else {
+        createNewChat();
+      }
+    }
+  };
+
+  const createNewChat = () => {
+    if (streamingAnimFrameRef.current) {
+      cancelAnimationFrame(streamingAnimFrameRef.current);
+      streamingAnimFrameRef.current = null;
+    }
+    setStreamingMessageId(null);
+    setIsLoading(false);
+    setActiveLoadingChatId(null);
+    setLoadingType(null);
+    setSuggestions([]);
+    setInputValue('');
+    setAttachmentFile(null);
+    setAttachmentData(null);
+    setAttachmentType(null);
+    setPendingAttachment(null);
+    if (isRecording) {
+      cancelRecording();
+    }
+
+    if (!currentUser) return;
+
+    // If current active chat is already completely empty (0 messages), stay on it
+    const activeChat = chatHistory.find(c => c.id === currentChatId);
+    if (activeChat && (!activeChat.messages || activeChat.messages.length === 0)) {
+      if (window.innerWidth < 1024) setIsSidebarOpen(false);
+      setTimeout(() => textareaRef.current?.focus(), 50);
+      return;
+    }
+
+    // Always create a fresh, clean chat with zero messages
     const newChatId = generateUniqueId();
     const newChat = {
       id: newChatId,
@@ -5013,13 +5048,16 @@ const AI_PRESETS = [
       updatedAt: new Date()
     };
     setCurrentChatId(newChatId);
-    setChatHistory(prev => [newChat, ...prev]);
-    setSuggestions([]);
-    setDoc(doc(db, 'users', currentUser.id, 'chats', newChatId), newChat).catch(err => {
-      console.warn("Chat creation blocked by rules (ignoring):", err);
-    });
+    setChatHistory(prev => [newChat, ...prev.filter(c => c.id !== newChatId && c.messages && c.messages.length > 0)]);
+    
+    if (currentUser.id !== 'guest-user' && currentUser.id !== 'preview-user') {
+      setDoc(doc(db, 'users', currentUser.id, 'chats', newChatId), newChat).catch(err => {
+        console.warn("Chat creation blocked by rules (ignoring):", err);
+      });
+    }
     
     if (window.innerWidth < 1024) setIsSidebarOpen(false);
+    setTimeout(() => textareaRef.current?.focus(), 50);
   };
 
   const triggerSuggestions = async (botText) => {
@@ -6724,23 +6762,38 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
               
               {[...chatHistory]
                 .filter(chat => {
-                  const hasUserMessages = chat.messages && chat.messages.some((m: any) => m.sender === 'user');
-                  return hasUserMessages || chat.id === currentChatId;
+                  const hasMessages = chat.messages && chat.messages.length > 0;
+                  return hasMessages || chat.id === currentChatId;
                 })
                 .sort((a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a))
                 .map(chat => (
-                <button
+                <div
                   key={chat.id}
-                  onClick={() => switchChat(chat.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left text-sm group ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors text-left text-sm group ${
                     currentChatId === chat.id
                     ? (isDarkMode ? 'bg-blue-500/10 text-blue-400 font-medium' : 'bg-blue-600/10 text-blue-700 font-medium')
                     : (isDarkMode ? 'text-slate-300 hover:bg-slate-800/50' : 'text-slate-700 hover:bg-slate-100')
                   }`}
                 >
-                  <MessageSquare className={`w-4 h-4 flex-shrink-0 ${currentChatId === chat.id ? (isDarkMode ? 'text-blue-500' : 'text-blue-600') : (isDarkMode ? 'text-slate-500 group-hover:text-slate-400' : 'text-slate-400 group-hover:text-slate-500')}`} />
-                  <span className="truncate">{chat.title}</span>
-                </button>
+                  <button
+                    onClick={() => switchChat(chat.id)}
+                    className="flex-1 flex items-center gap-2.5 min-w-0 text-left truncate"
+                    title={chat.title}
+                  >
+                    <MessageSquare className={`w-4 h-4 flex-shrink-0 ${currentChatId === chat.id ? (isDarkMode ? 'text-blue-500' : 'text-blue-600') : (isDarkMode ? 'text-slate-500 group-hover:text-slate-400' : 'text-slate-400 group-hover:text-slate-500')}`} />
+                    <span className="truncate">{chat.title}</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteChat(chat.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/20 hover:text-red-400 text-slate-400 transition-all flex-shrink-0 ml-1"
+                    title="Delete chat"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
 
