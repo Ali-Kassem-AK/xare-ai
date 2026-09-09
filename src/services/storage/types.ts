@@ -5,7 +5,7 @@
  * with direct browser streaming, mobile Safari resilience, and realistic progress tracking.
  */
 
-export type StorageProviderType = 's3' | 'r2' | 'b2' | 'blob' | 'fallback' | 'supabase';
+export type StorageProviderType = 'zero-cost-transport' | 's3' | 'r2' | 'b2' | 'blob' | 'fallback' | 'supabase';
 
 export interface UploadProgressInfo {
   percent: number;
@@ -36,6 +36,7 @@ export interface UploadResult {
   storagePath: string;
   storageProvider: string;
   uploadedAt: string;
+  deleteUrl?: string;
 }
 
 export interface PresignUploadRequest {

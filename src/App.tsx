@@ -18,7 +18,7 @@ import {
 import { 
   getFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment 
 } from 'firebase/firestore';
-import { uploadFileDirectly, UploadResult } from './utils/storage';
+import { uploadFileDirectly, deleteTemporaryFile, UploadResult } from './utils/storage';
 
 // ==========================================
 // --- TOKEN LIMIT & REDIRECTION CONFIG
@@ -5102,8 +5102,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     let uploadedFileSize: number | null = null;
     let uploadedFileId: string | null = null;
     let uploadedStorageProvider: string | null = null;
-
-    const isRemoteStorageEnabled = Boolean(import.meta.env.VITE_ENABLE_REMOTE_STORAGE === 'true');
+    let uploadedDeleteUrl: string | null = null;
 
     if (preUploadResult) {
       // 🚀 Instant pre-upload was already completed in the background before clicking send!
@@ -5112,9 +5111,10 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       uploadedFileName = preUploadResult.fileName;
       uploadedFileSize = preUploadResult.fileSize;
       uploadedFileId = preUploadResult.fileId;
-      uploadedStorageProvider = preUploadResult.storageProvider || 'cloudflare-r2';
-    } else if (preUploadPromise && isRemoteStorageEnabled) {
-      // ⏳ Remote object storage pre-upload is currently in flight: await the existing promise!
+      uploadedStorageProvider = preUploadResult.storageProvider || 'zero-cost-transport';
+      uploadedDeleteUrl = (preUploadResult as any).deleteUrl || null;
+    } else if (preUploadPromise) {
+      // ⏳ Background ephemeral transport is currently in flight: await the existing promise!
       try {
         setUploadingFileName(attachmentFile?.name || 'File');
         const uploadRes = await preUploadPromise;
@@ -5123,10 +5123,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         uploadedFileName = uploadRes.fileName;
         uploadedFileSize = uploadRes.fileSize;
         uploadedFileId = uploadRes.fileId;
-        uploadedStorageProvider = uploadRes.storageProvider || 'cloudflare-r2';
+        uploadedStorageProvider = uploadRes.storageProvider || 'zero-cost-transport';
+        uploadedDeleteUrl = (uploadRes as any).deleteUrl || null;
         setUploadProgress(null);
       } catch (uploadErr: any) {
-        console.info("[ZERO_COST_TRANSPORT] Cloud object storage inactive or bypassed, engaging Zero-Cost Direct Transport Architecture (Option A):", uploadErr?.message || uploadErr);
+        console.info("[ZERO_COST_TRANSPORT_NOTICE] Background transport fallback:", uploadErr?.message || uploadErr);
         setUploadProgress(null);
         uploadedFileUrl = null;
         uploadedStorageProvider = 'direct-binary';
@@ -5148,43 +5149,42 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         }
       }
     } else if (attachmentFile && (attachmentFile instanceof File || attachmentFile instanceof Blob)) {
-      if (isRemoteStorageEnabled && (attachmentFile instanceof File)) {
-        // Fallback to direct S3/R2 upload if remote storage is explicitly enabled
-        try {
-          setUploadingFileName(attachmentFile.name);
-          setUploadProgress(0);
-          const uploadRes = await uploadFileDirectly(attachmentFile, {
-            userId: currentUser?.id,
-            onProgress: (p) => setUploadProgress(p)
-          });
-          uploadedFileUrl = uploadRes.fileUrl;
-          uploadedMimeType = uploadRes.mimeType;
-          uploadedFileName = uploadRes.fileName;
-          uploadedFileSize = uploadRes.fileSize;
-          uploadedFileId = uploadRes.fileId;
-          uploadedStorageProvider = uploadRes.storageProvider || 'cloudflare-r2';
-          setUploadProgress(null);
-        } catch (uploadErr: any) {
-          console.info("[ZERO_COST_TRANSPORT] Direct object storage inactive, engaging Zero-Cost Direct Transport Architecture (Option A):", uploadErr?.message || uploadErr);
-          setUploadProgress(null);
-          uploadedFileUrl = null;
-          uploadedStorageProvider = 'direct-binary';
-          uploadedFileName = attachmentFile.name;
-          uploadedFileSize = attachmentFile.size;
-          uploadedMimeType = attachmentFile.type || 'application/octet-stream';
-          uploadedFileId = `direct_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-          if (attachmentFile.size <= 5 * 1024 * 1024 && !attachmentData) {
-            try {
-              attachmentData = await new Promise<string>((res, rej) => {
-                const r = new FileReader();
-                r.onload = () => res(r.result as string);
-                r.onerror = rej;
-                r.readAsDataURL(attachmentFile);
-              });
-            } catch (e) {}
-          }
+      try {
+        setUploadingFileName(attachmentFile.name);
+        setUploadProgress(0);
+        const uploadRes = await uploadFileDirectly(attachmentFile, {
+          userId: currentUser?.id,
+          onProgress: (p) => setUploadProgress(p)
+        });
+        uploadedFileUrl = uploadRes.fileUrl;
+        uploadedMimeType = uploadRes.mimeType;
+        uploadedFileName = uploadRes.fileName;
+        uploadedFileSize = uploadRes.fileSize;
+        uploadedFileId = uploadRes.fileId;
+        uploadedStorageProvider = uploadRes.storageProvider || 'zero-cost-transport';
+        uploadedDeleteUrl = (uploadRes as any).deleteUrl || null;
+        setUploadProgress(null);
+      } catch (uploadErr: any) {
+        console.info("[ZERO_COST_TRANSPORT_NOTICE] Direct transport fallback:", uploadErr?.message || uploadErr);
+        setUploadProgress(null);
+        uploadedFileUrl = null;
+        uploadedStorageProvider = 'direct-binary';
+        uploadedFileName = attachmentFile.name;
+        uploadedFileSize = attachmentFile.size;
+        uploadedMimeType = attachmentFile.type || 'application/octet-stream';
+        uploadedFileId = `direct_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+        if (attachmentFile.size <= 5 * 1024 * 1024 && !attachmentData) {
+          try {
+            attachmentData = await new Promise<string>((res, rej) => {
+              const r = new FileReader();
+              r.onload = () => res(r.result as string);
+              r.onerror = rej;
+              r.readAsDataURL(attachmentFile);
+            });
+          } catch (e) {}
         }
-      } else {
+      }
+    } else {
         // 🚀 Primary Zero-Cost Direct Transport Architecture (Option A) — No storage calls or network lag
         uploadedFileUrl = null;
         uploadedStorageProvider = 'direct-binary';
@@ -5203,7 +5203,6 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           } catch (e) {}
         }
       }
-    }
 
     let firestoreImage = null;
     let firestoreDocument = null;
@@ -5436,6 +5435,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         isResolved = true;
         unsubscribeTask();
         if (fallbackTimeout) clearTimeout(fallbackTimeout);
+
+        // Instant cleanup of temporary transport file after downstream AI processing completes
+        if (uploadedDeleteUrl) {
+          deleteTemporaryFile(uploadedDeleteUrl).catch(() => {});
+        }
         
         let newBotMsg;
         let rawBotText = "";
@@ -6016,7 +6020,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     const isRemoteStorageEnabled = Boolean(import.meta.env.VITE_ENABLE_REMOTE_STORAGE === 'true');
     
     // 1. Instantly mount the attachment badge in the prompt bar in 0ms (instant UI feedback)
-    // Zero-Cost Direct Multipart Transport (Option A) is ready immediately with no network presign wait
+    // Zero-Cost Ephemeral File Transport begins immediately in the background
     const initialAttachment = {
       type: resolvedType,
       file,
@@ -6027,10 +6031,10 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       mimeType: file.type || (isAudio ? 'audio/webm' : (isImg ? 'image/jpeg' : 'application/pdf')),
       uploadPromise: null as any,
       uploadTaskHandle: null as any,
-      uploadProgress: 100,
+      uploadProgress: 0,
       uploadResult: null,
       uploadError: null,
-      isUploading: isRemoteStorageEnabled
+      isUploading: true
     };
 
     setPendingAttachment(initialAttachment);
@@ -6048,46 +6052,44 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       reader.readAsDataURL(file);
     }
 
-    // 3. If remote object storage is explicitly activated, proceed with background presigned upload
-    if (isRemoteStorageEnabled) {
-      let uploadTaskHandle: any = null;
-      const uploadPromise = uploadFileDirectly(file, {
-        userId: currentUser?.id,
-        onProgress: (percent) => {
-          setPendingAttachment((prev: any) => {
-            if (!prev || prev.file !== file) return prev;
-            return { ...prev, uploadProgress: percent };
-          });
-        },
-        onTaskCreated: (handle) => {
-          uploadTaskHandle = handle;
-          setPendingAttachment((prev: any) => {
-            if (!prev || prev.file !== file) return prev;
-            return { ...prev, uploadTaskHandle: handle };
-          });
-        }
-      });
+    // 3. Initiate immediate Zero-Cost Ephemeral Transport in background
+    let uploadTaskHandle: any = null;
+    const uploadPromise = uploadFileDirectly(file, {
+      userId: currentUser?.id,
+      onProgress: (percent) => {
+        setPendingAttachment((prev: any) => {
+          if (!prev || prev.file !== file) return prev;
+          return { ...prev, uploadProgress: percent };
+        });
+      },
+      onTaskCreated: (handle) => {
+        uploadTaskHandle = handle;
+        setPendingAttachment((prev: any) => {
+          if (!prev || prev.file !== file) return prev;
+          return { ...prev, uploadTaskHandle: handle };
+        });
+      }
+    });
 
-      // Attach uploadPromise to pending attachment
+    // Attach uploadPromise to pending attachment
+    setPendingAttachment((prev: any) => {
+      if (!prev || prev.file !== file) return prev;
+      return { ...prev, uploadPromise, uploadTaskHandle };
+    });
+
+    uploadPromise.then((result) => {
       setPendingAttachment((prev: any) => {
         if (!prev || prev.file !== file) return prev;
-        return { ...prev, uploadPromise, uploadTaskHandle };
+        return { ...prev, uploadResult: result, uploadProgress: 100, isUploading: false };
       });
-
-      uploadPromise.then((result) => {
-        setPendingAttachment((prev: any) => {
-          if (!prev || prev.file !== file) return prev;
-          return { ...prev, uploadResult: result, uploadProgress: 100, isUploading: false };
-        });
-      }).catch((err) => {
-        console.warn("[BACKGROUND_UPLOAD_NOTICE] Background upload notice:", err);
-        setPendingAttachment((prev: any) => {
-          if (!prev || prev.file !== file) return prev;
-          // Clear isUploading state so send button is never stuck on 0%
-          return { ...prev, uploadError: err, isUploading: false, uploadProgress: 100 };
-        });
+    }).catch((err) => {
+      console.warn("[BACKGROUND_UPLOAD_NOTICE] Background upload notice:", err);
+      setPendingAttachment((prev: any) => {
+        if (!prev || prev.file !== file) return prev;
+        // Clear isUploading state so send button is never stuck on 0%
+        return { ...prev, uploadError: err, isUploading: false, uploadProgress: 100 };
       });
-    }
+    });
   };
 
   const handleImageSelect = async (e) => {
@@ -6938,6 +6940,9 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                             onClick={() => {
                               if (pendingAttachment?.uploadTaskHandle?.cancel) {
                                 pendingAttachment.uploadTaskHandle.cancel();
+                              }
+                              if ((pendingAttachment?.uploadResult as any)?.deleteUrl) {
+                                deleteTemporaryFile((pendingAttachment.uploadResult as any).deleteUrl).catch(() => {});
                               }
                               setPendingAttachment(null);
                             }}
