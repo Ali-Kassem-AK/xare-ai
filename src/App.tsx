@@ -621,6 +621,58 @@ const highlightSyntax = (code: string, lang: string, isDarkMode: boolean) => {
 };
 
 /**
+ * Strict chronological message ordering helper.
+ * Sorts messages from earliest to latest based on timestamp,
+ * with deterministic tie-breaking ensuring user prompts strictly precede bot responses.
+ */
+export const sortMessagesChronologically = (msgs: any[]): any[] => {
+  if (!Array.isArray(msgs)) return [];
+  return [...msgs].sort((a, b) => {
+    const getTime = (m: any): number => {
+      if (!m) return 0;
+      if (m.timestamp) {
+        if (typeof m.timestamp === 'number') return m.timestamp;
+        if (typeof m.timestamp.toMillis === 'function') return m.timestamp.toMillis();
+        if (typeof m.timestamp.toDate === 'function') return m.timestamp.toDate().getTime();
+        const parsed = new Date(m.timestamp).getTime();
+        if (!isNaN(parsed)) return parsed;
+      }
+      return 0;
+    };
+    const tA = getTime(a);
+    const tB = getTime(b);
+    if (tA !== tB) return tA - tB;
+    // Tie breaker: user messages always precede bot responses on exact same millisecond
+    if (a?.sender === 'user' && b?.sender === 'bot') return -1;
+    if (a?.sender === 'bot' && b?.sender === 'user') return 1;
+    return 0;
+  });
+};
+
+/**
+ * Detects whether an AI response is or contains an interactive HTML visualization / artifact.
+ * When true, the client bypasses the synthetic character-by-character typewriter loop
+ * and instantly runs the live sandbox preview as soon as generation completes.
+ */
+export const isHtmlVisualizationResponse = (text: string): boolean => {
+  if (!text || typeof text !== 'string') return false;
+  const trimmed = text.trim();
+  // Detect code fences tagged with html, htm, or svg
+  if (/```\s*(?:html|htm|svg)\b/i.test(trimmed)) return true;
+  // Detect standard HTML document structures
+  if (/<!doctype\s+html/i.test(trimmed) || /<html[\s>]/i.test(trimmed) || /<svg[\s>]/i.test(trimmed)) return true;
+  return false;
+};
+
+/**
+ * Detects whether a user prompt is requesting an HTML visualization, animation, or interactive visual.
+ */
+export const isVisualizationPrompt = (text: string): boolean => {
+  if (!text || typeof text !== 'string') return false;
+  return /\b(html|visualization|visualize|diagram|interactive|simulation|svg|canvas|dashboard|landing page|website|webpage|ui design|game)\b/i.test(text);
+};
+
+/**
  * Enhanced Code Block component with interactive Live Preview sandbox (HTML, SVG, Canvas, JS visualizers),
  * code/preview tab toggles, reload, full-tab popout, line numbers, syntax highlighting, and copy feedback.
  */
@@ -1065,7 +1117,26 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
       </div>
 
       {/* Content Area */}
-      {isRunnable && activeTab === 'preview' && !isStreaming ? (
+      {isRunnable && isStreaming ? (
+        <div className={`p-8 sm:p-12 flex flex-col items-center justify-center gap-4 transition-all select-none ${isDarkMode ? 'bg-[#060911]' : 'bg-slate-50'}`}>
+          <div className="relative flex items-center justify-center">
+            {/* Ambient pulsing glow */}
+            <div className="absolute w-16 h-16 rounded-full bg-cyan-500/20 blur-xl animate-pulse" />
+            {/* Modern spinning gradient circular indicator */}
+            <div className="w-12 h-12 rounded-full border-[3px] border-slate-700/30 border-t-cyan-400 border-r-blue-500 animate-spin" />
+            {/* Center pulsing core */}
+            <div className="absolute w-3 h-3 rounded-full bg-cyan-400 animate-ping" style={{ animationDuration: '2s' }} />
+          </div>
+          <div className="text-center">
+            <span className={`text-sm font-semibold tracking-wide ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+              Rendering interactive visualization...
+            </span>
+            <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              Live sandbox will run instantly once complete
+            </p>
+          </div>
+        </div>
+      ) : isRunnable && activeTab === 'preview' ? (
         <div className={`relative w-full overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-[#060911]' : 'bg-white'}`}>
           <iframe
             ref={inlineIframeRef}
@@ -3818,6 +3889,10 @@ export function App() {
 
   // --- Chat & Database State ---
   const [chatHistory, setChatHistory] = useState([]);
+  const chatHistoryRef = useRef(chatHistory);
+  useEffect(() => {
+    chatHistoryRef.current = chatHistory;
+  }, [chatHistory]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [chatModelModes, setChatModelModes] = useState<Record<string, 'xare' | 'gemini'>>({});
   
@@ -4279,20 +4354,23 @@ const AI_PRESETS = [
       setChatHistory(prevChats => {
         const merged = fetchedChats.map(fetched => {
           const prev = prevChats.find(p => p.id === fetched.id);
-          if (!prev || !prev.messages) return fetched;
+          if (!prev || !prev.messages) {
+            return {
+              ...fetched,
+              messages: sortMessagesChronologically(fetched.messages || [])
+            };
+          }
 
           const fetchedIds = new Set((fetched.messages || []).map((m: any) => m.id));
           const pendingLocalMessages = (prev.messages || []).filter((m: any) => 
             !fetchedIds.has(m.id) && (ACTIVELY_STREAMING_IDS.has(m.id) || STREAMING_TEXT_VAULT.has(m.id) || m.id === streamingMessageId || m.sender === 'bot' || m.sender === 'user')
           );
 
-          if (pendingLocalMessages.length > 0) {
-            return {
-              ...fetched,
-              messages: [...fetched.messages, ...pendingLocalMessages]
-            };
-          }
-          return fetched;
+          const combined = [...(fetched.messages || []), ...pendingLocalMessages];
+          return {
+            ...fetched,
+            messages: sortMessagesChronologically(combined)
+          };
         });
 
         // Also preserve any newly created local chat that hasn't synced to Firestore yet
@@ -4737,22 +4815,65 @@ const AI_PRESETS = [
     streamBotResponse(msgId, text, targetChatId);
   };
 
+  const persistUserMessageToFirestore = useCallback((targetChatId: string, userMsg: any, initialTitle?: string) => {
+    if (!currentUser || currentUser.id === 'guest-user' || currentUser.id === 'preview-user') return;
+    const chatRef = doc(db, 'users', currentUser.id, 'chats', targetChatId);
+
+    getDoc(chatRef).then(snap => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const existing = data.messages || [];
+        const filtered = existing.filter((m: any) => m.id !== userMsg.id);
+        const sorted = sortMessagesChronologically([...filtered, userMsg]);
+        setDoc(chatRef, {
+          ...data,
+          messages: sorted,
+          updatedAt: new Date(),
+          ...(initialTitle && (!data.title || data.title === 'New Chat') ? { title: initialTitle } : {})
+        }, { merge: true }).catch(err => console.warn("Failed to persist user message to Firestore:", err));
+      } else {
+        setDoc(chatRef, {
+          id: targetChatId,
+          title: initialTitle || 'New Chat',
+          messages: [userMsg],
+          updatedAt: new Date()
+        }).catch(err => console.warn("Failed to create new chat doc in Firestore:", err));
+      }
+    }).catch(err => console.warn("Failed to fetch chat for user message persist:", err));
+  }, [currentUser]);
+
   const persistBotMessageToFirestore = useCallback((targetChatId: string, botMsg: any, finalText: string) => {
     if (!currentUser || currentUser.id === 'guest-user' || currentUser.id === 'preview-user') return;
     const chatRef = doc(db, 'users', currentUser.id, 'chats', targetChatId);
     const msgToSave = { ...botMsg, text: finalText };
 
     getDoc(chatRef).then(latestChatSnap => {
+      const localChat = chatHistoryRef.current.find(c => c.id === targetChatId);
+      const localMsgs = localChat?.messages || [];
+
+      let baseMsgs: any[] = [];
+      let chatTitle = localChat?.title || 'New Chat';
+
       if (latestChatSnap.exists()) {
         const latestChatData = latestChatSnap.data();
-        const existingMsgs = latestChatData.messages || [];
-        const filtered = existingMsgs.filter((m: any) => m.id !== botMsg.id);
-        setDoc(chatRef, { 
-          ...latestChatData, 
-          messages: [...filtered, msgToSave], 
-          updatedAt: new Date() 
-        }, { merge: true }).catch(err => console.warn("Failed to persist bot message:", err));
+        baseMsgs = latestChatData.messages || [];
+        if (latestChatData.title) chatTitle = latestChatData.title;
       }
+
+      // Merge: ensure all messages from both Firestore and local state are preserved
+      const msgMap = new Map<string, any>();
+      baseMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
+      localMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
+      msgMap.set(botMsg.id, msgToSave);
+
+      const sortedMsgs = sortMessagesChronologically(Array.from(msgMap.values()));
+
+      setDoc(chatRef, { 
+        id: targetChatId,
+        title: chatTitle, 
+        messages: sortedMsgs, 
+        updatedAt: new Date() 
+      }, { merge: true }).catch(err => console.warn("Failed to persist bot message:", err));
     }).catch(err => console.warn("Failed to fetch chat for bot message sync:", err));
   }, [currentUser]);
 
@@ -5141,61 +5262,59 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
     // 🚀 Synchronous optimistic commit to state BEFORE any async upload pauses
     if (!isEditMode) {
-      let chatToUpdate: any = null;
+      const activeChat = chatHistoryRef.current.find(c => c.id === targetChatId);
+      let updatedTitle = activeChat?.title || 'New Chat';
+      const isFirstUserMsg = (activeChat?.messages || []).filter((m: any) => m.sender === 'user').length === 0;
+
+      if (isFirstUserMsg) {
+        if (attachmentType === 'audio') updatedTitle = 'Voice Note';
+        else if (attachmentType === 'image') updatedTitle = 'Image Attachment';
+        else if (attachmentType === 'document') updatedTitle = 'Document Attachment';
+        else {
+          updatedTitle = msgText.substring(0, 30) + (msgText.length > 30 ? '...' : '');
+
+          const titlePrompt = `Extract a short 2-4 word title for the message.\n\nMessage: "how do I cook a steak"\nTitle: Cooking a Steak\n\nMessage: "write a python script for scraping"\nTitle: Python Web Scraping\n\nMessage: "${msgText}"\nTitle:`;
+
+          callGeminiAPI(titlePrompt).then(genTitle => {
+            if (genTitle) {
+              let cleanTitle = genTitle.split('\n')[0].replace(/^(Title:|Chat Title:|\*|\[System Directives\]:|Task:|Output:|Response:)/gi, '').replace(/["']/g, '').trim();
+
+              if (cleanTitle.toLowerCase().includes("extract a") || cleanTitle.toLowerCase().includes("message:")) {
+                cleanTitle = msgText.substring(0, 20) + '...';
+              }
+
+              if (cleanTitle.length > 35) cleanTitle = cleanTitle.substring(0, 35) + '...';
+
+              setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, title: cleanTitle } : c));
+
+              getDoc(chatRef).then(snap => {
+                if (snap.exists()) setDoc(chatRef, { ...snap.data(), title: cleanTitle }, { merge: true });
+              });
+            }
+          }).catch(e => console.error("Title generation failed", e));
+        }
+      }
+
       setChatHistory(prevHistory => {
-        let activeChat = prevHistory.find(c => c.id === targetChatId);
-        if (!activeChat) {
-          activeChat = { id: targetChatId, title: 'New Chat', messages: [], updatedAt: new Date() };
-        }
+        const chat = prevHistory.find(c => c.id === targetChatId) || { id: targetChatId, title: updatedTitle, messages: [], updatedAt: new Date() };
+        const existingMessages = (chat.messages || []).filter((m: any) => m.id !== newUserMsg.id);
+        const sortedMessages = sortMessagesChronologically([...existingMessages, newUserMsg]);
 
-        let updatedTitle = activeChat.title || 'New Chat';
-        const isFirstUserMsg = (activeChat.messages || []).filter(m => m.sender === 'user').length === 0;
-        
-        if (isFirstUserMsg) {
-          if (attachmentType === 'audio') updatedTitle = 'Voice Note';
-          else if (attachmentType === 'image') updatedTitle = 'Image Attachment';
-          else if (attachmentType === 'document') updatedTitle = 'Document Attachment';
-          else {
-              updatedTitle = msgText.substring(0, 30) + (msgText.length > 30 ? '...' : '');
-              
-              const titlePrompt = `Extract a short 2-4 word title for the message.\n\nMessage: "how do I cook a steak"\nTitle: Cooking a Steak\n\nMessage: "write a python script for scraping"\nTitle: Python Web Scraping\n\nMessage: "${msgText}"\nTitle:`;
-              
-              callGeminiAPI(titlePrompt).then(genTitle => {
-                  if (genTitle) {
-                      let cleanTitle = genTitle.split('\n')[0].replace(/^(Title:|Chat Title:|\*|\[System Directives\]:|Task:|Output:|Response:)/gi, '').replace(/["']/g, '').trim();
-                      
-                      if (cleanTitle.toLowerCase().includes("extract a") || cleanTitle.toLowerCase().includes("message:")) {
-                          cleanTitle = msgText.substring(0, 20) + '...';
-                      }
-                      
-                      if (cleanTitle.length > 35) cleanTitle = cleanTitle.substring(0, 35) + '...';
-                      
-                      setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, title: cleanTitle } : c));
-                      
-                      getDoc(chatRef).then(snap => {
-                          if (snap.exists()) setDoc(chatRef, { ...snap.data(), title: cleanTitle }, { merge: true });
-                      });
-                  }
-              }).catch(e => console.error("Title generation failed", e));
-          }
-        }
-
-        chatToUpdate = {
-          ...activeChat,
+        const updatedChatObj = {
+          ...chat,
           title: updatedTitle,
-          messages: [...(activeChat.messages || []), newUserMsg],
+          messages: sortedMessages,
           updatedAt: new Date()
         };
 
         const exists = prevHistory.some(c => c.id === targetChatId);
-        return exists 
-          ? prevHistory.map(c => c.id === targetChatId ? chatToUpdate : c)
-          : [chatToUpdate, ...prevHistory];
+        return exists
+          ? prevHistory.map(c => c.id === targetChatId ? updatedChatObj : c)
+          : [updatedChatObj, ...prevHistory];
       });
 
-      if (chatToUpdate) {
-        setDoc(chatRef, chatToUpdate).catch(err => console.warn("Firebase message append blocked:", err));
-      }
+      // Persist user message to Firestore immediately with chronological ordering
+      persistUserMessageToFirestore(targetChatId, newUserMsg, updatedTitle);
     }
 
     let uploadedFileUrl: string | null = null;
@@ -5404,7 +5523,10 @@ if (uploadedFileId) {
       else if (toolLabel.includes('code')) uiLoadingType = 'code';
       else if (toolLabel.includes('Translate')) uiLoadingType = 'translate';
       else if (toolLabel.includes('grammar')) uiLoadingType = 'fix';
-    } else if (/\b(code|python|script|pygame|game|function|program|build|write|create|cpp|java|html|js|javascript|sql|visual|visualization|chart|diagram|simulation|interactive)\b/i.test(msgText)) {
+    } else if (isVisualizationPrompt(msgText)) {
+      uiLoadingType = 'visualization';
+      setLoadingPhase('Generating visualization...');
+    } else if (/\b(code|python|script|pygame|game|function|program|build|write|create|cpp|java|js|javascript|sql)\b/i.test(msgText)) {
       uiLoadingType = 'code';
     }
     setLoadingType(uiLoadingType);
@@ -5718,24 +5840,40 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
               PENDING_CONTINUATIONS.delete(activeTaskId);
             };
 
-           const shouldStream = Boolean(rawBotText && finalAction !== 'generate_image');
+           let processedBotText = rawBotText;
+           const isHtmlViz = isHtmlVisualizationResponse(processedBotText);
+
+           // Auto-close unclosed code fence immediately for HTML visualizations so live preview executes instantly
+           if (isHtmlViz) {
+             const check = detectIncompleteCodeBlock(processedBotText);
+             if (check.isIncomplete && check.reason === 'unclosed_fence') {
+               processedBotText = processedBotText.trimEnd() + '\n```\n';
+             }
+           }
+
+           // Only stream normal messages; HTML visualizations run instantly with no fake tokens flow
+           const shouldStream = Boolean(processedBotText && finalAction !== 'generate_image' && !isHtmlViz);
            
            if (shouldStream) {
              ACTIVELY_STREAMING_IDS.add(taskId);
-             STREAMING_TEXT_VAULT.set(taskId, { fullText: rawBotText, partialText: "" });
+             STREAMING_TEXT_VAULT.set(taskId, { fullText: processedBotText, partialText: "" });
              setStreamingMessageId(taskId);
            }
 
            newBotMsg = { 
              id: taskId, 
-             text: shouldStream ? "" : rawBotText, 
+             text: shouldStream ? "" : processedBotText, 
              audio: botAudio, 
              image: botImage, 
              sender: 'bot', 
              timestamp: new Date() 
            };
 
-           setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, newBotMsg], updatedAt: new Date() } : c));
+           setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+             ...c,
+             messages: sortMessagesChronologically([...(c.messages || []).filter((m: any) => m.id !== taskId), newBotMsg]),
+             updatedAt: new Date()
+           } : c));
            
            setIsLoading(false);
            setActiveLoadingChatId(null);
@@ -5743,22 +5881,22 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
            setIsGeneratingImage(false);
 
            if (shouldStream) {
-              const initialCheck = detectIncompleteCodeBlock(rawBotText);
+              const initialCheck = detectIncompleteCodeBlock(processedBotText);
               if (initialCheck.isIncomplete) {
                 PENDING_CONTINUATIONS.set(taskId, true);
-                runBackgroundN8nContinuations(taskId, rawBotText, targetChatId, finalAction);
+                runBackgroundN8nContinuations(taskId, processedBotText, targetChatId, finalAction);
               }
 
-              streamBotResponse(taskId, rawBotText, targetChatId, (finalStitchedText) => {
-                const textToSave = typeof finalStitchedText === 'string' ? finalStitchedText : rawBotText;
+              streamBotResponse(taskId, processedBotText, targetChatId, (finalStitchedText) => {
+                const textToSave = typeof finalStitchedText === 'string' ? finalStitchedText : processedBotText;
                 triggerSuggestions(textToSave);
                 persistBotMessageToFirestore(targetChatId, newBotMsg, textToSave);
               });
             } else {
-            if (rawBotText && finalAction !== 'generate_image') {
-              triggerSuggestions(rawBotText);
+            if (processedBotText && finalAction !== 'generate_image') {
+              triggerSuggestions(processedBotText);
             }
-            persistBotMessageToFirestore(targetChatId, newBotMsg, rawBotText);
+            persistBotMessageToFirestore(targetChatId, newBotMsg, processedBotText);
           }
         }
       };
@@ -5980,29 +6118,58 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, noticeMsg], updatedAt: new Date() } : c));
         setChatModelModes(prev => ({ ...prev, [targetChatId]: 'gemini' }));
         callGeminiAPI(finalMessageText).then(geminiRes => {
-          const finalAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
-          const newGeminiMsg = {
-            id: generateUniqueId(),
-            text: "",
-            sender: 'bot',
-            modelEngine: 'gemini',
-            timestamp: new Date()
-          };
-          STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
-          setStreamingMessageId(newGeminiMsg.id);
-          setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
-            ...c,
-            messages: [...c.messages, newGeminiMsg],
-            updatedAt: new Date()
-          } : c));
-          setIsLoading(false);
-          setActiveLoadingChatId(null);
-          setLoadingType(null);
-          setIsGeneratingImage(false);
-          streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
+          const rawGeminiAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
+          let finalAnswer = rawGeminiAnswer;
+          const isHtmlViz = isHtmlVisualizationResponse(finalAnswer);
+
+          if (isHtmlViz) {
+            const check = detectIncompleteCodeBlock(finalAnswer);
+            if (check.isIncomplete && check.reason === 'unclosed_fence') {
+              finalAnswer = finalAnswer.trimEnd() + '\n```\n';
+            }
+            const completedGeminiMsg = {
+              id: generateUniqueId(),
+              text: finalAnswer,
+              sender: 'bot',
+              modelEngine: 'gemini',
+              timestamp: new Date()
+            };
+            setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+              ...c,
+              messages: sortMessagesChronologically([...(c.messages || []).filter((m: any) => m.id !== completedGeminiMsg.id), completedGeminiMsg]),
+              updatedAt: new Date()
+            } : c));
+            setIsLoading(false);
+            setActiveLoadingChatId(null);
+            setLoadingType(null);
+            setIsGeneratingImage(false);
+            setStreamingMessageId(null);
             triggerSuggestions(finalAnswer);
-            persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
-          });
+            persistBotMessageToFirestore(targetChatId, completedGeminiMsg, finalAnswer);
+          } else {
+            const newGeminiMsg = {
+              id: generateUniqueId(),
+              text: "",
+              sender: 'bot',
+              modelEngine: 'gemini',
+              timestamp: new Date()
+            };
+            STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
+            setStreamingMessageId(newGeminiMsg.id);
+            setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+              ...c,
+              messages: sortMessagesChronologically([...(c.messages || []).filter((m: any) => m.id !== newGeminiMsg.id), newGeminiMsg]),
+              updatedAt: new Date()
+            } : c));
+            setIsLoading(false);
+            setActiveLoadingChatId(null);
+            setLoadingType(null);
+            setIsGeneratingImage(false);
+            streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
+              triggerSuggestions(finalAnswer);
+              persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
+            });
+          }
         }).catch(err => {
           console.error("Auto Gemini fallback error:", err);
           setIsLoading(false);
@@ -6294,7 +6461,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
   }, [chatHistory, currentChatId]);
 
   const messages = useMemo(() => {
-    return currentChat.messages || [];
+    const raw = currentChat.messages || [];
+    return sortMessagesChronologically(raw);
   }, [currentChat]);
 
   // ==========================================
@@ -6779,6 +6947,22 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                         <div className={`p-5 rounded-full backdrop-blur-md shadow-lg ${isDarkMode ? 'bg-black/40 text-slate-300' : 'bg-white/60 text-slate-600'}`}>
                            <ImageIcon className="w-10 h-10 animate-pulse" />
                         </div>
+                      </div>
+                    </div>
+                  ) : loadingType === 'visualization' || (loadingPhase && (loadingPhase.toLowerCase().includes('visualization') || loadingPhase.toLowerCase().includes('html'))) ? (
+                    <div className={`p-5 sm:p-6 rounded-2xl border shadow-sm flex items-center gap-4 my-1 select-none ${isDarkMode ? 'bg-[#080d1a]/90 border-slate-800/80 text-slate-200' : 'bg-white border-slate-200 text-slate-800'}`}>
+                      <div className="relative flex items-center justify-center flex-shrink-0">
+                        <div className="absolute w-12 h-12 rounded-full bg-cyan-500/20 blur-lg animate-pulse" />
+                        <div className="w-9 h-9 rounded-full border-[3px] border-slate-700/30 border-t-cyan-400 border-r-blue-500 animate-spin" />
+                        <div className="absolute w-2 h-2 rounded-full bg-cyan-400 animate-ping" style={{ animationDuration: '2s' }} />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className={`text-[14.5px] font-semibold tracking-wide ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                          {loadingPhase || 'Generating visualization...'}
+                        </span>
+                        <span className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Live interactive sandbox will execute instantly
+                        </span>
                       </div>
                     </div>
                   ) : (
