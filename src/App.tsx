@@ -1022,7 +1022,7 @@ Polish carefully.
 USER'S REQUEST TO ARCHITECT & BUILD:
 ============================================================
 
-${'${USER_REQUEST}'}
+\${USER_REQUEST}
 
 `;
 
