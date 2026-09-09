@@ -638,9 +638,10 @@ runTest('Should verify Build tool runs initial text steps then transitions to bi
   assert.ok(appTsx.includes('Full Page'), 'Big window must include Full Page control');
   assert.ok(appTsx.includes('Copy Code'), 'Big window must include Copy Code control');
 
-  // Verify high-tech loading circle and progress bar
+  // Verify progress bar is present while loading circle and subtitle are removed
   assert.ok(appTsx.includes('animate-progress-indeterminate'), 'Must include animated progress bar');
-  assert.ok(appTsx.includes('animate-spin'), 'Must include circular spinner');
+  assert.ok(!appTsx.includes('Architecting complete code from start to finish'), 'Subtitle sentence must be removed');
+  assert.ok(!appTsx.includes('w-14 h-14 rounded-full border-[3.5px]'), 'Circular spinner must be removed from big window');
 });
 
 console.log('\n=== ALL TESTS COMPLETE: ' + passed + '/' + total + ' PASSED ===\n');

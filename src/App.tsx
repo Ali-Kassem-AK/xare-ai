@@ -8271,21 +8271,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                             <div className="absolute w-80 h-80 bg-cyan-500/10 blur-[90px] rounded-full pointer-events-none" />
                             <div className="absolute w-64 h-64 bg-blue-500/10 blur-[80px] rounded-full pointer-events-none" />
 
-                            {/* High-Tech Circular Spinner */}
-                            <div className="relative flex items-center justify-center flex-shrink-0 z-10">
-                              <div className="absolute w-20 h-20 rounded-full bg-cyan-500/20 blur-xl animate-pulse" />
-                              <div className="w-14 h-14 rounded-full border-[3.5px] border-slate-700/30 border-t-cyan-400 border-r-blue-500 animate-spin" />
-                              <div className="absolute w-3.5 h-3.5 rounded-full bg-cyan-400 animate-ping" style={{ animationDuration: '2s' }} />
-                            </div>
-
-                            {/* Builder Steps & Details */}
+                            {/* Builder Steps & Progress */}
                             <div className="text-center z-10 max-w-lg px-4 flex flex-col items-center">
                               <h3 className={`text-base sm:text-lg font-semibold tracking-wide animate-modern-glow ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                                 {loadingPhase}
                               </h3>
-                              <p className={`text-xs sm:text-[13px] mt-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                Architecting complete code from start to finish. Live sandbox will execute instantly.
-                              </p>
 
                               {/* Indeterminate Gradient Shimmer Bar */}
                               <div className={`w-48 sm:w-64 h-1.5 rounded-full overflow-hidden mt-4 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
