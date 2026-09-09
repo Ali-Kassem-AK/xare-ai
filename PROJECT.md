@@ -40,11 +40,17 @@ Every requirement and capability audited and verified:
 | 8 | Mobile Memory & Zero Base64 Leak | Binary streaming, <=5MB Base64 gating, 2GB RAM stability on Safari/Chrome | M2 | R4 | VERIFIED |
 | 9 | Concurrency & Queue Management | Concurrent multi-file upload support (2, 3, 5 files) without unhandled rejections | M3 | R4 | VERIFIED |
 | 10 | Security & Zero Secrets Scanning | Zero client secrets exposed; immediate programmatic deletion & 404 verification | M3 | R3 / R5 | VERIFIED |
-| 11 | 18 Automated Regression Tests | 100% pass rate across all 18 automated tests in `tests/zero_cost_transport.test.cjs` | M4 | R5 | VERIFIED |
+| 11 | 25 Automated Regression Tests | 100% pass rate across all 25 automated tests in `tests/zero_cost_transport.test.cjs` covering R1-R5 | M4 | R1-R5 | VERIFIED |
 | 12 | Independent Multi-Agent Review | Reviewer & Challenger verification of architecture, frontend, mobile, security | M4 | R5 | VERIFIED |
 | 13 | Forensic Integrity Audit | Systematic runtime tracing, static analysis, zero-mock audit by Forensic Auditor | M4 | Protocol / R5 | VERIFIED (CLEAN) |
 | 14 | Git Commit & Push to Main | Clean working tree committed and pushed to `https://github.com/Ali-Kassem-AK/xare-ai` | M5 | R5 | VERIFIED |
 | 15 | Vercel Production Deployment & Live E2E | Live production verification on `https://xare-ai.vercel.app` across Text, Image, PDF, Audio | M5 | R5 | VERIFIED |
+| 16 | R1 Plain Text State & Optimistic UI | Resolved plain text TypeError crash, race condition, Firestore wipe, pure updaters | M6 | R1 | VERIFIED |
+| 17 | R2 Transport Lifetime Ledger | Content SHA-256 vs instance decoupling, duplicate send fresh URL, 404 invalidation | M6 | R2 | VERIFIED |
+| 18 | R3 Audio Playback Decoupling | Decoupled local UI audio (`localdb_`) from ephemeral remote URLs; fixed <100 char bug | M6 | R3 | VERIFIED |
+| 19 | R4 Attachment Replacement Cancellation | Background upload task cancellation (`AbortController`), blob URL revocation on clear | M6 | R4 | VERIFIED |
+| 20 | R5 Cross-Chat Boundary Isolation | Scoped transport ledger by `chatId`, strictly preventing transport leakage | M6 | R5 | VERIFIED |
+| 21 | Iteration 2 Runtime & Test Remediation | Fixed App.tsx:5428 undeclared transportId, added HTTP 429 backoff, upgraded TEST-019 | M7 | R1-R5 | VERIFIED |
 
 ---
 
@@ -56,8 +62,10 @@ Every requirement and capability audited and verified:
 | M1 | FileTransport Abstraction & Provider Layer | Modular interface contracts, Kappa.lol zero-cost provider adapter, sub-500ms cleanup | M0 | **DONE** |
 | M2 | Background Pre-Upload & Mobile Memory Streaming | T0 upload triggering, raw binary streaming, <=5MB Base64 clamp, 2GB RAM safety | M1 | **DONE** |
 | M3 | Concurrency Engineering & Security Verification | 2, 3, 5 concurrent upload handling, zero-secret scanning, post-deletion 404 proof | M2 | **DONE** |
-| M4 | Regression Suite, Multi-Agent Review & Integrity Audit | 18 automated tests passing 100%, Reviewer approvals, Challenger stress-testing, Forensic Audit CLEAN | M3 | **DONE** |
+| M4 | Regression Suite, Multi-Agent Review & Integrity Audit | Automated tests passing 100%, Reviewer approvals, Challenger stress-testing, Forensic Audit CLEAN | M3 | **DONE** |
 | M5 | Production Git Push, Vercel Deployment & Live Verification | Clean commit, push to GitHub `main`, Vercel production deploy, live E2E verification | M4 | **DONE** |
+| M6 | Core Reliability & Transport Ledger (R1-R5) | Text state fixes, Transport Ledger, Audio persistence, Attachment cancel, Chat isolation | M5 | **DONE** |
+| M7 | Iteration 2 Runtime & Test Remediation | Surgical fix of App.tsx:5428, 429 exponential backoff in test suite, TEST-019 integrity upgrade | M6 | **DONE** |
 
 ---
 
@@ -88,6 +96,36 @@ export interface IFileTransportProvider {
   cancel(fileId: string): void;
   cleanup(deleteUrl: string): Promise<boolean>;
   getStatus(fileId: string): 'idle' | 'uploading' | 'completed' | 'failed';
+}
+```
+
+### `TransportLifetimeLedger` Interface (`src/services/storage/types.ts`)
+```typescript
+export type TransportState = 'preparing' | 'uploading' | 'ready' | 'in_flight' | 'purged' | 'failed';
+
+export interface TransportInstance {
+  transportId: string;
+  contentId: string;
+  chatId: string;
+  messageId?: string;
+  fileUrl: string;
+  deleteUrl: string;
+  state: TransportState;
+  createdAt: number;
+  lastUsedAt: number;
+  mimeType: string;
+  fileName: string;
+  fileSize: number;
+  activeUpload?: { abort: () => void };
+}
+
+export class TransportLifetimeLedger {
+  getActiveTransport(chatId: string, contentId: string): TransportInstance | null;
+  registerTransport(instance: TransportInstance): void;
+  bindToMessage(transportId: string, messageId: string): void;
+  purgeTransport(deleteUrlOrTransportId: string): Promise<boolean>;
+  invalidateUrl(url: string): void;
+  clear(): void;
 }
 ```
 

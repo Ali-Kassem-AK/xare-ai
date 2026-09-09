@@ -18,7 +18,7 @@ import {
 import { 
   getFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment 
 } from 'firebase/firestore';
-import { uploadFileDirectly, deleteTemporaryFile, UploadResult } from './utils/storage';
+import { uploadFileDirectly, deleteTemporaryFile, UploadResult, transportLedger } from './utils/storage';
 
 // ==========================================
 // --- TOKEN LIMIT & REDIRECTION CONFIG
@@ -2800,7 +2800,7 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
   }, [src]);
 
   useEffect(() => {
-    if (!cleanSrc || cleanSrc.length < 100 || cleanSrc.includes('undefined') || cleanSrc.includes('[object')) {
+    if (!cleanSrc || cleanSrc.includes('undefined') || cleanSrc.includes('[object')) {
       setIsInvalid(true);
     } else {
       setIsInvalid(false);
@@ -4035,6 +4035,10 @@ export function App() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<any>(null); 
+  const pendingAttachmentRef = useRef<any>(null);
+  useEffect(() => {
+    pendingAttachmentRef.current = pendingAttachment;
+  }, [pendingAttachment]);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadingFileName, setUploadingFileName] = useState<string>('');
   const [activeTool, setActiveTool] = useState(null); 
@@ -4273,13 +4277,13 @@ const AI_PRESETS = [
       }
 
       setChatHistory(prevChats => {
-        return fetchedChats.map(fetched => {
+        const merged = fetchedChats.map(fetched => {
           const prev = prevChats.find(p => p.id === fetched.id);
           if (!prev || !prev.messages) return fetched;
 
           const fetchedIds = new Set((fetched.messages || []).map((m: any) => m.id));
           const pendingLocalMessages = (prev.messages || []).filter((m: any) => 
-            !fetchedIds.has(m.id) && (ACTIVELY_STREAMING_IDS.has(m.id) || STREAMING_TEXT_VAULT.has(m.id) || m.id === streamingMessageId || m.sender === 'bot')
+            !fetchedIds.has(m.id) && (ACTIVELY_STREAMING_IDS.has(m.id) || STREAMING_TEXT_VAULT.has(m.id) || m.id === streamingMessageId || m.sender === 'bot' || m.sender === 'user')
           );
 
           if (pendingLocalMessages.length > 0) {
@@ -4290,6 +4294,11 @@ const AI_PRESETS = [
           }
           return fetched;
         });
+
+        // Also preserve any newly created local chat that hasn't synced to Firestore yet
+        const fetchedChatIds = new Set(fetchedChats.map(c => c.id));
+        const uncommittedLocalChats = prevChats.filter(p => !fetchedChatIds.has(p.id));
+        return [...uncommittedLocalChats, ...merged];
       });
     }, (error) => {
       console.warn("Chat history listener blocked by rules (ignoring safely):", error);
@@ -5096,6 +5105,99 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       setCurrentChatId(targetChatId);
     }
 
+    const messageId = generateUniqueId();
+    const requestId = `req_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+    const chatRef = doc(db, 'users', currentUser.id, 'chats', targetChatId);
+
+    // Initial local handles for UI rendering
+    let localImage: string | null = null;
+    let localAudio: string | null = null;
+    let localDocument: string | null = null;
+
+    if (attachmentType === 'image') {
+      localImage = attachmentData || (attachmentFile ? URL.createObjectURL(attachmentFile) : null);
+    } else if (attachmentType === 'document') {
+      localDocument = (attachmentFile as any)?.name || 'Document';
+    } else if (attachmentType === 'audio') {
+      localAudio = attachmentData || (attachmentFile ? URL.createObjectURL(attachmentFile) : null);
+    }
+
+    const newUserMsg = {
+      id: messageId,
+      messageId: messageId,
+      requestId: requestId,
+      transportId: undefined as string | undefined,
+      text: msgText,
+      audio: localAudio,
+      image: localImage,
+      document: localDocument,
+      sender: 'user',
+      status: 'sent',
+      timestamp: new Date()
+    };
+
+    if (finalAction === 'generate_image') updateUsage('imageGenCount');
+    if (finalAction === 'search') updateUsage('webSearchCount');
+
+    // 🚀 Synchronous optimistic commit to state BEFORE any async upload pauses
+    if (!isEditMode) {
+      let chatToUpdate: any = null;
+      setChatHistory(prevHistory => {
+        let activeChat = prevHistory.find(c => c.id === targetChatId);
+        if (!activeChat) {
+          activeChat = { id: targetChatId, title: 'New Chat', messages: [], updatedAt: new Date() };
+        }
+
+        let updatedTitle = activeChat.title || 'New Chat';
+        const isFirstUserMsg = (activeChat.messages || []).filter(m => m.sender === 'user').length === 0;
+        
+        if (isFirstUserMsg) {
+          if (attachmentType === 'audio') updatedTitle = 'Voice Note';
+          else if (attachmentType === 'image') updatedTitle = 'Image Attachment';
+          else if (attachmentType === 'document') updatedTitle = 'Document Attachment';
+          else {
+              updatedTitle = msgText.substring(0, 30) + (msgText.length > 30 ? '...' : '');
+              
+              const titlePrompt = `Extract a short 2-4 word title for the message.\n\nMessage: "how do I cook a steak"\nTitle: Cooking a Steak\n\nMessage: "write a python script for scraping"\nTitle: Python Web Scraping\n\nMessage: "${msgText}"\nTitle:`;
+              
+              callGeminiAPI(titlePrompt).then(genTitle => {
+                  if (genTitle) {
+                      let cleanTitle = genTitle.split('\n')[0].replace(/^(Title:|Chat Title:|\*|\[System Directives\]:|Task:|Output:|Response:)/gi, '').replace(/["']/g, '').trim();
+                      
+                      if (cleanTitle.toLowerCase().includes("extract a") || cleanTitle.toLowerCase().includes("message:")) {
+                          cleanTitle = msgText.substring(0, 20) + '...';
+                      }
+                      
+                      if (cleanTitle.length > 35) cleanTitle = cleanTitle.substring(0, 35) + '...';
+                      
+                      setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, title: cleanTitle } : c));
+                      
+                      getDoc(chatRef).then(snap => {
+                          if (snap.exists()) setDoc(chatRef, { ...snap.data(), title: cleanTitle }, { merge: true });
+                      });
+                  }
+              }).catch(e => console.error("Title generation failed", e));
+          }
+        }
+
+        chatToUpdate = {
+          ...activeChat,
+          title: updatedTitle,
+          messages: [...(activeChat.messages || []), newUserMsg],
+          updatedAt: new Date()
+        };
+
+        const exists = prevHistory.some(c => c.id === targetChatId);
+        return exists 
+          ? prevHistory.map(c => c.id === targetChatId ? chatToUpdate : c)
+          : [chatToUpdate, ...prevHistory];
+      });
+
+      if (chatToUpdate) {
+        setDoc(chatRef, chatToUpdate).catch(err => console.warn("Firebase message append blocked:", err));
+      }
+    }
+
     let uploadedFileUrl: string | null = null;
     let uploadedMimeType: string | null = null;
     let uploadedFileName: string | null = null;
@@ -5188,112 +5290,56 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         // 🚀 Primary Zero-Cost Direct Transport Architecture (Option A) — No storage calls or network lag
         uploadedFileUrl = null;
         uploadedStorageProvider = 'direct-binary';
-        uploadedFileName = (attachmentFile as any).name || (attachmentType === 'audio' ? 'voice_message.webm' : 'file.bin');
-        uploadedFileSize = attachmentFile.size;
-        uploadedMimeType = attachmentFile.type || (attachmentType === 'audio' ? 'audio/webm' : (attachmentType === 'image' ? 'image/jpeg' : 'application/pdf'));
-        uploadedFileId = `direct_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-        if (attachmentFile.size <= 5 * 1024 * 1024 && !attachmentData) {
-          try {
-            attachmentData = await new Promise<string>((res, rej) => {
-              const r = new FileReader();
-              r.onload = () => res(r.result as string);
-              r.onerror = rej;
-              r.readAsDataURL(attachmentFile);
-            });
-          } catch (e) {}
+        if (attachmentFile) {
+          uploadedFileName = (attachmentFile as any).name || (attachmentType === 'audio' ? 'voice_message.webm' : 'file.bin');
+          uploadedFileSize = attachmentFile.size;
+          uploadedMimeType = attachmentFile.type || (attachmentType === 'audio' ? 'audio/webm' : (attachmentType === 'image' ? 'image/jpeg' : 'application/pdf'));
+          uploadedFileId = `direct_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+          if (attachmentFile.size <= 5 * 1024 * 1024 && !attachmentData) {
+            try {
+              attachmentData = await new Promise<string>((res, rej) => {
+                const r = new FileReader();
+                r.onload = () => res(r.result as string);
+                r.onerror = rej;
+                r.readAsDataURL(attachmentFile);
+              });
+            } catch (e) {}
+          }
         }
       }
 
-    let firestoreImage = null;
-    let firestoreDocument = null;
-    let firestoreAudio = null;
-
-    if (uploadedFileUrl) {
-      if (attachmentType === 'image') firestoreImage = uploadedFileUrl;
-      else if (attachmentType === 'document') firestoreDocument = uploadedFileUrl;
-      else if (attachmentType === 'audio') firestoreAudio = uploadedFileUrl;
-    } else if (attachmentType === 'image' && attachmentData) {
-      const localId = 'localdb_' + generateUniqueId();
-      await saveToLocalDB(localId, attachmentData);
-      firestoreImage = localId;
-    } else if (attachmentType === 'document' && attachmentData) {
-      const localId = 'localdb_' + generateUniqueId();
-      await saveToLocalDB(localId, attachmentData);
-      firestoreDocument = localId;
-    } else if (attachmentType === 'audio' && attachmentData) {
-      const localId = 'localdb_' + generateUniqueId();
-      await saveToLocalDB(localId, attachmentData);
-      firestoreAudio = localId;
+if (uploadedFileId) {
+      transportLedger.bindToMessage(uploadedFileId, messageId);
+      setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+        ...c,
+        messages: (c.messages || []).map(m => m.id === messageId ? { ...m, transportId: uploadedFileId } : m)
+      } : c));
     }
 
-    const newUserMsg = {
-      id: generateUniqueId(),
-      text: msgText,
-      audio: firestoreAudio,
-      image: firestoreImage,
-      document: firestoreDocument,
-      sender: 'user',
-      timestamp: new Date()
-    };
-
-    const chatRef = doc(db, 'users', currentUser.id, 'chats', targetChatId);
-
-    if (finalAction === 'generate_image') updateUsage('imageGenCount');
-    if (finalAction === 'search') updateUsage('webSearchCount');
-
-    if (!isEditMode) {
-      setChatHistory(prevHistory => {
-        let activeChat = prevHistory.find(c => c.id === targetChatId);
-        if (!activeChat) {
-          activeChat = { id: targetChatId, title: 'New Chat', messages: [], updatedAt: new Date() };
-        }
-
-        let updatedTitle = activeChat.title || 'New Chat';
-        const isFirstUserMsg = (activeChat.messages || []).filter(m => m.sender === 'user').length === 0;
-        
-        if (isFirstUserMsg) {
-          if (attachmentType === 'audio') updatedTitle = 'Voice Note';
-          else if (attachmentType === 'image') updatedTitle = 'Image Attachment';
-          else if (attachmentType === 'document') updatedTitle = 'Document Attachment';
-          else {
-              updatedTitle = msgText.substring(0, 30) + (msgText.length > 30 ? '...' : '');
-              
-              const titlePrompt = `Extract a short 2-4 word title for the message.\n\nMessage: "how do I cook a steak"\nTitle: Cooking a Steak\n\nMessage: "write a python script for scraping"\nTitle: Python Web Scraping\n\nMessage: "${msgText}"\nTitle:`;
-              
-              callGeminiAPI(titlePrompt).then(genTitle => {
-                  if (genTitle) {
-                      let cleanTitle = genTitle.split('\n')[0].replace(/^(Title:|Chat Title:|\*|\[System Directives\]:|Task:|Output:|Response:)/gi, '').replace(/["']/g, '').trim();
-                      
-                      if (cleanTitle.toLowerCase().includes("extract a") || cleanTitle.toLowerCase().includes("message:")) {
-                          cleanTitle = msgText.substring(0, 20) + '...';
-                      }
-                      
-                      if (cleanTitle.length > 35) cleanTitle = cleanTitle.substring(0, 35) + '...';
-                      
-                      setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, title: cleanTitle } : c));
-                      
-                      getDoc(chatRef).then(snap => {
-                          if (snap.exists()) setDoc(chatRef, { ...snap.data(), title: cleanTitle }, { merge: true });
-                      });
-                  }
-              }).catch(e => console.error("Title generation failed", e));
-          }
-        }
-
-        const chatToUpdate = {
-          ...activeChat,
-          title: updatedTitle,
-          messages: [...(activeChat.messages || []), newUserMsg],
-          updatedAt: new Date()
-        };
-
-        setDoc(chatRef, chatToUpdate).catch(err => console.warn("Firebase message append blocked:", err));
-
-        const exists = prevHistory.some(c => c.id === targetChatId);
-        return exists 
-          ? prevHistory.map(c => c.id === targetChatId ? chatToUpdate : c)
-          : [chatToUpdate, ...prevHistory];
-      });
+    if (attachmentType === 'audio') {
+      if (attachmentData) {
+        const localId = 'localdb_' + generateUniqueId();
+        await saveToLocalDB(localId, attachmentData);
+        setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+          ...c,
+          messages: (c.messages || []).map(m => m.id === messageId ? { ...m, audio: localId } : m)
+        } : c));
+      } else if (attachmentFile) {
+        try {
+          const audioBase64 = await new Promise<string>((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.onerror = rej;
+            r.readAsDataURL(attachmentFile);
+          });
+          const localId = 'localdb_' + generateUniqueId();
+          await saveToLocalDB(localId, audioBase64);
+          setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+            ...c,
+            messages: (c.messages || []).map(m => m.id === messageId ? { ...m, audio: localId } : m)
+          } : c));
+        } catch (e) {}
+      }
     }
 
     setSuggestions([]);
@@ -5376,6 +5422,10 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         userId: currentUser.id,
         username: currentUser.username,
         message: finalMessageText,
+        chatInput: finalMessageText,
+        messageId: messageId,
+        requestId: requestId,
+        transportId: uploadedFileId || undefined,
         systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
         system_instruction: DEFAULT_SYSTEM_INSTRUCTION,
         action: finalAction,
@@ -5383,6 +5433,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       };
 
       if (uploadedFileUrl) {
+        payload.mediaType = attachmentType === 'document' ? 'pdf' : attachmentType;
         payload.fileId = uploadedFileId;
         payload.file_id = uploadedFileId;
         payload.fileUrl = uploadedFileUrl;
@@ -5809,6 +5860,22 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
             } catch (e) {}
             const classified = classifyRequestError(errBody || `HTTP Error ${response.status}`, response.status);
             console.warn(`[N8N_HTTP_ERROR] Status: ${response.status}, Type: ${classified.type}`, classified);
+
+            // Transition user message to structured failure state (Requirement R1)
+            setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+              ...c,
+              messages: (c.messages || []).map(m => m.id === messageId ? {
+                ...m,
+                status: 'failed',
+                errorReason: `SEND_FAILED_WITH_REASON: HTTP_${response.status}`
+              } : m)
+            } : c));
+
+            // Invalidate 404 URL in transport ledger (Requirement R2)
+            if (response.status === 404 && uploadedFileUrl) {
+              transportLedger.invalidateUrl(uploadedFileUrl);
+            }
+
             if (!isResolved) {
               completeBotResponse(classified.message, classified);
             }
@@ -5889,6 +5956,17 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           : classifyRequestError(err);
 
         console.warn(`[N8N_FETCH_FAILED] in ${durationMs}ms, Type: ${classified.type}`, classified);
+
+        // Transition user message to structured failure state (Requirement R1)
+        setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+          ...c,
+          messages: (c.messages || []).map(m => m.id === messageId ? {
+            ...m,
+            status: 'failed',
+            errorReason: `SEND_FAILED_WITH_REASON: ${classified.type.toUpperCase()}`
+          } : m)
+        } : c));
+
         if (!isResolved) {
           completeBotResponse(classified.message, classified);
         }
@@ -5955,7 +6033,6 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
   const handleSendMessage = (e) => {
     if (e) e.preventDefault();
     if (!inputValue.trim() && !pendingAttachment) return;
-    if (pendingAttachment?.isUploading) return;
 
     isUserScrolledUpRef.current = false;
     setIsUserScrolledUp(false);
@@ -6013,6 +6090,20 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
   // --- OPTIMISTIC BACKGROUND PRE-UPLOAD
   // ==========================================
   const startBackgroundUpload = (file: File, type: 'image' | 'document' | 'audio') => {
+    // 0. Cancel prior in-flight upload, revoke previous object URL, and delete orphaned remote file if replaced (Requirement R4)
+    if (pendingAttachmentRef.current) {
+      const prior = pendingAttachmentRef.current;
+      if (prior.uploadTaskHandle?.cancel) {
+        prior.uploadTaskHandle.cancel();
+      }
+      if (prior.uploadResult?.deleteUrl) {
+        deleteTemporaryFile(prior.uploadResult.deleteUrl).catch(() => {});
+      }
+      if (prior.data && typeof prior.data === 'string' && prior.data.startsWith('blob:')) {
+        URL.revokeObjectURL(prior.data);
+      }
+    }
+
     const isAudio = type === 'audio' || (file.type && file.type.startsWith('audio/')) || Boolean(file.name.match(/\.(mp3|wav|ogg|m4a|webm|flac|aac|oga)$/i));
     const isImg = !isAudio && (type === 'image' || (file.type && file.type.startsWith('image/')) || Boolean(file.name.match(/\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i)));
     const resolvedType = isAudio ? 'audio' : (isImg ? 'image' : 'document');
@@ -6943,6 +7034,9 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                               }
                               if ((pendingAttachment?.uploadResult as any)?.deleteUrl) {
                                 deleteTemporaryFile((pendingAttachment.uploadResult as any).deleteUrl).catch(() => {});
+                              }
+                              if (pendingAttachment?.data && typeof pendingAttachment.data === 'string' && pendingAttachment.data.startsWith('blob:')) {
+                                URL.revokeObjectURL(pendingAttachment.data);
                               }
                               setPendingAttachment(null);
                             }}

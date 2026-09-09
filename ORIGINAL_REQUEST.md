@@ -64,3 +64,84 @@ Execute independent code reviews across architecture, frontend, mobile performan
 - [ ] All 18 automated tests pass (100% pass rate).
 - [ ] Clean working tree committed and pushed to `main` on GitHub.
 - [ ] Production Vercel deployment verified live on `https://xare-ai.vercel.app` with real multimodal chat queries (Text, Image, PDF, Audio).
+
+## 2026-09-09T13:32:44Z
+
+# Teamwork Project Prompt — Draft
+
+> Status: Launched  
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview  
+> Requested team: Full autonomous multi-agent engineering organization (State & Lifecycle, Webhook/Networking, Media Transport, Concurrency & Security, Mobile QA, Victory Auditor)  
+
+Diagnose, repair, verify, and deploy Xare AI to resolve critical production bugs: disappearing text messages, failing webhook dispatches, voice message "Error Unavailable" failures (local playback destroyed by remote cleanup), stale deleted URL reuse on duplicate PDF sends, cross-chat transport leakage, and mobile upload latency, while preserving $0 cost without credit cards, bypassing Hugging Face file storage, and maintaining compatibility across all 126 n8n workflow nodes.
+
+Working directory: `C:\Users\alika\Desktop\SelfStudy\Xare_AI\xare-ai-main`  
+Integrity mode: development  
+
+---
+
+## Requirements
+
+### R1. Frontend State & Message Transaction Integrity (Text Disappearing & Webhook Dispatch Fix)
+Redesign message sending into an immutable transactional lifecycle:
+- Create an immutable outbound message snapshot (`messageId`, text, attachment references) before clearing composer state.
+- Ensure composer clearing (`setInput('')`, `reset()`) never mutates or cancels in-flight outbound snapshots.
+- Ensure every `sendMessage()` call deterministically dispatches an HTTP POST to n8n (`https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika`) or transitions to a structured failure state (`SEND_FAILED_WITH_REASON`).
+- Prevent race conditions, stale closures, and unmount cancellations from silently swallowing messages.
+
+### R2. Separate Content Identity from Ephemeral Transport Identity (Duplicate PDF & Cache Invalidation Fix)
+Decouple physical file hashing from ephemeral transport instances:
+- Establish a Transport Lifetime Ledger distinguishing `contentId` (file hash), `transportId` (ephemeral URL instance), `messageId`, and `chatId`.
+- Invalidate and purge cached transport URLs immediately upon remote deletion (`/api/delete`), 404 response, or message completion.
+- Guarantee that sending the same physical PDF multiple times (or across different chats) always generates a fresh, active transport instance (`url2 != url1`, where `url1` returns 404 and `url2` returns 200).
+- Differentiate distinct files sharing the same filename or file size.
+
+### R3. Separate Remote Transport Cleanup from Local UI Playback Lifetime (Voice "Error Unavailable" Fix)
+Decouple remote server transport lifecycle from local browser media playback:
+- Ensure remote transport deletion (purging temporary URLs from Kappa after n8n finishes processing) does NOT revoke local playback resources (`Blob`, `File`, or object URLs needed by `<audio>` or image preview elements in chat history).
+- Preserve voice recordings, uploaded audio clips, and image previews in the chat UI across chat switching and remote cleanup cycles.
+- Prevent unhandled media playback errors ("Error Unavailable") by maintaining valid local media handles.
+
+### R4. Mobile Performance, Concurrency & Security Hardening
+Optimize performance for resource-constrained mobile devices (2 GB RAM):
+- Avoid in-memory Base64 explosion (>5 MB files must stream via binary `FormData`/XHR without V8 heap duplication).
+- Optimize background pre-upload at $T_0$ so upload latency is concealed behind typing time; cancel stale preparations when attachments are replaced.
+- Ensure stable concurrency under rapid parallel sends (2, 3, 5 simultaneous uploads) without cross-contamination.
+- Zero secret leakage: no static tokens or credentials exposed in frontend client bundles.
+
+### R5. Complete 126-Node n8n Verification, Automated Regression Suite & Live Production Deployment
+- Preserve the exact payload contract expected by all 126 nodes in `n8n/Xare AI.json` across Text, Image, PDF, and Audio branches.
+- Expand automated test suites to cover: text persistence, webhook firing, fresh URL generation on same-file re-send, cross-chat isolation, audio playback after remote cleanup, and concurrency stress.
+- Commit changes cleanly, push to GitHub `main`, trigger Vercel deployment, and verify live E2E functionality on `https://xare-ai.vercel.app`.
+
+---
+
+## Acceptance Criteria
+
+### Message & Webhook Reliability
+- [ ] Text messages never disappear from chat history upon pressing Send.
+- [ ] Every user Send action deterministically triggers a live network request to the n8n webhook endpoint.
+- [ ] Diagnostic correlation IDs (`messageId`, `requestId`, `transportId`) track every transaction.
+
+### Media Transport & Cache Invalidation
+- [ ] Sending the exact same physical PDF twice generates two distinct URLs (`url1 != url2`).
+- [ ] `url1` returns HTTP 404 after cleanup; `url2` returns HTTP 200 and downloads valid binary bytes.
+- [ ] Sending the same PDF in Chat A and Chat B creates isolated transport instances with zero cross-chat URL leakage.
+- [ ] Files sharing identical names but different contents are treated as distinct assets.
+
+### Audio & Local Playback
+- [ ] Voice recordings and audio attachments remain playable in chat history after remote transport is deleted.
+- [ ] No "Error Unavailable" playback failures occur after n8n response completes.
+- [ ] Audio element controls support play, pause, seek, and replay.
+
+### Mobile & Concurrency Safety
+- [ ] Low-RAM (2 GB) stability verified: no Base64 expansion of files > 5 MB; no heap memory leaks.
+- [ ] 2, 3, and 5 concurrent uploads complete with 100% success rate without cross-overwriting.
+- [ ] Pre-upload at $T_0$ provides ~0 ms perceived wait on send.
+
+### Verification & Deployment
+- [ ] All automated regression, boundary, and concurrency tests pass (100% pass rate).
+- [ ] Live Vercel production deployment verified on `https://xare-ai.vercel.app` (5/5 checks pass).
+- [ ] Git working tree clean and synchronized with GitHub `main`.
+- [ ] Independent Victory Auditor certifies all 25 victory conditions before completion.
+

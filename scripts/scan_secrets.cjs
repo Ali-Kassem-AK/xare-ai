@@ -20,12 +20,13 @@ let leaks = 0;
 for (const f of files) {
   if (f.endsWith('.png') || f.endsWith('.ico') || f.endsWith('.svg') || f.includes('package-lock') || f.includes('tests/')) continue;
   const content = fs.readFileSync(f, 'utf8');
-  if (f.includes('App.tsx') || f.includes('audit')) continue; // Firebase public app keys
+  if (f.includes('audit')) continue;
   
-  // Check for hardcoded AWS or secret keys
-  if (/AWS_SECRET_ACCESS_KEY\s*=\s*['"][a-zA-Z0-9+/=]{20,}['"]/i.test(content) ||
-      /STORAGE_SECRET_ACCESS_KEY\s*=\s*['"][a-zA-Z0-9+/=]{20,}['"]/i.test(content) ||
-      /SUPABASE_SERVICE_ROLE_KEY\s*=\s*['"][a-zA-Z0-9._-]{20,}['"]/i.test(content)) {
+  // Check for hardcoded AWS or secret keys or private keys
+  if (/AWS_SECRET_ACCESS_KEY\s*[:=]\s*['"][a-zA-Z0-9+/=]{20,}['"]/i.test(content) ||
+      /STORAGE_SECRET_ACCESS_KEY\s*[:=]\s*['"][a-zA-Z0-9+/=]{20,}['"]/i.test(content) ||
+      /SUPABASE_SERVICE_ROLE_KEY\s*[:=]\s*['"][a-zA-Z0-9._-]{20,}['"]/i.test(content) ||
+      /-----BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY-----/.test(content)) {
     console.error('CRITICAL: Hardcoded secret detected in:', f);
     leaks++;
   }

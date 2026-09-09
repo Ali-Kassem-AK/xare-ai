@@ -15,20 +15,182 @@ import {
   UploadResult,
   PresignUploadResponse,
   PresignDownloadResponse,
-  UploadTaskHandle
+  UploadTaskHandle,
+  TransportState,
+  TransportInstance
 } from './types';
 
 export const MAX_FILE_SIZE_DEFAULT = 50 * 1024 * 1024; // 50 MB hard maximum ceiling
 
-// In-memory cache to prevent re-uploading the exact same file during prompt retries
-const uploadCache = new Map<string, UploadResult>();
+/**
+ * Cryptographic content hash (SHA-256)
+ * Generates an immutable content identifier independent of transport URLs or filenames.
+ */
+export async function computeFileHash(file: File | Blob): Promise<string> {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const buffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return `sha256_${hashArray.map(b => b.toString(16).padStart(2, '0')).join('')}`;
+    } catch (err) {
+      console.warn('[HASH_FALLBACK] SubtleCrypto failed:', err);
+    }
+  }
+
+  // Deterministic fallback for environments where subtle crypto is unavailable
+  const fileName = (file as any).name || 'blob';
+  const lastModified = (file as any).lastModified || 0;
+  return `comp_${fileName}_${file.size}_${lastModified}`;
+}
 
 /**
- * Generate a deterministic cache key for a file based on name, size, last modified timestamp, and user ID.
+ * Transport Lifetime Ledger (Requirement R2)
+ * Decouples content identity (SHA-256) from ephemeral transport instance (URL).
+ * - Enforces chat boundary isolation (no cross-chat leakage)
+ * - Guarantees fresh transport instances upon message completion or remote deletion
+ * - Automatically purges deleted URLs on 404 or programmatic deletion
  */
-function getFileCacheKey(file: File, userId: string): string {
-  return `${userId}_${file.name}_${file.size}_${file.lastModified}`;
+export class TransportLifetimeLedger {
+  private instances = new Map<string, TransportInstance>(); // transportId -> instance
+  private activeByChatAndContent = new Map<string, string>(); // `${chatId}:${contentId}` -> transportId
+  private deleteUrlToTransportId = new Map<string, string>(); // deleteUrl -> transportId
+  private fileUrlToTransportId = new Map<string, string>(); // fileUrl -> transportId
+
+  private getCompositeKey(chatId: string, contentId: string): string {
+    return `${chatId || 'default_chat'}:${contentId}`;
+  }
+
+  /**
+   * Acquire an active transport instance for a given file and chat.
+   * Guarantees:
+   * 1. Never returns a purged, in_flight, or failed transport.
+   * 2. Never returns a transport belonging to another chat (zero cross-chat leakage).
+   */
+  getActiveTransport(chatId: string, contentId: string): TransportInstance | null {
+    const key = this.getCompositeKey(chatId, contentId);
+    const transportId = this.activeByChatAndContent.get(key);
+    if (!transportId) return null;
+
+    const instance = this.instances.get(transportId);
+    if (!instance || instance.state !== 'ready') {
+      this.activeByChatAndContent.delete(key);
+      return null;
+    }
+    return instance;
+  }
+
+  registerTransport(instance: TransportInstance): void {
+    this.instances.set(instance.transportId, instance);
+    if (instance.deleteUrl) {
+      this.deleteUrlToTransportId.set(instance.deleteUrl, instance.transportId);
+    }
+    if (instance.fileUrl) {
+      this.fileUrlToTransportId.set(instance.fileUrl, instance.transportId);
+    }
+    if (instance.state === 'ready') {
+      const key = this.getCompositeKey(instance.chatId, instance.contentId);
+      this.activeByChatAndContent.set(key, instance.transportId);
+    }
+  }
+
+  /**
+   * Bind transport to a message when sent.
+   * Transitions state from 'ready' to 'in_flight' and immediately removes from activeByChatAndContent
+   * so any subsequent send of the same file generates a FRESH transport instance!
+   */
+  bindToMessage(transportId: string, messageId: string): void {
+    const instance = this.instances.get(transportId);
+    if (instance) {
+      instance.messageId = messageId;
+      instance.state = 'in_flight';
+      instance.inFlightAt = Date.now();
+      const key = this.getCompositeKey(instance.chatId, instance.contentId);
+      if (this.activeByChatAndContent.get(key) === transportId) {
+        this.activeByChatAndContent.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Purge transport record and invalidate cache.
+   * Can be called with transportId, deleteUrl, or fileUrl.
+   */
+  async purgeTransport(identifier: string): Promise<boolean> {
+    if (!identifier) return false;
+
+    let targetInstance: TransportInstance | undefined;
+    if (this.instances.has(identifier)) {
+      targetInstance = this.instances.get(identifier);
+    } else if (this.deleteUrlToTransportId.has(identifier)) {
+      const tid = this.deleteUrlToTransportId.get(identifier)!;
+      targetInstance = this.instances.get(tid);
+    } else if (this.fileUrlToTransportId.has(identifier)) {
+      const tid = this.fileUrlToTransportId.get(identifier)!;
+      targetInstance = this.instances.get(tid);
+    } else {
+      for (const inst of this.instances.values()) {
+        if (inst.deleteUrl === identifier || inst.fileUrl === identifier) {
+          targetInstance = inst;
+          break;
+        }
+      }
+    }
+
+    if (targetInstance) {
+      targetInstance.state = 'purged';
+      targetInstance.purgedAt = Date.now();
+      const key = this.getCompositeKey(targetInstance.chatId, targetInstance.contentId);
+      if (this.activeByChatAndContent.get(key) === targetInstance.transportId) {
+        this.activeByChatAndContent.delete(key);
+      }
+    }
+
+    const deleteUrl = targetInstance?.deleteUrl || (identifier.startsWith('http') ? identifier : undefined);
+    if (deleteUrl && deleteUrl.startsWith('http')) {
+      try {
+        const res = await fetch(deleteUrl, { method: 'GET' });
+        return res.ok;
+      } catch (e) {
+        console.warn('[TRANSPORT_PURGE_WARN]', e);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Invalidate URL on HTTP 404 response
+   */
+  invalidateUrl(fileUrl: string): void {
+    const tid = this.fileUrlToTransportId.get(fileUrl);
+    if (tid) {
+      const inst = this.instances.get(tid);
+      if (inst) {
+        inst.state = 'purged';
+        const key = this.getCompositeKey(inst.chatId, inst.contentId);
+        this.activeByChatAndContent.delete(key);
+      }
+    }
+  }
+
+  clear(): void {
+    this.instances.clear();
+    this.activeByChatAndContent.clear();
+    this.deleteUrlToTransportId.clear();
+    this.fileUrlToTransportId.clear();
+  }
+
+  getInstance(transportId: string): TransportInstance | undefined {
+    return this.instances.get(transportId);
+  }
+
+  getAllInstances(): TransportInstance[] {
+    return Array.from(this.instances.values());
+  }
 }
+
+export const transportLedger = new TransportLifetimeLedger();
 
 /**
  * Organic, continuous upload progress simulator
@@ -138,15 +300,37 @@ export async function uploadFileDirectly(
     // Gracefully ignore if Firebase has not yet been initialized (e.g. tests)
   }
 
-  // 2. Check in-memory cache for instant zero-overhead retry
-  const cacheKey = getFileCacheKey(file, currentUserId);
-  const cached = uploadCache.get(cacheKey);
-  if (cached && cached.fileUrl && cached.fileUrl.startsWith('http')) {
-    console.info(`[STORAGE_CACHE_HIT] Reusing existing uploaded file for '${file.name}'`);
-    if (options.onProgress) {
-      options.onProgress(100);
+  const chatId = options.chatId || 'default';
+  // Compute cryptographic SHA-256 content hash (Requirement R2)
+  const contentId = await computeFileHash(file);
+
+  // 2. Check Transport Lifetime Ledger for an active transport instance within this specific chat
+  if (!options.forceFresh) {
+    const activeTransport = transportLedger.getActiveTransport(chatId, contentId);
+    if (activeTransport && activeTransport.state === 'ready') {
+      console.info(`[TRANSPORT_LEDGER_HIT] Reusing active transport instance for '${file.name}' in chat '${chatId}'`);
+      if (options.onProgress) {
+        options.onProgress(100, {
+          percent: 100,
+          bytesUploaded: file.size,
+          totalBytes: file.size
+        });
+      }
+      return {
+        fileId: activeTransport.transportId,
+        fileUrl: activeTransport.fileUrl,
+        fileName: activeTransport.fileName,
+        fileSize: activeTransport.fileSize,
+        mimeType: activeTransport.mimeType,
+        storagePath: activeTransport.transportId,
+        storageProvider: 'zero-cost-transport',
+        uploadedAt: new Date(activeTransport.createdAt).toISOString(),
+        deleteUrl: activeTransport.deleteUrl,
+        transportId: activeTransport.transportId,
+        contentId,
+        chatId
+      };
     }
-    return cached;
   }
 
   // Check if enterprise S3/R2 storage is explicitly requested via environment variable
@@ -158,14 +342,14 @@ export async function uploadFileDirectly(
 
   if (isRemoteStorageExplicitlyEnabled) {
     try {
-      return await uploadViaS3Presigned(file, options, currentUserId, cacheKey, auth);
+      return await uploadViaS3Presigned(file, options, currentUserId, contentId, auth);
     } catch (s3Err: any) {
       console.warn('[STORAGE_S3_FALLBACK] Explicit S3/R2 failed, engaging Zero-Cost Transport:', s3Err.message);
     }
   }
 
   // Primary Default: Zero-Cost Lightning-Fast Ephemeral File Transport
-  return uploadViaZeroCostTransport(file, options, currentUserId, cacheKey);
+  return uploadViaZeroCostTransport(file, options, currentUserId, contentId, chatId);
 }
 
 /**
@@ -180,7 +364,8 @@ async function uploadViaZeroCostTransport(
   file: File,
   options: UploadOptions = {},
   currentUserId: string,
-  cacheKey: string
+  contentId: string,
+  chatId: string
 ): Promise<UploadResult> {
   console.info(`[ZERO_COST_TRANSPORT_START] Dispatching direct ephemeral transport for '${file.name}' (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
 
@@ -216,9 +401,10 @@ async function uploadViaZeroCostTransport(
           const data = JSON.parse(xhr.responseText);
           const directUrl = data.link + (data.ext && !data.link.endsWith(data.ext) ? data.ext : '');
           const deleteUrl = data.key ? `https://kappa.lol/api/delete?key=${data.key}` : undefined;
+          const transportId = data.id ? `trans_${data.id}` : `trans_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
 
           const result: UploadResult = {
-            fileId: data.id || `transport_${Date.now().toString(36)}`,
+            fileId: transportId,
             fileUrl: directUrl,
             fileName: file.name,
             fileSize: file.size,
@@ -226,10 +412,27 @@ async function uploadViaZeroCostTransport(
             storagePath: data.id || '',
             storageProvider: 'zero-cost-transport',
             uploadedAt: new Date().toISOString(),
-            deleteUrl: deleteUrl
+            deleteUrl: deleteUrl,
+            transportId,
+            contentId,
+            chatId
           };
 
-          uploadCache.set(cacheKey, result);
+          // Register in Transport Lifetime Ledger
+          const transportInstance: TransportInstance = {
+            transportId,
+            contentId,
+            chatId,
+            fileUrl: directUrl,
+            deleteUrl,
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: result.mimeType,
+            state: 'ready',
+            createdAt: Date.now()
+          };
+          transportLedger.registerTransport(transportInstance);
+
           if (options.onProgress) {
             options.onProgress(100, {
               percent: 100,
@@ -268,7 +471,7 @@ async function uploadViaS3Presigned(
   file: File,
   options: UploadOptions = {},
   currentUserId: string,
-  cacheKey: string,
+  contentId: string,
   auth: any
 ): Promise<UploadResult> {
   console.info(`[STORAGE_UPLOAD_START] Requesting presigned upload authorization for '${file.name}' (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
@@ -399,6 +602,7 @@ async function uploadViaS3Presigned(
 
     await progressSim.finish();
 
+    const transportId = `trans_${fileId}`;
     const result: UploadResult = {
       fileId: fileId,
       fileUrl: verifiedDownloadUrl,
@@ -407,10 +611,24 @@ async function uploadViaS3Presigned(
       mimeType: mimeType || file.type || 'application/octet-stream',
       storagePath: objectKey,
       storageProvider: storageProvider || 's3',
-      uploadedAt: new Date().toISOString()
+      uploadedAt: new Date().toISOString(),
+      transportId,
+      contentId,
+      chatId: options.chatId || 'default'
     };
 
-    uploadCache.set(cacheKey, result);
+    const transportInstance: TransportInstance = {
+      transportId,
+      contentId,
+      chatId: options.chatId || 'default',
+      fileUrl: verifiedDownloadUrl,
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: result.mimeType,
+      state: 'ready',
+      createdAt: Date.now()
+    };
+    transportLedger.registerTransport(transportInstance);
     return result;
 
   } catch (uploadErr: any) {
@@ -426,15 +644,9 @@ async function uploadViaS3Presigned(
 /**
  * Programmatically purge a temporary file after processing or upon cancellation
  */
-export async function deleteTemporaryFile(deleteUrl?: string): Promise<boolean> {
-  if (!deleteUrl || typeof deleteUrl !== 'string') return false;
-  try {
-    const res = await fetch(deleteUrl, { method: 'GET' });
-    return res.ok;
-  } catch (e) {
-    console.warn('[ZERO_COST_TRANSPORT_DELETE_WARN]', e);
-    return false;
-  }
+export async function deleteTemporaryFile(deleteUrlOrTransportId?: string): Promise<boolean> {
+  if (!deleteUrlOrTransportId || typeof deleteUrlOrTransportId !== 'string') return false;
+  return await transportLedger.purgeTransport(deleteUrlOrTransportId);
 }
 
 /**
@@ -455,5 +667,5 @@ export async function uploadFileDirect(
  * Clear cached upload results
  */
 export function clearUploadCache(): void {
-  uploadCache.clear();
+  transportLedger.clear();
 }
