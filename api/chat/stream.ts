@@ -15,7 +15,7 @@ interface ModelNode {
 
 // PRIMARY: Gemini 2.5 Flash | FALLBACK: Gemini 3.1 Flash Lite
 const PRIMARY_MODEL: ModelNode = { 
-  name: 'gemini-2.5-flash', 
+  name: 'Gemini 3.5 Flash Lite', 
   displayName: 'Gemini 3.5 Flash Lite',
   version: 'v1beta', 
   inFlight: 0, 
