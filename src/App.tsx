@@ -272,6 +272,24 @@ export const TOOL_PHASE_DURATIONS = {
     thinking: 4000,                // -> 'Formulating Response'
     formulatingResponse: 5000,     // -> 'Synthesizing Output'
     synthesizing: 6000,            // -> 'Finalizing response...'
+  },
+  visualization: {
+    readingPrompt: 1800,           // 'Reading Prompt'
+    understandingContext: 2200,    // 'Understanding Context'
+    architecting: 2600,            // 'Architecting System & Component Layout...'
+    designingPalette: 2600,        // 'Designing Visual Aesthetics & Color Palette...'
+    structuringDom: 2800,          // 'Structuring Semantic HTML5 & DOM Hierarchy...'
+    stylingCss: 2800,              // 'Engineering Native CSS & Responsive Grid...'
+    craftingAnimations: 2800,      // 'Crafting Smooth GPU Animations & Transitions...'
+    developingCanvas: 3000,        // 'Developing Interactive Canvas & Systems...'
+    wiringState: 3000,             // 'Wiring Real-Time State & Event Listeners...'
+    bindingControls: 3000,         // 'Binding User Controls & Touch Interactions...'
+    optimizingLayout: 3000,        // 'Optimizing Responsive Mobile & Desktop Layout...'
+    synthesizingVisuals: 3000,     // 'Synthesizing Dynamic Visual Effects & Feedback...'
+    verifyingDom: 3000,            // 'Verifying DOM Hierarchy & Syntax Integrity...'
+    validatingApis: 3000,          // 'Validating Web APIs & Runtime Sandbox...'
+    compilingSandbox: 3200,        // 'Compiling Self-Contained Web Sandbox...'
+    finalizingApp: 15000           // 'Finalizing Complete Application & Launching...'
   }
 };
 
@@ -2951,6 +2969,16 @@ export const GoogleStyles = () => (
       animation: floatUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
+    /* High-tech indeterminate progress bar animation */
+    @keyframes progressIndeterminate {
+      0% { transform: translateX(-100%); }
+      50% { transform: translateX(30%); }
+      100% { transform: translateX(100%); }
+    }
+    .animate-progress-indeterminate {
+      animation: progressIndeterminate 2.2s ease-in-out infinite;
+    }
+
     /* Smooth overlay fade-in */
     @keyframes overlayFadeIn {
       from { opacity: 0; backdrop-filter: blur(0px); transform: scale(0.98); }
@@ -4918,6 +4946,26 @@ export function App() {
       };
 
       switch (loadingType) {
+        case 'visualization':
+          queueSteps([
+            { text: 'Reading Prompt', duration: TOOL_PHASE_DURATIONS.visualization.readingPrompt },
+            { text: 'Understanding Context', duration: TOOL_PHASE_DURATIONS.visualization.understandingContext },
+            { text: 'Architecting System & Component Layout...', duration: TOOL_PHASE_DURATIONS.visualization.architecting },
+            { text: 'Designing Visual Aesthetics & Color Palette...', duration: TOOL_PHASE_DURATIONS.visualization.designingPalette },
+            { text: 'Structuring Semantic HTML5 & DOM Hierarchy...', duration: TOOL_PHASE_DURATIONS.visualization.structuringDom },
+            { text: 'Engineering Native CSS & Responsive Grid...', duration: TOOL_PHASE_DURATIONS.visualization.stylingCss },
+            { text: 'Crafting Smooth GPU Animations & Transitions...', duration: TOOL_PHASE_DURATIONS.visualization.craftingAnimations },
+            { text: 'Developing Interactive Canvas & Systems...', duration: TOOL_PHASE_DURATIONS.visualization.developingCanvas },
+            { text: 'Wiring Real-Time State & Event Listeners...', duration: TOOL_PHASE_DURATIONS.visualization.wiringState },
+            { text: 'Binding User Controls & Touch Interactions...', duration: TOOL_PHASE_DURATIONS.visualization.bindingControls },
+            { text: 'Optimizing Responsive Mobile & Desktop Layout...', duration: TOOL_PHASE_DURATIONS.visualization.optimizingLayout },
+            { text: 'Synthesizing Dynamic Visual Effects & Feedback...', duration: TOOL_PHASE_DURATIONS.visualization.synthesizingVisuals },
+            { text: 'Verifying DOM Hierarchy & Syntax Integrity...', duration: TOOL_PHASE_DURATIONS.visualization.verifyingDom },
+            { text: 'Validating Web APIs & Runtime Sandbox...', duration: TOOL_PHASE_DURATIONS.visualization.validatingApis },
+            { text: 'Compiling Self-Contained Web Sandbox...', duration: TOOL_PHASE_DURATIONS.visualization.compilingSandbox },
+            { text: 'Finalizing Complete Application & Launching...', duration: TOOL_PHASE_DURATIONS.visualization.finalizingApp }
+          ]);
+          break;
         case 'code':
           queueSteps([
             { text: 'Analyzing Requirements & Architecture', duration: TOOL_PHASE_DURATIONS.code.analyzingLogic },
@@ -6102,7 +6150,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       const isVizPrompt = isVisualizationPrompt(finalMessageText) || finalAction === 'build' || Boolean(toolLabel && toolLabel.includes('Build'));
       if (isVizPrompt) {
         setLoadingType('visualization');
-        setLoadingPhase('Generating full website code...');
+        setLoadingPhase('Sending');
         setIsLoading(true);
         setActiveLoadingChatId(targetChatId);
         try {
@@ -6195,7 +6243,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     
     if (finalAction === 'build' || (toolLabel && toolLabel.includes('Build'))) {
       uiLoadingType = 'visualization';
-      setLoadingPhase('Architecting & building complete project...');
+      setLoadingPhase('Sending');
     } else if (toolLabel) {
       if (toolLabel.includes('Deep Thinking')) uiLoadingType = 'think';
       else if (toolLabel.includes('Summarize')) uiLoadingType = 'summarize';
@@ -6205,7 +6253,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       else if (toolLabel.includes('grammar')) uiLoadingType = 'fix';
     } else if (isVisualizationPrompt(msgText)) {
       uiLoadingType = 'visualization';
-      setLoadingPhase('Generating visualization...');
+      setLoadingPhase('Sending');
     } else if (/\b(code|python|script|pygame|game|function|program|build|write|create|cpp|java|js|javascript|sql)\b/i.test(msgText)) {
       uiLoadingType = 'code';
     }
@@ -6308,7 +6356,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           const isViz = isVisualizationPrompt(finalMessageText) || finalAction === 'build' || Boolean(toolLabel && toolLabel.includes('Build'));
           if (isViz) {
             setLoadingType('visualization');
-            setLoadingPhase('Generating full website code...');
+            setLoadingPhase('Sending');
             setIsLoading(true);
             setActiveLoadingChatId(targetChatId);
             try {
@@ -7714,34 +7762,130 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                         </div>
                       </div>
                     </div>
-                  ) : loadingType === 'visualization' || (loadingPhase && (loadingPhase.toLowerCase().includes('visualization') || loadingPhase.toLowerCase().includes('html') || loadingPhase.toLowerCase().includes('website') || loadingPhase.toLowerCase().includes('code'))) ? (
-                    <div className={`p-5 sm:p-6 rounded-2xl border shadow-sm flex items-center gap-4 my-1 select-none ${isDarkMode ? 'bg-[#080d1a]/90 border-slate-800/80 text-slate-200' : 'bg-white border-slate-200 text-slate-800'}`}>
-                      <div className="relative flex items-center justify-center flex-shrink-0">
-                        <div className="absolute w-12 h-12 rounded-full bg-cyan-500/20 blur-lg animate-pulse" />
-                        <div className="w-9 h-9 rounded-full border-[3px] border-slate-700/30 border-t-cyan-400 border-r-blue-500 animate-spin" />
-                        <div className="absolute w-2 h-2 rounded-full bg-cyan-400 animate-ping" style={{ animationDuration: '2s' }} />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className={`text-[14.5px] font-semibold tracking-wide ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                          {loadingPhase || 'Generating visualization...'}
+                  ) : (() => {
+                    const isVizMode = loadingType === 'visualization' || (loadingPhase && (
+                      loadingPhase.toLowerCase().includes('visualization') ||
+                      loadingPhase.toLowerCase().includes('architecting') ||
+                      loadingPhase.toLowerCase().includes('website') ||
+                      loadingPhase.toLowerCase().includes('sandbox') ||
+                      loadingPhase.toLowerCase().includes('building complete') ||
+                      loadingPhase.toLowerCase().includes('structuring') ||
+                      loadingPhase.toLowerCase().includes('engineering') ||
+                      loadingPhase.toLowerCase().includes('crafting') ||
+                      loadingPhase.toLowerCase().includes('developing') ||
+                      loadingPhase.toLowerCase().includes('wiring') ||
+                      loadingPhase.toLowerCase().includes('compiling') ||
+                      loadingPhase.toLowerCase().includes('finalizing complete')
+                    ));
+
+                    const isInitialTextPhase = loadingPhase === 'Sending' || loadingPhase === 'Reading Prompt' || loadingPhase === 'Understanding Context';
+
+                    if (isVizMode && !isInitialTextPhase) {
+                      return (
+                        <div className={`my-2 rounded-2xl overflow-hidden border shadow-lg transition-all ${isDarkMode ? 'border-slate-800/90 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'} w-full animate-float-up`}>
+                          {/* Header Bar - Exact Match to CodeBlock Header */}
+                          <div className={`flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b select-none ${isDarkMode ? 'bg-[#080c16]/95 border-slate-800/80 text-slate-300' : 'bg-slate-100/95 border-slate-200 text-slate-700'}`}>
+                            <div className="flex items-center gap-2 sm:gap-3">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider ${isDarkMode ? 'bg-cyan-950/70 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+                                HTML
+                              </span>
+                              <span className="text-[11px] font-mono opacity-70 hidden xs:flex items-center gap-1.5 text-cyan-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                                Building live sandbox...
+                              </span>
+
+                              {/* Interactive Code / Preview Toggle Tabs */}
+                              <div className={`flex items-center p-0.5 rounded-lg border text-xs font-semibold ${isDarkMode ? 'bg-slate-900/90 border-slate-800 text-slate-400' : 'bg-slate-200/80 border-slate-300 text-slate-600'}`}>
+                                <div className={`flex items-center gap-1 px-2.5 py-1 rounded-md ${isDarkMode ? 'bg-cyan-500/20 text-cyan-300 shadow-sm border border-cyan-500/30' : 'bg-white text-blue-700 shadow-sm'}`}>
+                                  <Play className="w-3 h-3 fill-current text-cyan-400" />
+                                  <span>Live Preview</span>
+                                </div>
+                                <div className="flex items-center gap-1 px-2.5 py-1 rounded-md opacity-40 cursor-not-allowed">
+                                  <Code className="w-3 h-3" />
+                                  <span>Code</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action Controls - Exact Match to CodeBlock Controls */}
+                            <div className="flex items-center gap-1 sm:gap-1.5">
+                              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${isDarkMode ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                                <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                                <span className="hidden md:inline">Full Page</span>
+                              </div>
+
+                              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                                <span className="hidden md:inline">Expand</span>
+                              </div>
+
+                              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                <Maximize2 className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Fullscreen</span>
+                              </div>
+
+                              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Reset</span>
+                              </div>
+
+                              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Pop Out</span>
+                              </div>
+
+                              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold opacity-50 ${isDarkMode ? 'bg-slate-800/90 text-slate-300 border border-slate-700/60' : 'bg-white text-slate-600 border border-slate-200 shadow-sm'}`}>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Copy Code</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Big Window Content Body */}
+                          <div className={`p-8 sm:p-14 min-h-[380px] sm:min-h-[460px] flex flex-col items-center justify-center gap-5 transition-all select-none relative overflow-hidden ${isDarkMode ? 'bg-[#060911]' : 'bg-slate-50'}`}>
+                            {/* Ambient Glows */}
+                            <div className="absolute w-80 h-80 bg-cyan-500/10 blur-[90px] rounded-full pointer-events-none" />
+                            <div className="absolute w-64 h-64 bg-blue-500/10 blur-[80px] rounded-full pointer-events-none" />
+
+                            {/* High-Tech Circular Spinner */}
+                            <div className="relative flex items-center justify-center flex-shrink-0 z-10">
+                              <div className="absolute w-20 h-20 rounded-full bg-cyan-500/20 blur-xl animate-pulse" />
+                              <div className="w-14 h-14 rounded-full border-[3.5px] border-slate-700/30 border-t-cyan-400 border-r-blue-500 animate-spin" />
+                              <div className="absolute w-3.5 h-3.5 rounded-full bg-cyan-400 animate-ping" style={{ animationDuration: '2s' }} />
+                            </div>
+
+                            {/* Builder Steps & Details */}
+                            <div className="text-center z-10 max-w-lg px-4 flex flex-col items-center">
+                              <h3 className={`text-base sm:text-lg font-semibold tracking-wide animate-modern-glow ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                                {loadingPhase}
+                              </h3>
+                              <p className={`text-xs sm:text-[13px] mt-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Architecting complete code from start to finish. Live sandbox will execute instantly.
+                              </p>
+
+                              {/* Indeterminate Gradient Shimmer Bar */}
+                              <div className={`w-48 sm:w-64 h-1.5 rounded-full overflow-hidden mt-4 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                                <div className="h-full w-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 rounded-full animate-progress-indeterminate" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div 
+                        style={{ '--glow-sweep-speed': `${GLOW_ANIMATION_CONFIG.textGlowSweepSpeedSec}s` } as React.CSSProperties}
+                        className="py-1.5 flex items-center gap-2.5"
+                      >
+                        <span className={`text-[15px] font-semibold tracking-wide animate-modern-glow ${
+                          isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                        }`}>
+                          {loadingPhase}
                         </span>
-                        <span className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                          Live interactive sandbox will execute instantly
-                        </span>
                       </div>
-                    </div>
-                  ) : (
-                    <div 
-                      style={{ '--glow-sweep-speed': `${GLOW_ANIMATION_CONFIG.textGlowSweepSpeedSec}s` } as React.CSSProperties}
-                      className="py-1.5 flex items-center gap-2.5"
-                    >
-                      <span className={`text-[15px] font-semibold tracking-wide animate-modern-glow ${
-                        isDarkMode ? 'text-slate-300' : 'text-slate-600'
-                      }`}>
-                        {loadingPhase}
-                      </span>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               )}
 

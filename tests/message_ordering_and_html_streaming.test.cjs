@@ -613,6 +613,35 @@ runTest('Should verify Build tool active badge uses uniform styling and sent mes
   assert.ok(!appTsx.includes("msg.sender === 'user' && msg.toolLabel &&"), 'ChatMessageItem must not render toolLabel badge in user message bubbles');
 });
 
+runTest('Should verify Build tool runs initial text steps then transitions to big visualization window', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const appTsx = fs.readFileSync(path.join(__dirname, '..', 'src', 'App.tsx'), 'utf8');
+
+  // Verify TOOL_PHASE_DURATIONS.visualization contains all steps
+  assert.ok(appTsx.includes('visualization: {'), 'TOOL_PHASE_DURATIONS must include visualization');
+  assert.ok(appTsx.includes('readingPrompt: 1800'), 'Must define readingPrompt duration');
+  assert.ok(appTsx.includes('understandingContext: 2200'), 'Must define understandingContext duration');
+  assert.ok(appTsx.includes('architecting: 2600'), 'Must define architecting duration');
+  assert.ok(appTsx.includes('finalizingApp: 15000'), 'Must define finalizingApp duration');
+
+  // Verify switch(loadingType) includes case 'visualization'
+  assert.ok(appTsx.includes("case 'visualization':"), 'switch(loadingType) must have visualization case');
+
+  // Verify initial phase check hides window for Sending, Reading Prompt, Understanding Context
+  assert.ok(appTsx.includes("const isInitialTextPhase = loadingPhase === 'Sending' || loadingPhase === 'Reading Prompt' || loadingPhase === 'Understanding Context'"), 'Must define isInitialTextPhase');
+
+  // Verify Big Window renders identical CodeBlock header buttons
+  assert.ok(appTsx.includes('Building live sandbox...'), 'Big window must include live sandbox indicator');
+  assert.ok(appTsx.includes('Live Preview'), 'Big window must include Live Preview tab');
+  assert.ok(appTsx.includes('Full Page'), 'Big window must include Full Page control');
+  assert.ok(appTsx.includes('Copy Code'), 'Big window must include Copy Code control');
+
+  // Verify high-tech loading circle and progress bar
+  assert.ok(appTsx.includes('animate-progress-indeterminate'), 'Must include animated progress bar');
+  assert.ok(appTsx.includes('animate-spin'), 'Must include circular spinner');
+});
+
 console.log('\n=== ALL TESTS COMPLETE: ' + passed + '/' + total + ' PASSED ===\n');
 if (passed !== total) process.exit(1);
 
