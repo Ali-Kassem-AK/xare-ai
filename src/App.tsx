@@ -8271,16 +8271,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                             <div className="absolute w-80 h-80 bg-cyan-500/10 blur-[90px] rounded-full pointer-events-none" />
                             <div className="absolute w-64 h-64 bg-blue-500/10 blur-[80px] rounded-full pointer-events-none" />
 
-                            {/* Builder Steps & Progress */}
+                            {/* Builder Step Text */}
                             <div className="text-center z-10 max-w-lg px-4 flex flex-col items-center">
                               <h3 className={`text-base sm:text-lg font-semibold tracking-wide animate-modern-glow ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                                 {loadingPhase}
                               </h3>
-
-                              {/* Indeterminate Gradient Shimmer Bar */}
-                              <div className={`w-48 sm:w-64 h-1.5 rounded-full overflow-hidden mt-4 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                                <div className="h-full w-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 rounded-full animate-progress-indeterminate" />
-                              </div>
                             </div>
                           </div>
                         </div>
