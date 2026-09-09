@@ -600,6 +600,19 @@ runTest('Should verify that restarting/reloading opens a fresh new chat by defau
   assert.strictEqual(startupHistory[2].title, 'Prior Chat 2');
 });
 
+runTest('Should verify Build tool active badge uses uniform styling and sent messages do not render toolLabel', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const appTsx = fs.readFileSync(path.join(__dirname, '..', 'src', 'App.tsx'), 'utf8');
+
+  // Verify active tool badge has no amber color override
+  assert.ok(!appTsx.includes("activeTool.label === 'Build' ? (isDarkMode ? 'bg-amber-500/15"), 'Active tool badge must not have amber styling for Build');
+  assert.ok(!appTsx.includes("activeTool.label === 'Build' ? 'text-amber-500' : ''"), 'Active tool icon must not have text-amber-500');
+
+  // Verify ChatMessageItem does not render toolLabel pill inside sent user message bubbles
+  assert.ok(!appTsx.includes("msg.sender === 'user' && msg.toolLabel &&"), 'ChatMessageItem must not render toolLabel badge in user message bubbles');
+});
+
 console.log('\n=== ALL TESTS COMPLETE: ' + passed + '/' + total + ' PASSED ===\n');
 if (passed !== total) process.exit(1);
 
