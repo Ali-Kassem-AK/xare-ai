@@ -362,19 +362,20 @@ runTest('Should assemble a massive 3-chunk website seamlessly into a working ful
 // --- BUILD TOOL SPECIFICATION & DETECTION TESTS
 // ==========================================
 
-runTest('Should verify Build tool prompt architecture mandates native Web APIs, DPR scaling & zero CDNs', () => {
+runTest('Should verify Build tool prompt architecture mandates user adaptation, quality bar & complete experience', () => {
   const fs = require('fs');
   const path = require('path');
   const appTsx = fs.readFileSync(path.join(__dirname, '..', 'src', 'App.tsx'), 'utf8');
 
   // Verify BUILD_TOOL_SYSTEM_PROMPT is exported and contains critical architect instructions
   assert.ok(appTsx.includes('export const BUILD_TOOL_SYSTEM_PROMPT'), 'Must export BUILD_TOOL_SYSTEM_PROMPT');
-  assert.ok(appTsx.includes('ZERO EXTERNAL SCRIPT DEPENDENCIES'), 'Must forbid external script CDNs');
-  assert.ok(appTsx.includes('devicePixelRatio'), 'Must mandate retina DPR scaling');
-  assert.ok(appTsx.includes('requestAnimationFrame'), 'Must mandate requestAnimationFrame loop');
-  assert.ok(appTsx.includes('ZERO PLACEHOLDER & ZERO STUB GUARANTEE'), 'Must forbid TODOs and stubs');
-  assert.ok(appTsx.includes('RICH INTERACTIVITY, CONTROLS & HUD'), 'Must enforce interactive controls and HUD');
-  assert.ok(appTsx.includes("SPECIALIZED \"BUILD\" MODE"), 'Must establish build mode');
+  assert.ok(appTsx.includes('ROLE: PRINCIPAL CREATIVE SYSTEM ARCHITECT, PRODUCT DESIGNER & FULL-STACK SOFTWARE ENGINEER'), 'Must define role');
+  assert.ok(appTsx.includes('CORE PRINCIPLE: ADAPT TO THE USER, DO NOT FORCE A TEMPLATE'), 'Must enforce core principle of user adaptation');
+  assert.ok(appTsx.includes('STEP 1 — UNDERSTAND AND UPGRADE THE USER REQUEST'), 'Must include Step 1');
+  assert.ok(appTsx.includes('STEP 4 — BUILD THE COMPLETE EXPERIENCE'), 'Must include Step 4');
+  assert.ok(appTsx.includes('STEP 6 — VISUAL DESIGN IS CONTEXTUAL'), 'Must include Step 6');
+  assert.ok(appTsx.includes('USER INTENT ALWAYS COMES FIRST'), 'Must prioritize user intent');
+  assert.ok(appTsx.includes("USER'S REQUEST TO ARCHITECT & BUILD:"), 'Must include target section header');
 });
 
 runTest('Should verify Build tool is registered as primary preset in AI_PRESETS', () => {
