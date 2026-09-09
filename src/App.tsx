@@ -4986,6 +4986,53 @@ const AI_PRESETS = [
     }
   };
 
+  const createNewChat = () => {
+    if (streamingAnimFrameRef.current) {
+      cancelAnimationFrame(streamingAnimFrameRef.current);
+      streamingAnimFrameRef.current = null;
+    }
+    setStreamingMessageId(null);
+    setIsLoading(false);
+    setActiveLoadingChatId(null);
+    setLoadingType(null);
+    setSuggestions([]);
+    setInputValue('');
+    setPendingAttachment(null);
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
+      } catch (e) {}
+    }
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      } catch (e) {}
+    }
+    setIsRecording(false);
+    setRecordingTime(0);
+
+    const newChatId = generateUniqueId();
+    const newChat = {
+      id: newChatId,
+      title: 'New Chat',
+      messages: [],
+      updatedAt: new Date()
+    };
+    setCurrentChatId(newChatId);
+    setChatHistory(prev => [newChat, ...prev.filter(c => c.id !== newChatId && c.messages && c.messages.length > 0)]);
+
+    if (currentUser && currentUser.id !== 'guest-user' && currentUser.id !== 'preview-user') {
+      setDoc(doc(db, 'users', currentUser.id, 'chats', newChatId), newChat).catch(err => {
+        console.warn("Chat creation blocked by rules (ignoring):", err);
+      });
+    }
+
+    if (window.innerWidth < 1024) setIsSidebarOpen(false);
+    setTimeout(() => textareaRef.current?.focus(), 50);
+  };
+
   const deleteChat = (chatId: string) => {
     if (streamingAnimFrameRef.current) {
       cancelAnimationFrame(streamingAnimFrameRef.current);
@@ -5008,56 +5055,6 @@ const AI_PRESETS = [
         createNewChat();
       }
     }
-  };
-
-  const createNewChat = () => {
-    if (streamingAnimFrameRef.current) {
-      cancelAnimationFrame(streamingAnimFrameRef.current);
-      streamingAnimFrameRef.current = null;
-    }
-    setStreamingMessageId(null);
-    setIsLoading(false);
-    setActiveLoadingChatId(null);
-    setLoadingType(null);
-    setSuggestions([]);
-    setInputValue('');
-    setAttachmentFile(null);
-    setAttachmentData(null);
-    setAttachmentType(null);
-    setPendingAttachment(null);
-    if (isRecording) {
-      cancelRecording();
-    }
-
-    if (!currentUser) return;
-
-    // If current active chat is already completely empty (0 messages), stay on it
-    const activeChat = chatHistory.find(c => c.id === currentChatId);
-    if (activeChat && (!activeChat.messages || activeChat.messages.length === 0)) {
-      if (window.innerWidth < 1024) setIsSidebarOpen(false);
-      setTimeout(() => textareaRef.current?.focus(), 50);
-      return;
-    }
-
-    // Always create a fresh, clean chat with zero messages
-    const newChatId = generateUniqueId();
-    const newChat = {
-      id: newChatId,
-      title: 'New Chat',
-      messages: [],
-      updatedAt: new Date()
-    };
-    setCurrentChatId(newChatId);
-    setChatHistory(prev => [newChat, ...prev.filter(c => c.id !== newChatId && c.messages && c.messages.length > 0)]);
-    
-    if (currentUser.id !== 'guest-user' && currentUser.id !== 'preview-user') {
-      setDoc(doc(db, 'users', currentUser.id, 'chats', newChatId), newChat).catch(err => {
-        console.warn("Chat creation blocked by rules (ignoring):", err);
-      });
-    }
-    
-    if (window.innerWidth < 1024) setIsSidebarOpen(false);
-    setTimeout(() => textareaRef.current?.focus(), 50);
   };
 
   const triggerSuggestions = async (botText) => {
