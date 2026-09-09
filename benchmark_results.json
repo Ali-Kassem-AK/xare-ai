@@ -1,0 +1,200 @@
+[
+  {
+    "size": "1 MB",
+    "sizeBytes": 1048576,
+    "type": "image",
+    "kappa": {
+      "upload": {
+        "status": 200,
+        "uploadTimeMs": 1371,
+        "urlReadyMs": 1390,
+        "url": "https://kappa.lol/94bPnZ",
+        "deleteKey": "yAmLIPH9R46e1U39",
+        "sizeBytes": 1048576,
+        "success": true
+      },
+      "download": {
+        "downloadTimeMs": 1005,
+        "receivedBytes": 1048576,
+        "status": 200,
+        "contentType": "image/jpeg"
+      }
+    },
+    "litterbox": {
+      "upload": {
+        "status": 403,
+        "uploadTimeMs": 736,
+        "urlReadyMs": 922,
+        "url": null,
+        "sizeBytes": 1048576,
+        "success": false
+      },
+      "download": null
+    }
+  },
+  {
+    "size": "5 MB",
+    "sizeBytes": 5242880,
+    "type": "image",
+    "kappa": {
+      "upload": {
+        "status": 200,
+        "uploadTimeMs": 5177,
+        "urlReadyMs": 5180,
+        "url": "https://kappa.lol/9Kui5X",
+        "deleteKey": "p6hyUHr9IuMKLftB",
+        "sizeBytes": 5242880,
+        "success": true
+      },
+      "download": {
+        "downloadTimeMs": 1723,
+        "receivedBytes": 5242880,
+        "status": 200,
+        "contentType": "image/png"
+      }
+    },
+    "litterbox": {
+      "upload": {
+        "status": 403,
+        "uploadTimeMs": 726,
+        "urlReadyMs": 914,
+        "url": null,
+        "sizeBytes": 5242880,
+        "success": false
+      },
+      "download": null
+    }
+  },
+  {
+    "size": "10 MB",
+    "sizeBytes": 10485760,
+    "type": "pdf",
+    "kappa": {
+      "upload": {
+        "status": 200,
+        "uploadTimeMs": 21504,
+        "urlReadyMs": 21506,
+        "url": "https://kappa.lol/Ne3VAC",
+        "deleteKey": "3tYTnFQIbQTONNvp",
+        "sizeBytes": 10485760,
+        "success": true
+      },
+      "download": {
+        "downloadTimeMs": 3150,
+        "receivedBytes": 10485760,
+        "status": 200,
+        "contentType": "application/pdf"
+      }
+    },
+    "litterbox": {
+      "upload": {
+        "status": 403,
+        "uploadTimeMs": 729,
+        "urlReadyMs": 917,
+        "url": null,
+        "sizeBytes": 10485760,
+        "success": false
+      },
+      "download": null
+    }
+  },
+  {
+    "size": "20 MB",
+    "sizeBytes": 20971520,
+    "type": "audio",
+    "kappa": {
+      "upload": {
+        "status": 200,
+        "uploadTimeMs": 36415,
+        "urlReadyMs": 36419,
+        "url": "https://kappa.lol/oFZao5",
+        "deleteKey": "dvR2Cj9aZsOBGAIo",
+        "sizeBytes": 20971520,
+        "success": true
+      },
+      "download": {
+        "downloadTimeMs": 7186,
+        "receivedBytes": 20971520,
+        "status": 200,
+        "contentType": "audio/wav"
+      }
+    },
+    "litterbox": {
+      "upload": {
+        "status": 403,
+        "uploadTimeMs": 736,
+        "urlReadyMs": 929,
+        "url": null,
+        "sizeBytes": 20971520,
+        "success": false
+      },
+      "download": null
+    }
+  },
+  {
+    "size": "30 MB",
+    "sizeBytes": 31457280,
+    "type": "pdf",
+    "kappa": {
+      "upload": {
+        "status": 200,
+        "uploadTimeMs": 40406,
+        "urlReadyMs": 40413,
+        "url": "https://kappa.lol/6MAjHp",
+        "deleteKey": "S1PIAdLxKgUNk4HC",
+        "sizeBytes": 31457280,
+        "success": true
+      },
+      "download": {
+        "downloadTimeMs": 10463,
+        "receivedBytes": 31457280,
+        "status": 200,
+        "contentType": "application/pdf"
+      }
+    },
+    "litterbox": {
+      "upload": {
+        "status": 403,
+        "uploadTimeMs": 757,
+        "urlReadyMs": 954,
+        "url": null,
+        "sizeBytes": 31457280,
+        "success": false
+      },
+      "download": null
+    }
+  },
+  {
+    "size": "50 MB",
+    "sizeBytes": 52428800,
+    "type": "audio",
+    "kappa": {
+      "upload": {
+        "status": 200,
+        "uploadTimeMs": 63978,
+        "urlReadyMs": 63989,
+        "url": "https://kappa.lol/4F6uNB",
+        "deleteKey": "5OVwx1Fn9ESNcu1X",
+        "sizeBytes": 52428800,
+        "success": true
+      },
+      "download": {
+        "downloadTimeMs": 21696,
+        "receivedBytes": 52428800,
+        "status": 200,
+        "contentType": "audio/wav"
+      }
+    },
+    "litterbox": {
+      "upload": {
+        "status": 403,
+        "uploadTimeMs": 900,
+        "urlReadyMs": 1097,
+        "url": null,
+        "sizeBytes": 52428800,
+        "success": false
+      },
+      "download": null
+    }
+  }
+]

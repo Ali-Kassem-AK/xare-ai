@@ -1,0 +1,127 @@
+[
+  {
+    "concurrency": 2,
+    "fileSizeMb": 2,
+    "totalDurationMs": 5510,
+    "successes": 2,
+    "failures": 0,
+    "successRate": "100.0%",
+    "avgLatencyMs": 4598,
+    "minLatencyMs": 3713,
+    "maxLatencyMs": 5482,
+    "heapUsedDeltaMb": "4.30",
+    "rssDeltaMb": "41.31",
+    "details": [
+      {
+        "id": 1,
+        "status": 200,
+        "latencyMs": 3713,
+        "success": true,
+        "url": "https://kappa.lol/8Y2NVj",
+        "key": "TJ3wEZAbhFg9zpKj"
+      },
+      {
+        "id": 2,
+        "status": 200,
+        "latencyMs": 5482,
+        "success": true,
+        "url": "https://kappa.lol/nRplgu",
+        "key": "aidiLUD7n4x6vmL3"
+      }
+    ]
+  },
+  {
+    "concurrency": 3,
+    "fileSizeMb": 2,
+    "totalDurationMs": 9375,
+    "successes": 3,
+    "failures": 0,
+    "successRate": "100.0%",
+    "avgLatencyMs": 7441,
+    "minLatencyMs": 3868,
+    "maxLatencyMs": 9373,
+    "heapUsedDeltaMb": "-0.51",
+    "rssDeltaMb": "-4.18",
+    "details": [
+      {
+        "id": 1,
+        "status": 200,
+        "latencyMs": 3868,
+        "success": true,
+        "url": "https://kappa.lol/KRGWfp",
+        "key": "Z8J6wcDHIen3HKe2"
+      },
+      {
+        "id": 2,
+        "status": 200,
+        "latencyMs": 9373,
+        "success": true,
+        "url": "https://kappa.lol/VFRdiA",
+        "key": "IpnFxcOdXakWhw0X"
+      },
+      {
+        "id": 3,
+        "status": 200,
+        "latencyMs": 9082,
+        "success": true,
+        "url": "https://kappa.lol/UQXkyM",
+        "key": "Wh0meIKuJhcKQEvs"
+      }
+    ]
+  },
+  {
+    "concurrency": 5,
+    "fileSizeMb": 2,
+    "totalDurationMs": 10899,
+    "successes": 5,
+    "failures": 0,
+    "successRate": "100.0%",
+    "avgLatencyMs": 8728,
+    "minLatencyMs": 5359,
+    "maxLatencyMs": 10893,
+    "heapUsedDeltaMb": "-0.02",
+    "rssDeltaMb": "19.93",
+    "details": [
+      {
+        "id": 1,
+        "status": 200,
+        "latencyMs": 10314,
+        "success": true,
+        "url": "https://kappa.lol/9ccoGJ",
+        "key": "pKPUHdKJYEKbqchn"
+      },
+      {
+        "id": 2,
+        "status": 200,
+        "latencyMs": 6509,
+        "success": true,
+        "url": "https://kappa.lol/FYkvuK",
+        "key": "RJNRPqE6gLsB5ozb"
+      },
+      {
+        "id": 3,
+        "status": 200,
+        "latencyMs": 10564,
+        "success": true,
+        "url": "https://kappa.lol/aP8171",
+        "key": "U7MRQoAfN0xaAzSA"
+      },
+      {
+        "id": 4,
+        "status": 200,
+        "latencyMs": 10893,
+        "success": true,
+        "url": "https://kappa.lol/zpLihP",
+        "key": "lSh9HQR8qkANeti1"
+      },
+      {
+        "id": 5,
+        "status": 200,
+        "latencyMs": 5359,
+        "success": true,
+        "url": "https://kappa.lol/MO8RXo",
+        "key": "iYyG3ueoiHxw1sSK"
+      }
+    ]
+  }
+]
