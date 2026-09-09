@@ -6,7 +6,7 @@ import {
   LogOut, AlignLeft, CheckCircle, Code, Languages, 
   Globe, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AudioLines, Copy, Brain, Download,
   Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, Minimize2, ExternalLink, ArrowUp,
-  Info, Lightbulb, AlertTriangle, AlertCircle, Trash2
+  Info, Lightbulb, AlertTriangle, AlertCircle, Trash2, Hammer, Sparkles, Box
 } from 'lucide-react';
 import katex from 'katex';
 
@@ -423,6 +423,64 @@ YOU MUST Structure EVERY response using Xare's frontend markdown components:
 - Keep the tone conversational, confident, and direct. Avoid generic boilerplate disclosures, redundant apologies, or fabricated status/metadata fields unless explicitly requested.
 NEVER RESPOND WITHOUT USING ANY OF THOSE UI STYLINGS`;
 
+export const BUILD_TOOL_SYSTEM_PROMPT = `[ROLE & OBJECTIVE: PRINCIPAL CREATIVE SYSTEM ARCHITECT & FULL-STACK SOFTWARE ENGINEER]
+You are operating in specialized "BUILD" mode. Your mission is to take the user's concept, idea, or specification and architect, design, and program a complete, breathtaking, fully interactive, and 100% production-ready creation in a single self-contained modern HTML/CSS/JavaScript artifact.
+
+WHATEVER THE USER ASKS TO BUILD (e.g. interactive 2D/3D visualizer, scientific simulation, video game, SaaS dashboard, creative web tool, educational model, algorithmic visualizer, audio-visual experience, or landing page):
+DO NOT provide a skeleton, mockup, partial snippet, or placeholder code.
+You MUST deliver the COMPLETE, EXQUISITELY STYLED, HIGH-PERFORMANCE, FULLY FUNCTIONING SYSTEM.
+
+======================================================================
+MANDATORY ARCHITECTURAL & ENGINEERING SPECIFICATIONS:
+======================================================================
+
+1. COMPLETE SELF-CONTAINED SINGLE-FILE DELIVERY:
+- Deliver the entire code inside a single complete \`\`\`html code block starting with <!DOCTYPE html> and fully closed with </html> and \`\`\`.
+- ZERO EXTERNAL SCRIPT DEPENDENCIES: Never load external JS libraries (such as three.js, p5.js, cdnjs links) that may fail CORS, get blocked by iframe sandbox CSP, or fail silently.
+- Build everything using native modern Web APIs:
+  * Native HTML5 Canvas (2D Context or WebGL) for smooth, high-performance rendering.
+  * Native requestAnimationFrame for stutter-free 60+ FPS animation and physics loops.
+  * Native Web Audio API (AudioContext, Oscillators, GainNodes) for real sound effects, clicks, or ambient synth if appropriate.
+  * Native CSS3 (Flexbox, CSS Grid, Glassmorphism, CSS Custom Properties, smooth transitions, keyframe animations).
+  * Native DOM APIs and modern ES6+ (modules, async/await, classes).
+
+2. PRODUCTION-GRADE MODERN DESIGN & AESTHETICS:
+- Deep dark-mode aesthetic with vibrant atmospheric lighting (#060913 / #0a0f1d), subtle glowing gradients, and glowing particle accents.
+- Sleek Floating HUD & Glassmorphism:
+  * Modern frosted-glass overlays (backdrop-filter: blur(16px); background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);).
+- Clean Typography: Crisp modern font stack (-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif).
+- High-DPI Retina Display Scaling:
+  Always scale HTML5 Canvas to devicePixelRatio to prevent blurry rendering:
+  const dpr = Math.min(window.devicePixelRatio || 1, 2); canvas.width = width * dpr; canvas.height = height * dpr; ctx.scale(dpr, dpr);
+- Full-bleed responsive layout:
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+  Dynamically handle window resize events with a robust event listener.
+
+3. RICH INTERACTIVITY, CONTROLS & HUD:
+- Every build MUST feature intuitive, tactile interactive controls:
+  * Floating toolbar or drawer with sliders, toggles, play/pause/reset, speed multipliers, and view modes.
+  * Mouse & Touch handling: drag to rotate/pan, wheel to zoom, click to select/inspect, hover tooltips, and mobile pinch-to-zoom.
+  * Real-time telemetry/HUD overlay: live counters, speed gauges, info cards, or contextual details for clicked items.
+  * Tactile feedback: buttons have smooth hover and active state transitions, tooltips for controls, and keyboard shortcuts.
+
+4. DEEP DOMAIN REALISM & DETAILED MODELING:
+- For Visualizations & Simulations (e.g. Solar System, Physics, Particle Clouds, Waves, Fractals):
+  * Do NOT render empty boxes or simple plain dots. Render rich multi-layered graphics: glowing stellar flares, planetary rings, orbiting moons, elliptical trajectories, atmospheric halos, twinkling parallax starfields, and realistic orbital speeds.
+  * Clicking an entity should zoom into it or display an info panel with data.
+- For Web Applications & Dashboards:
+  * Implement fully functioning data filters, live chart visualizers, search bars, interactive cards, and realistic seed data.
+- For Games:
+  * Complete core gameplay loop, collision detection, particle sparks, audio feedback, scoring, win/loss states, and restart capabilities.
+
+5. ZERO PLACEHOLDER & ZERO STUB GUARANTEE:
+- Never write "// TODO", "// implement later", "// insert graphics here", or dummy empty functions.
+- Every control and button MUST be wired to real state and update the presentation immediately.
+- Code defensively: wrap initialization in try/catch to ensure graceful degradation and 100% render reliability.
+
+======================================================================
+USER'S REQUEST TO ARCHITECT & BUILD:
+`;
+
 /**
  * Universal helper to interact directly with the Gemini API.
  * Uses a smart Endpoint Resolver to automatically find the correct internal API string for Gemini 3.1 Flash Lite.
@@ -669,7 +727,8 @@ export const isHtmlVisualizationResponse = (text: string): boolean => {
  */
 export const isVisualizationPrompt = (text: string): boolean => {
   if (!text || typeof text !== 'string') return false;
-  return /\b(html|visualization|visualize|diagram|interactive|simulation|svg|canvas|dashboard|landing page|website|webpage|ui design|game)\b/i.test(text);
+  if (text.includes('SPECIALIZED "BUILD" MODE') || text.includes('PRINCIPAL CREATIVE SYSTEM ARCHITECT')) return true;
+  return /\b(html|visualization|visualize|diagram|interactive|simulation|svg|canvas|dashboard|landing page|website|webpage|ui design|game|simulator|solar system|planets?|plante|animation)\b/i.test(text);
 };
 
 /**
@@ -4066,6 +4125,17 @@ export const ChatMessageItem = React.memo(({
             : (isDarkMode ? 'text-slate-100' : 'text-slate-900') + ' w-full py-1 px-0 overflow-hidden'
           } ${isStreaming ? (isDarkMode ? 'soft-stream-text' : '') : ''} transition-all duration-300`}
         >
+          {msg.sender === 'user' && msg.toolLabel && (
+            <div className={`inline-flex items-center gap-1.5 mb-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              msg.toolLabel === 'Build'
+                ? (isDarkMode ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-amber-100/80 text-amber-800 border border-amber-300')
+                : (isDarkMode ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-200 text-slate-700 border border-slate-300')
+            }`}>
+              {msg.toolLabel === 'Build' ? <Hammer className="w-3 h-3 text-amber-500" /> : <Sparkles className="w-3 h-3" />}
+              <span>{msg.toolLabel}</span>
+            </div>
+          )}
+
           {msg.image && <LocalImageRenderer src={msg.image} isDarkMode={isDarkMode} />}
 
           {msg.document && <LocalDocumentRenderer src={msg.document} isDarkMode={isDarkMode} />}
@@ -4133,6 +4203,7 @@ export const ChatMessageItem = React.memo(({
   return (
     prevProps.msg.id === nextProps.msg.id &&
     prevProps.msg.text === nextProps.msg.text &&
+    prevProps.msg.toolLabel === nextProps.msg.toolLabel &&
     prevProps.msg.image === nextProps.msg.image &&
     prevProps.msg.document === nextProps.msg.document &&
     prevProps.msg.audio === nextProps.msg.audio &&
@@ -4407,7 +4478,14 @@ export function App() {
   // --- 2. CONSTANTS & CONFIGURATION
   // ==========================================
 
-const AI_PRESETS = [
+  const AI_PRESETS = [
+  { 
+    icon: Hammer, 
+    label: 'Build', 
+    action: 'build', 
+    prompt: BUILD_TOOL_SYSTEM_PROMPT, 
+    placeholder: 'Describe any app, website, game, or visualization to build...' 
+  },
   { 
     icon: Brain, 
     label: 'Deep Thinking', 
@@ -5525,9 +5603,10 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     } else if (msgText.toLowerCase().startsWith('/imagine ')) {
       finalAction = 'generate_image';
       finalMessageText = msgText.substring(9).trim();
+    } else if (msgText.toLowerCase().startsWith('/build ')) {
+      finalAction = 'build';
+      finalMessageText = `${BUILD_TOOL_SYSTEM_PROMPT}${msgText.substring(7).trim()}`;
     }
-
-
 
     let targetChatId = currentChatId;
     if (!targetChatId) {
@@ -5558,6 +5637,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       requestId: requestId,
       transportId: undefined as string | undefined,
       text: msgText,
+      toolLabel: toolLabel || (finalAction === 'build' ? 'Build' : undefined),
       audio: localAudio,
       image: localImage,
       document: localDocument,
@@ -5777,8 +5857,8 @@ if (uploadedFileId) {
     const activeMode = chatModelModes[targetChatId] || 'xare';
 
     // DIRECT GEMINI MODE ROUTER (If user previously clicked 'Switch to Gemini AI')
-    if (activeMode === 'gemini' && (finalAction === 'chat' || !finalAction || finalAction === 'text')) {
-      const isVizPrompt = isVisualizationPrompt(finalMessageText);
+    if (activeMode === 'gemini' && (finalAction === 'chat' || !finalAction || finalAction === 'text' || finalAction === 'build')) {
+      const isVizPrompt = isVisualizationPrompt(finalMessageText) || finalAction === 'build' || Boolean(toolLabel && toolLabel.includes('Build'));
       if (isVizPrompt) {
         setLoadingType('visualization');
         setLoadingPhase('Generating full website code...');
@@ -5872,7 +5952,10 @@ if (uploadedFileId) {
 
     let uiLoadingType = attachmentType || 'text';
     
-    if (toolLabel) {
+    if (finalAction === 'build' || (toolLabel && toolLabel.includes('Build'))) {
+      uiLoadingType = 'visualization';
+      setLoadingPhase('Architecting & building complete project...');
+    } else if (toolLabel) {
       if (toolLabel.includes('Deep Thinking')) uiLoadingType = 'think';
       else if (toolLabel.includes('Summarize')) uiLoadingType = 'summarize';
       else if (toolLabel.includes('search')) uiLoadingType = 'search';
@@ -5979,7 +6062,7 @@ if (uploadedFileId) {
           
           setChatModelModes(prev => ({ ...prev, [targetChatId]: 'gemini' }));
 
-          const isViz = isVisualizationPrompt(finalMessageText);
+          const isViz = isVisualizationPrompt(finalMessageText) || finalAction === 'build' || Boolean(toolLabel && toolLabel.includes('Build'));
           if (isViz) {
             setLoadingType('visualization');
             setLoadingPhase('Generating full website code...');
@@ -6247,7 +6330,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
            let processedBotText = rawBotText;
            const completeness = checkHtmlCodeCompleteness(processedBotText);
-           const isHtmlViz = isHtmlVisualizationResponse(processedBotText) || completeness.isHtml || (isVisualizationPrompt(finalMessageText) && (processedBotText.includes('<') || processedBotText.includes('```')));
+           const isHtmlViz = isHtmlVisualizationResponse(processedBotText) || completeness.isHtml || (isVisualizationPrompt(finalMessageText) && (processedBotText.includes('<') || processedBotText.includes('```'))) || finalAction === 'build' || Boolean(toolLabel && toolLabel.includes('Build'));
 
            if (isHtmlViz) {
              setLoadingType('visualization');
@@ -6534,7 +6617,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           const rawGeminiAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
           let finalAnswer = rawGeminiAnswer;
           const completeness = checkHtmlCodeCompleteness(finalAnswer);
-          const isHtmlViz = isHtmlVisualizationResponse(finalAnswer) || completeness.isHtml || (isVisualizationPrompt(finalMessageText) && (finalAnswer.includes('<') || finalAnswer.includes('```')));
+          const isHtmlViz = isHtmlVisualizationResponse(finalAnswer) || completeness.isHtml || (isVisualizationPrompt(finalMessageText) && (finalAnswer.includes('<') || finalAnswer.includes('```'))) || finalAction === 'build' || Boolean(toolLabel && toolLabel.includes('Build'));
 
           if (isHtmlViz) {
             setLoadingType('visualization');
@@ -7585,8 +7668,12 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                   <div className="relative flex-1 flex flex-col justify-end min-w-0">
                     {activeTool && (
                       <div className="px-2 pt-1 pb-1 flex items-center animate-float-up">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border shadow-sm ${isDarkMode ? 'bg-slate-800/80 text-slate-200 border-slate-700/60' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                          <activeTool.icon className="w-3.5 h-3.5" />
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border shadow-sm ${
+                          activeTool.label === 'Build'
+                            ? (isDarkMode ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-amber-50 text-amber-700 border-amber-200')
+                            : (isDarkMode ? 'bg-slate-800/80 text-slate-200 border-slate-700/60' : 'bg-slate-100 text-slate-700 border-slate-200')
+                        }`}>
+                          <activeTool.icon className={`w-3.5 h-3.5 ${activeTool.label === 'Build' ? 'text-amber-500' : ''}`} />
                           {activeTool.label}
                           <button
                             type="button"

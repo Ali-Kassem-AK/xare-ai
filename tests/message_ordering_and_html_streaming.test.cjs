@@ -358,5 +358,45 @@ runTest('Should assemble a massive 3-chunk website seamlessly into a working ful
   assert.ok(fullAssembled.endsWith('```\n') || fullAssembled.endsWith('```'));
 });
 
+// ==========================================
+// --- BUILD TOOL SPECIFICATION & DETECTION TESTS
+// ==========================================
+
+runTest('Should verify Build tool prompt architecture mandates native Web APIs, DPR scaling & zero CDNs', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const appTsx = fs.readFileSync(path.join(__dirname, '..', 'src', 'App.tsx'), 'utf8');
+
+  // Verify BUILD_TOOL_SYSTEM_PROMPT is exported and contains critical architect instructions
+  assert.ok(appTsx.includes('export const BUILD_TOOL_SYSTEM_PROMPT'), 'Must export BUILD_TOOL_SYSTEM_PROMPT');
+  assert.ok(appTsx.includes('ZERO EXTERNAL SCRIPT DEPENDENCIES'), 'Must forbid external script CDNs');
+  assert.ok(appTsx.includes('devicePixelRatio'), 'Must mandate retina DPR scaling');
+  assert.ok(appTsx.includes('requestAnimationFrame'), 'Must mandate requestAnimationFrame loop');
+  assert.ok(appTsx.includes('ZERO PLACEHOLDER & ZERO STUB GUARANTEE'), 'Must forbid TODOs and stubs');
+  assert.ok(appTsx.includes('RICH INTERACTIVITY, CONTROLS & HUD'), 'Must enforce interactive controls and HUD');
+  assert.ok(appTsx.includes("SPECIALIZED \"BUILD\" MODE"), 'Must establish build mode');
+});
+
+runTest('Should verify Build tool is registered as primary preset in AI_PRESETS', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const appTsx = fs.readFileSync(path.join(__dirname, '..', 'src', 'App.tsx'), 'utf8');
+
+  // Verify Build preset registration
+  assert.ok(appTsx.includes("label: 'Build'"), 'Build preset must be defined');
+  assert.ok(appTsx.includes("action: 'build'"), 'Build action must be registered');
+  assert.ok(appTsx.includes("prompt: BUILD_TOOL_SYSTEM_PROMPT"), 'Build preset must reference BUILD_TOOL_SYSTEM_PROMPT');
+});
+
+runTest('Should detect Build mode in isVisualizationPrompt for diverse creative domains', () => {
+  // Test diverse builder domains (not just planets!)
+  assert.strictEqual(isVisualizationPrompt('make a cyberpunk synthwave game'), true);
+  assert.strictEqual(isVisualizationPrompt('build a real-time crypto trading dashboard'), true);
+  assert.strictEqual(isVisualizationPrompt('create an interactive neural network visualizer'), true);
+  assert.strictEqual(isVisualizationPrompt('make plante visualization'), true);
+  assert.strictEqual(isVisualizationPrompt('build an interactive particle physics simulator'), true);
+});
+
 console.log('\n=== ALL TESTS COMPLETE: ' + passed + '/' + total + ' PASSED ===\n');
 if (passed !== total) process.exit(1);
+
