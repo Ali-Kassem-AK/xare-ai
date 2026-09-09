@@ -4656,23 +4656,35 @@ export function App() {
       if (user) {
         hasInitializedRef.current = false; 
         const cached = loadChatsFromLocalStorage(user.uid);
-        if (cached && cached.length > 0) {
-          setChatHistory(cached);
-          setCurrentChatId(cached[0].id);
-          hasInitializedRef.current = true;
-        }
+        const initChatId = generateUniqueId();
+        const initChat = {
+          id: initChatId,
+          title: 'New Chat',
+          messages: [],
+          updatedAt: new Date()
+        };
+        const pastChats = (cached || []).filter((c: any) => c.messages && c.messages.length > 0);
+        setChatHistory([initChat, ...pastChats]);
+        setCurrentChatId(initChatId);
+        hasInitializedRef.current = true;
         setCurrentUser({ id: user.uid, username: user.displayName || user.email.split('@')[0] });
       } else {
         const guestSession = typeof window !== 'undefined' ? localStorage.getItem('xare_active_session') : null;
         if (guestSession === 'guest') {
           hasInitializedRef.current = false;
           const cached = loadChatsFromLocalStorage('guest-user');
+          const initChatId = generateUniqueId();
+          const initChat = {
+            id: initChatId,
+            title: 'New Chat',
+            messages: [],
+            updatedAt: new Date()
+          };
+          const pastChats = (cached || []).filter((c: any) => c.messages && c.messages.length > 0);
           setCurrentUser({ id: 'guest-user', username: 'Guest' });
-          if (cached && cached.length > 0) {
-            setChatHistory(cached);
-            setCurrentChatId(cached[0].id);
-            hasInitializedRef.current = true;
-          }
+          setChatHistory([initChat, ...pastChats]);
+          setCurrentChatId(initChatId);
+          hasInitializedRef.current = true;
         } else {
           hasInitializedRef.current = false; 
           setChatHistory([]);
@@ -4767,22 +4779,16 @@ export function App() {
     if (currentUser.id === 'guest-user' || currentUser.id === 'preview-user') {
       if (!hasInitializedRef.current) {
         const cached = loadChatsFromLocalStorage(currentUser.id);
-        if (cached && cached.length > 0) {
-          setChatHistory(cached);
-          if (!currentChatId || !cached.some((c: any) => c.id === currentChatId)) {
-            setCurrentChatId(cached[0].id);
-          }
-        } else {
-          const initChatId = generateUniqueId();
-          const initChat = {
-            id: initChatId,
-            title: 'New Chat',
-            messages: [],
-            updatedAt: new Date()
-          };
-          setChatHistory([initChat]);
-          setCurrentChatId(initChatId);
-        }
+        const initChatId = generateUniqueId();
+        const initChat = {
+          id: initChatId,
+          title: 'New Chat',
+          messages: [],
+          updatedAt: new Date()
+        };
+        const pastChats = (cached || []).filter((c: any) => c.messages && c.messages.length > 0);
+        setChatHistory([initChat, ...pastChats]);
+        setCurrentChatId(initChatId);
         hasInitializedRef.current = true;
       }
       return;
@@ -4821,31 +4827,28 @@ export function App() {
 
       fetchedChats.sort((a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a));
 
+      // Separate past chats that contain messages
+      const pastChatsWithMessages = fetchedChats.filter(c => Array.isArray(c.messages) && c.messages.length > 0);
+
       if (!hasInitializedRef.current) {
           hasInitializedRef.current = true;
-          if (fetchedChats.length > 0) {
-            // Restore previous chats from cloud, preserving or setting active chat
-            const activeId = (currentChatId && fetchedChats.some(c => c.id === currentChatId))
-              ? currentChatId
-              : fetchedChats[0].id;
-            setCurrentChatId(activeId);
-            setChatHistory(fetchedChats);
-            saveChatsToLocalStorage(currentUser.id, fetchedChats);
-          } else {
-            const initChatId = generateUniqueId();
-            const initChat = {
-              id: initChatId,
-              title: 'New Chat',
-              messages: [],
-              updatedAt: new Date()
-            };
-            setCurrentChatId(initChatId);
-            setChatHistory([initChat]);
-          }
+          const initChatId = generateUniqueId();
+          const initChat = {
+            id: initChatId,
+            title: 'New Chat',
+            messages: [],
+            updatedAt: new Date()
+          };
+          // Always default to opening a brand new chat on restart, with previous chats in history
+          setCurrentChatId(initChatId);
+          const initialList = [initChat, ...pastChatsWithMessages];
+          setChatHistory(initialList);
+          saveChatsToLocalStorage(currentUser.id, initialList);
           return;
       }
 
       setChatHistory(prevChats => {
+        const currentActiveChat = prevChats.find(p => p.id === currentChatId);
         const merged = fetchedChats.map(fetched => {
           const prev = prevChats.find(p => p.id === fetched.id);
           if (!prev || !prev.messages) {
@@ -4867,12 +4870,15 @@ export function App() {
           };
         });
 
-        // Also preserve any newly created local chat that hasn't synced to Firestore yet
+        // Preserve uncommitted local chats (such as the active new chat on restart)
         const fetchedChatIds = new Set(fetchedChats.map(c => c.id));
         const uncommittedLocalChats = prevChats.filter(p => !fetchedChatIds.has(p.id));
-        const combined = [...uncommittedLocalChats, ...merged].sort(
-          (a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a)
-        );
+        const activeUncommitted = currentActiveChat && !fetchedChatIds.has(currentActiveChat.id) ? [currentActiveChat] : [];
+        const otherUncommitted = uncommittedLocalChats.filter(c => !activeUncommitted.some(a => a.id === c.id));
+
+        const sortedMerged = merged.sort((a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a));
+        const combined = [...activeUncommitted, ...otherUncommitted, ...sortedMerged];
+
         saveChatsToLocalStorage(currentUser.id, combined);
         return combined;
       });
@@ -5522,12 +5528,13 @@ export function App() {
     setTimeout(() => {
       hasInitializedRef.current = false;
       const cached = loadChatsFromLocalStorage('guest-user');
+      const initChatId = generateUniqueId();
+      const initChat = { id: initChatId, title: 'New Chat', messages: [], updatedAt: new Date() };
+      const pastChats = (cached || []).filter((c: any) => c.messages && c.messages.length > 0);
       setCurrentUser({ id: 'guest-user', username: 'Guest' });
-      if (cached && cached.length > 0) {
-        setChatHistory(cached);
-        setCurrentChatId(cached[0].id);
-        hasInitializedRef.current = true;
-      }
+      setChatHistory([initChat, ...pastChats]);
+      setCurrentChatId(initChatId);
+      hasInitializedRef.current = true;
       setIsAuthLoading(false);
     }, 200);
   };

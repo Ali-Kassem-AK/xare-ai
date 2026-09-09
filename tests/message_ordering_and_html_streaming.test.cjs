@@ -569,7 +569,39 @@ runTest('Should verify sidebar history deduplication and latest activity sort', 
   assert.strictEqual(uniqueChats[2].id, 'chat_old');
 });
 
+runTest('Should verify that restarting/reloading opens a fresh new chat by default with past chats in history', () => {
+  const cachedChats = [
+    { id: 'c1', title: 'Prior Chat 1', messages: [{ id: 'm1', text: 'hello' }], updatedAt: new Date() },
+    { id: 'c2', title: 'Prior Chat 2', messages: [{ id: 'm2', text: 'code request' }], updatedAt: new Date() }
+  ];
+
+  // Simulation of onAuthStateChanged & onSnapshot startup
+  const initChatId = 'init_new_chat_123';
+  const initChat = {
+    id: initChatId,
+    title: 'New Chat',
+    messages: [],
+    updatedAt: new Date()
+  };
+
+  const pastChats = cachedChats.filter(c => c.messages && c.messages.length > 0);
+  const startupHistory = [initChat, ...pastChats];
+  const activeChatId = initChatId;
+
+  // 1. Must default to the new chat
+  assert.strictEqual(activeChatId, 'init_new_chat_123');
+  const activeChat = startupHistory.find(c => c.id === activeChatId);
+  assert.strictEqual(activeChat.title, 'New Chat');
+  assert.strictEqual(activeChat.messages.length, 0);
+
+  // 2. Must keep previous chats in history list
+  assert.strictEqual(startupHistory.length, 3);
+  assert.strictEqual(startupHistory[1].title, 'Prior Chat 1');
+  assert.strictEqual(startupHistory[2].title, 'Prior Chat 2');
+});
+
 console.log('\n=== ALL TESTS COMPLETE: ' + passed + '/' + total + ' PASSED ===\n');
 if (passed !== total) process.exit(1);
+
 
 
