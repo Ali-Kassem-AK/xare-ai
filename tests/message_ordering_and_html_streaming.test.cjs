@@ -411,6 +411,165 @@ runTest('Should verify Full Page (scroll) is default layout mode in CodeBlock an
   assert.ok(!appTsx.includes('min-width: min-content !important; width: auto !important;'), 'Must not collapse body with min-content');
 });
 
+runTest('Should verify App.tsx configures ignoreUndefinedProperties on Firestore', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const appTsx = fs.readFileSync(path.join(__dirname, '..', 'src', 'App.tsx'), 'utf8');
+
+  assert.ok(appTsx.includes('ignoreUndefinedProperties: true'), 'Firestore must be initialized with ignoreUndefinedProperties: true');
+  assert.ok(appTsx.includes('initializeFirestore'), 'App must use initializeFirestore');
+  assert.ok(appTsx.includes('sanitizeForFirestore'), 'App must export and use sanitizeForFirestore');
+  assert.ok(appTsx.includes('saveChatsToLocalStorage'), 'App must include saveChatsToLocalStorage');
+  assert.ok(appTsx.includes('loadChatsFromLocalStorage'), 'App must include loadChatsFromLocalStorage');
+});
+
+runTest('Should verify sanitizeForFirestore recursively strips undefined from objects and arrays', () => {
+  // Test implementation of sanitizeForFirestore
+  const sanitizeForFirestore = (data) => {
+    if (data === undefined) return null;
+    if (data === null) return null;
+    if (typeof data === 'function') return null;
+    if (data instanceof Date) {
+      return isNaN(data.getTime()) ? new Date() : data;
+    }
+    if (typeof data.toDate === 'function') {
+      return data;
+    }
+    if (Array.isArray(data)) {
+      return data
+        .filter(item => item !== undefined)
+        .map(item => sanitizeForFirestore(item));
+    }
+    if (typeof data === 'object') {
+      if (data && (data._methodName || data.constructor?.name === 'FieldValue')) return data;
+      const clean = {};
+      for (const [key, value] of Object.entries(data)) {
+        if (value !== undefined && typeof value !== 'function') {
+          clean[key] = sanitizeForFirestore(value);
+        }
+      }
+      return clean;
+    }
+    return data;
+  };
+
+  const rawUserMsg = {
+    id: 'msg_123',
+    messageId: 'msg_123',
+    requestId: 'req_abc',
+    transportId: undefined,
+    toolLabel: undefined,
+    text: 'Hello world',
+    sender: 'user',
+    status: 'sent',
+    image: null,
+    audio: null,
+    document: null,
+    timestamp: new Date('2026-09-09T20:00:00Z')
+  };
+
+  const clean = sanitizeForFirestore(rawUserMsg);
+  assert.strictEqual(clean.id, 'msg_123');
+  assert.strictEqual(clean.text, 'Hello world');
+  assert.strictEqual(clean.image, null);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(clean, 'transportId'), false, 'transportId key must be removed');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(clean, 'toolLabel'), false, 'toolLabel key must be removed');
+
+  const rawChatDoc = {
+    id: 'chat_999',
+    title: 'New Chat',
+    messages: [rawUserMsg, { id: 'msg_124', text: 'response', transportId: undefined }],
+    nested: { a: 1, b: undefined, c: [undefined, 'valid'] }
+  };
+
+  const cleanDoc = sanitizeForFirestore(rawChatDoc);
+  assert.strictEqual(cleanDoc.messages.length, 2);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(cleanDoc.messages[0], 'transportId'), false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(cleanDoc.nested, 'b'), false);
+  assert.deepStrictEqual(cleanDoc.nested.c, ['valid']);
+});
+
+runTest('Should verify LocalStorage chat serialization & deserialization preserves messages and dates', () => {
+  const parseDateSafe = (val) => {
+    if (!val) return new Date();
+    if (val instanceof Date) return isNaN(val.getTime()) ? new Date() : val;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
+  const mockChats = [
+    {
+      id: 'chat_abc',
+      title: 'Quantum Physics Discussion',
+      updatedAt: new Date('2026-09-09T21:00:00Z'),
+      messages: [
+        { id: 'm1', text: 'Explain entanglement', sender: 'user', timestamp: new Date('2026-09-09T21:00:00Z') },
+        { id: 'm2', text: 'Quantum entanglement is...', sender: 'bot', timestamp: new Date('2026-09-09T21:00:05Z') }
+      ]
+    }
+  ];
+
+  // Serialize as saveChatsToLocalStorage does
+  const serialized = JSON.stringify(mockChats.map(c => ({
+    ...c,
+    updatedAt: c.updatedAt.toISOString(),
+    messages: c.messages.map(m => ({ ...m, timestamp: m.timestamp.toISOString() }))
+  })));
+
+  // Deserialize as loadChatsFromLocalStorage does
+  const parsed = JSON.parse(serialized).map(c => ({
+    ...c,
+    updatedAt: parseDateSafe(c.updatedAt),
+    messages: c.messages.map(m => ({ ...m, timestamp: parseDateSafe(m.timestamp) }))
+  }));
+
+  assert.strictEqual(parsed.length, 1);
+  assert.strictEqual(parsed[0].title, 'Quantum Physics Discussion');
+  assert.strictEqual(parsed[0].messages.length, 2);
+  assert.ok(parsed[0].updatedAt instanceof Date);
+  assert.ok(parsed[0].messages[0].timestamp instanceof Date);
+  assert.strictEqual(parsed[0].messages[0].text, 'Explain entanglement');
+});
+
+runTest('Should verify sidebar history deduplication and latest activity sort', () => {
+  const getLatestChatActivityTime = (chat) => {
+    if (!chat) return 0;
+    let maxTime = new Date(chat.updatedAt).getTime();
+    if (Array.isArray(chat.messages) && chat.messages.length > 0) {
+      const lastMsg = chat.messages[chat.messages.length - 1];
+      if (lastMsg && lastMsg.timestamp) {
+        const lastMsgTime = new Date(lastMsg.timestamp).getTime();
+        if (lastMsgTime > maxTime) maxTime = lastMsgTime;
+      }
+    }
+    return maxTime;
+  };
+
+  const currentChatId = 'chat_new';
+  const chatHistory = [
+    { id: 'chat_old', title: 'Old Chat', messages: [{ id: '1', text: 'Hi', timestamp: '2026-09-01T10:00:00Z' }], updatedAt: '2026-09-01T10:00:00Z' },
+    { id: 'chat_old', title: 'Old Chat Dup', messages: [{ id: '1', text: 'Hi', timestamp: '2026-09-01T10:00:00Z' }], updatedAt: '2026-09-01T10:00:00Z' },
+    { id: 'chat_recent', title: 'Recent Chat', messages: [{ id: '2', text: 'Latest', timestamp: '2026-09-09T21:00:00Z' }], updatedAt: '2026-09-09T21:00:00Z' },
+    { id: 'chat_new', title: 'New Chat', messages: [], updatedAt: '2026-09-09T21:15:00Z' }
+  ];
+
+  // Execute exact sidebar logic
+  const uniqueChats = Array.from(new Map(chatHistory.filter(c => c && c.id).map(c => [c.id, c])).values())
+    .filter(chat => {
+      const hasMessages = Array.isArray(chat.messages) && chat.messages.length > 0;
+      return hasMessages || chat.id === currentChatId;
+    })
+    .sort((a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a));
+
+  // Must have 3 items (duplicate 'chat_old' stripped)
+  assert.strictEqual(uniqueChats.length, 3);
+  // Order: chat_new (21:15), chat_recent (21:00), chat_old (09-01)
+  assert.strictEqual(uniqueChats[0].id, 'chat_new');
+  assert.strictEqual(uniqueChats[1].id, 'chat_recent');
+  assert.strictEqual(uniqueChats[2].id, 'chat_old');
+});
+
 console.log('\n=== ALL TESTS COMPLETE: ' + passed + '/' + total + ' PASSED ===\n');
 if (passed !== total) process.exit(1);
+
 

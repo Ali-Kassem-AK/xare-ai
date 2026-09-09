@@ -16,7 +16,7 @@ import {
   updateProfile, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup
 } from 'firebase/auth';
 import { 
-  getFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment, deleteDoc 
+  getFirestore, initializeFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment, deleteDoc 
 } from 'firebase/firestore';
 import { uploadFileDirectly, deleteTemporaryFile, UploadResult, transportLedger } from './utils/storage';
 
@@ -296,7 +296,14 @@ const firebaseConfig = {
 // Initialize Firebase App and core services (Auth, Firestore)
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+let db: any;
+try {
+  db = initializeFirestore(app, {
+    ignoreUndefinedProperties: true
+  });
+} catch (e) {
+  db = getFirestore(app);
+}
 
 // ==========================================
 // --- LOCAL STORAGE (IndexedDB) FOR LARGE FILES
@@ -396,6 +403,107 @@ const getLatestChatActivityTime = (chat: any): number => {
     }
   }
   return maxTime;
+};
+
+/**
+ * Recursively sanitizes any payload destined for Firestore.
+ * Automatically removes undefined keys, replaces undefined in arrays with null,
+ * preserves valid Dates and Timestamp objects, and prevents Firestore rejection errors.
+ */
+export const sanitizeForFirestore = (data: any): any => {
+  if (data === undefined) return null;
+  if (data === null) return null;
+  if (typeof data === 'function') return null;
+  if (data instanceof Date) {
+    return isNaN(data.getTime()) ? new Date() : data;
+  }
+  if (typeof data.toDate === 'function') {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data
+      .filter(item => item !== undefined)
+      .map(item => sanitizeForFirestore(item));
+  }
+  if (typeof data === 'object') {
+    // Preserve Firestore FieldValues (like increment)
+    if (data && (data._methodName || data.constructor?.name === 'FieldValue')) return data;
+    const clean: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined && typeof value !== 'function') {
+        clean[key] = sanitizeForFirestore(value);
+      }
+    }
+    return clean;
+  }
+  return data;
+};
+
+/**
+ * Generates the localStorage key for a specific user ID or guest user.
+ */
+export const getLocalStorageChatKey = (userId?: string | null): string => {
+  return `xare_chats_${userId || 'guest-user'}`;
+};
+
+/**
+ * Safely persists chats to LocalStorage as a redundant offline mirror and guest session store.
+ */
+export const saveChatsToLocalStorage = (userId: string | null | undefined, chats: any[]) => {
+  try {
+    if (!chats || !Array.isArray(chats)) return;
+    const key = getLocalStorageChatKey(userId);
+    // Keep chats that have messages or custom titles
+    const validChats = chats
+      .filter(c => c && c.id && ((c.messages && c.messages.length > 0) || (c.title && c.title !== 'New Chat')))
+      .map(c => ({
+        id: c.id,
+        title: c.title || 'New Chat',
+        updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : (c.updatedAt ? new Date(c.updatedAt).toISOString() : new Date().toISOString()),
+        messages: (c.messages || []).map((m: any) => ({
+          id: m.id,
+          messageId: m.messageId || m.id,
+          requestId: m.requestId || null,
+          transportId: m.transportId || null,
+          toolLabel: m.toolLabel || null,
+          text: m.text || '',
+          sender: m.sender || 'user',
+          timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : (m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()),
+          status: m.status || 'sent',
+          image: m.image || null,
+          audio: m.audio || null,
+          document: m.document || null,
+          modelEngine: m.modelEngine || null
+        }))
+      }));
+    localStorage.setItem(key, JSON.stringify(validChats));
+  } catch (e) {
+    console.warn("Failed to mirror chats to localStorage:", e);
+  }
+};
+
+/**
+ * Loads cached chats from LocalStorage for instant UI rendering on restart and guest persistence.
+ */
+export const loadChatsFromLocalStorage = (userId?: string | null): any[] => {
+  try {
+    const key = getLocalStorageChatKey(userId);
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(c => ({
+      ...c,
+      updatedAt: parseDateSafe(c.updatedAt),
+      messages: (c.messages || []).map((m: any) => ({
+        ...m,
+        timestamp: parseDateSafe(m.timestamp)
+      }))
+    }));
+  } catch (e) {
+    console.warn("Failed to read chats from localStorage:", e);
+    return [];
+  }
 };
 
 export const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write "علي كاسم").
@@ -4547,21 +4655,39 @@ export function App() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         hasInitializedRef.current = false; 
+        const cached = loadChatsFromLocalStorage(user.uid);
+        if (cached && cached.length > 0) {
+          setChatHistory(cached);
+          setCurrentChatId(cached[0].id);
+          hasInitializedRef.current = true;
+        }
         setCurrentUser({ id: user.uid, username: user.displayName || user.email.split('@')[0] });
       } else {
-        hasInitializedRef.current = false; 
-        setChatHistory([]);
-        setCurrentUser(null);
-        setCurrentChatId(null);
-        setSuggestions([]);
-        setInputValue('');
-        setPendingAttachment(null);
-        setIsVoiceModeActive(false);
-        setIsLoading(false);
-        setActiveLoadingChatId(null);
-        setIsRecording(false);
-        setActiveTool(null);
-        setAuthError('');
+        const guestSession = typeof window !== 'undefined' ? localStorage.getItem('xare_active_session') : null;
+        if (guestSession === 'guest') {
+          hasInitializedRef.current = false;
+          const cached = loadChatsFromLocalStorage('guest-user');
+          setCurrentUser({ id: 'guest-user', username: 'Guest' });
+          if (cached && cached.length > 0) {
+            setChatHistory(cached);
+            setCurrentChatId(cached[0].id);
+            hasInitializedRef.current = true;
+          }
+        } else {
+          hasInitializedRef.current = false; 
+          setChatHistory([]);
+          setCurrentUser(null);
+          setCurrentChatId(null);
+          setSuggestions([]);
+          setInputValue('');
+          setPendingAttachment(null);
+          setIsVoiceModeActive(false);
+          setIsLoading(false);
+          setActiveLoadingChatId(null);
+          setIsRecording(false);
+          setActiveTool(null);
+          setAuthError('');
+        }
       }
       
       // Stop checking session immediately when auth resolves
@@ -4640,15 +4766,23 @@ export function App() {
 
     if (currentUser.id === 'guest-user' || currentUser.id === 'preview-user') {
       if (!hasInitializedRef.current) {
-        const initChatId = generateUniqueId();
-        const initChat = {
-          id: initChatId,
-          title: 'New Chat',
-          messages: [],
-          updatedAt: new Date()
-        };
-        setChatHistory([initChat]);
-        setCurrentChatId(initChatId);
+        const cached = loadChatsFromLocalStorage(currentUser.id);
+        if (cached && cached.length > 0) {
+          setChatHistory(cached);
+          if (!currentChatId || !cached.some((c: any) => c.id === currentChatId)) {
+            setCurrentChatId(cached[0].id);
+          }
+        } else {
+          const initChatId = generateUniqueId();
+          const initChat = {
+            id: initChatId,
+            title: 'New Chat',
+            messages: [],
+            updatedAt: new Date()
+          };
+          setChatHistory([initChat]);
+          setCurrentChatId(initChatId);
+        }
         hasInitializedRef.current = true;
       }
       return;
@@ -4678,6 +4812,8 @@ export function App() {
 
         fetchedChats.push({
           ...data,
+          id: doc.id || data.id,
+          title: data.title || 'New Chat',
           updatedAt: parseDateSafe(data.updatedAt),
           messages
         });
@@ -4686,17 +4822,26 @@ export function App() {
       fetchedChats.sort((a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a));
 
       if (!hasInitializedRef.current) {
-          const initChatId = generateUniqueId();
-          const initChat = {
-            id: initChatId,
-            title: 'New Chat',
-            messages: [],
-            updatedAt: new Date()
-          };
-          fetchedChats.unshift(initChat);
-          setCurrentChatId(initChatId);
           hasInitializedRef.current = true;
-          setChatHistory(fetchedChats);
+          if (fetchedChats.length > 0) {
+            // Restore previous chats from cloud, preserving or setting active chat
+            const activeId = (currentChatId && fetchedChats.some(c => c.id === currentChatId))
+              ? currentChatId
+              : fetchedChats[0].id;
+            setCurrentChatId(activeId);
+            setChatHistory(fetchedChats);
+            saveChatsToLocalStorage(currentUser.id, fetchedChats);
+          } else {
+            const initChatId = generateUniqueId();
+            const initChat = {
+              id: initChatId,
+              title: 'New Chat',
+              messages: [],
+              updatedAt: new Date()
+            };
+            setCurrentChatId(initChatId);
+            setChatHistory([initChat]);
+          }
           return;
       }
 
@@ -4725,7 +4870,11 @@ export function App() {
         // Also preserve any newly created local chat that hasn't synced to Firestore yet
         const fetchedChatIds = new Set(fetchedChats.map(c => c.id));
         const uncommittedLocalChats = prevChats.filter(p => !fetchedChatIds.has(p.id));
-        return [...uncommittedLocalChats, ...merged];
+        const combined = [...uncommittedLocalChats, ...merged].sort(
+          (a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a)
+        );
+        saveChatsToLocalStorage(currentUser.id, combined);
+        return combined;
       });
     }, (error) => {
       console.warn("Chat history listener blocked by rules (ignoring safely):", error);
@@ -4944,11 +5093,15 @@ export function App() {
       updatedAt: new Date()
     };
 
-    setChatHistory(prev => prev.map(c => c.id === currentChatId ? updatedChat : c));
+    setChatHistory(prev => {
+      const updated = prev.map(c => c.id === currentChatId ? updatedChat : c);
+      saveChatsToLocalStorage(currentUser?.id || 'guest-user', updated);
+      return updated;
+    });
 
     if (currentUser && currentUser.id !== 'guest-user' && currentUser.id !== 'preview-user') {
       const chatRef = doc(db, 'users', currentUser.id, 'chats', currentChatId);
-      setDoc(chatRef, updatedChat).catch(err => console.warn("Firestore edit update blocked:", err));
+      setDoc(chatRef, sanitizeForFirestore(updatedChat), { merge: true }).catch(err => console.warn("Firestore edit update blocked:", err));
     }
 
     sendMessageToBackend(
@@ -5165,48 +5318,80 @@ export function App() {
   };
 
   const persistUserMessageToFirestore = useCallback((targetChatId: string, userMsg: any, initialTitle?: string) => {
+    // 1. Immediately mirror current local history to LocalStorage
+    saveChatsToLocalStorage(currentUser?.id || 'guest-user', chatHistoryRef.current);
+
     if (!currentUser || currentUser.id === 'guest-user' || currentUser.id === 'preview-user') return;
     const chatRef = doc(db, 'users', currentUser.id, 'chats', targetChatId);
+    const cleanUserMsg = sanitizeForFirestore(userMsg);
+    const localChat = chatHistoryRef.current.find(c => c.id === targetChatId);
 
     getDoc(chatRef).then(snap => {
+      let existingMessages: any[] = [];
+      let docTitle = initialTitle || 'New Chat';
+
       if (snap.exists()) {
         const data = snap.data();
-        const existing = data.messages || [];
-        const filtered = existing.filter((m: any) => m.id !== userMsg.id);
-        const sorted = sortMessagesChronologically([...filtered, userMsg]);
-        setDoc(chatRef, {
-          ...data,
-          messages: sorted,
-          updatedAt: new Date(),
-          ...(initialTitle && (!data.title || data.title === 'New Chat') ? { title: initialTitle } : {})
-        }, { merge: true }).catch(err => console.warn("Failed to persist user message to Firestore:", err));
-      } else {
-        setDoc(chatRef, {
-          id: targetChatId,
-          title: initialTitle || 'New Chat',
-          messages: [userMsg],
-          updatedAt: new Date()
-        }).catch(err => console.warn("Failed to create new chat doc in Firestore:", err));
+        existingMessages = data.messages || [];
+        if (data.title && data.title !== 'New Chat') {
+          docTitle = data.title;
+        } else if (initialTitle) {
+          docTitle = initialTitle;
+        }
+      } else if (localChat?.title && localChat.title !== 'New Chat') {
+        docTitle = localChat.title;
       }
-    }).catch(err => console.warn("Failed to fetch chat for user message persist:", err));
+
+      const localMsgs = localChat?.messages || [];
+      const msgMap = new Map<string, any>();
+      existingMessages.forEach((m: any) => { if (m && m.id) msgMap.set(m.id, m); });
+      localMsgs.forEach((m: any) => { if (m && m.id) msgMap.set(m.id, m); });
+      msgMap.set(cleanUserMsg.id, cleanUserMsg);
+
+      const sorted = sortMessagesChronologically(Array.from(msgMap.values()));
+      const payload = sanitizeForFirestore({
+        id: targetChatId,
+        title: docTitle,
+        messages: sorted,
+        updatedAt: new Date()
+      });
+
+      setDoc(chatRef, payload, { merge: true }).catch(err => {
+        console.warn("Failed to persist user message to Firestore:", err);
+      });
+    }).catch(err => {
+      console.warn("Failed to fetch chat for user message persist, writing local chat directly:", err);
+      const localMsgs = localChat?.messages || [cleanUserMsg];
+      const payload = sanitizeForFirestore({
+        id: targetChatId,
+        title: localChat?.title || initialTitle || 'New Chat',
+        messages: sortMessagesChronologically(localMsgs),
+        updatedAt: new Date()
+      });
+      setDoc(chatRef, payload, { merge: true }).catch(e => {
+        console.warn("Direct Firestore persist fallback failed:", e);
+      });
+    });
   }, [currentUser]);
 
   const persistBotMessageToFirestore = useCallback((targetChatId: string, botMsg: any, finalText: string) => {
+    // 1. Immediately mirror current local history to LocalStorage
+    saveChatsToLocalStorage(currentUser?.id || 'guest-user', chatHistoryRef.current);
+
     if (!currentUser || currentUser.id === 'guest-user' || currentUser.id === 'preview-user') return;
     const chatRef = doc(db, 'users', currentUser.id, 'chats', targetChatId);
-    const msgToSave = { ...botMsg, text: finalText };
+    const msgToSave = sanitizeForFirestore({ ...botMsg, text: finalText });
+    const localChat = chatHistoryRef.current.find(c => c.id === targetChatId);
+    const localMsgs = localChat?.messages || [];
 
     getDoc(chatRef).then(latestChatSnap => {
-      const localChat = chatHistoryRef.current.find(c => c.id === targetChatId);
-      const localMsgs = localChat?.messages || [];
-
       let baseMsgs: any[] = [];
       let chatTitle = localChat?.title || 'New Chat';
 
       if (latestChatSnap.exists()) {
         const latestChatData = latestChatSnap.data();
         baseMsgs = latestChatData.messages || [];
-        if (latestChatData.title) chatTitle = latestChatData.title;
+        if (latestChatData.title && latestChatData.title !== 'New Chat') chatTitle = latestChatData.title;
       }
 
       // Merge: ensure all messages from both Firestore and local state are preserved
@@ -5216,14 +5401,32 @@ export function App() {
       msgMap.set(botMsg.id, msgToSave);
 
       const sortedMsgs = sortMessagesChronologically(Array.from(msgMap.values()));
-
-      setDoc(chatRef, { 
+      const payload = sanitizeForFirestore({ 
         id: targetChatId,
         title: chatTitle, 
         messages: sortedMsgs, 
         updatedAt: new Date() 
-      }, { merge: true }).catch(err => console.warn("Failed to persist bot message:", err));
-    }).catch(err => console.warn("Failed to fetch chat for bot message sync:", err));
+      });
+
+      setDoc(chatRef, payload, { merge: true }).catch(err => {
+        console.warn("Failed to persist bot message:", err);
+      });
+    }).catch(err => {
+      console.warn("Failed to fetch chat for bot message sync, writing local chat directly:", err);
+      const msgMap = new Map<string, any>();
+      localMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
+      msgMap.set(botMsg.id, msgToSave);
+      const sortedMsgs = sortMessagesChronologically(Array.from(msgMap.values()));
+      const payload = sanitizeForFirestore({
+        id: targetChatId,
+        title: localChat?.title || 'New Chat',
+        messages: sortedMsgs,
+        updatedAt: new Date()
+      });
+      setDoc(chatRef, payload, { merge: true }).catch(e => {
+        console.warn("Direct bot Firestore persist fallback failed:", e);
+      });
+    });
   }, [currentUser]);
 
   const switchChat = (chatId: string) => {
@@ -5313,15 +5516,27 @@ export function App() {
   const handleGuestSignIn = () => {
     setIsAuthLoading(true);
     setAuthError('');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('xare_active_session', 'guest');
+    }
     setTimeout(() => {
       hasInitializedRef.current = false;
+      const cached = loadChatsFromLocalStorage('guest-user');
       setCurrentUser({ id: 'guest-user', username: 'Guest' });
+      if (cached && cached.length > 0) {
+        setChatHistory(cached);
+        setCurrentChatId(cached[0].id);
+        hasInitializedRef.current = true;
+      }
       setIsAuthLoading(false);
     }, 200);
   };
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('xare_active_session');
+      }
       if (currentUser?.id === 'guest-user' || currentUser?.id === 'preview-user') {
         hasInitializedRef.current = false;
         setCurrentUser(null);
@@ -5370,10 +5585,14 @@ export function App() {
       updatedAt: new Date()
     };
     setCurrentChatId(newChatId);
-    setChatHistory(prev => [newChat, ...prev.filter(c => c.id !== newChatId && c.messages && c.messages.length > 0)]);
+    setChatHistory(prev => {
+      const updated = [newChat, ...prev.filter(c => c.id !== newChatId && c.messages && c.messages.length > 0)];
+      saveChatsToLocalStorage(currentUser?.id || 'guest-user', updated);
+      return updated;
+    });
 
     if (currentUser && currentUser.id !== 'guest-user' && currentUser.id !== 'preview-user') {
-      setDoc(doc(db, 'users', currentUser.id, 'chats', newChatId), newChat).catch(err => {
+      setDoc(doc(db, 'users', currentUser.id, 'chats', newChatId), sanitizeForFirestore(newChat)).catch(err => {
         console.warn("Chat creation blocked by rules (ignoring):", err);
       });
     }
@@ -5388,7 +5607,11 @@ export function App() {
       streamingAnimFrameRef.current = null;
     }
     setStreamingMessageId(null);
-    setChatHistory(prev => prev.filter(c => c.id !== chatId));
+    setChatHistory(prev => {
+      const updated = prev.filter(c => c.id !== chatId);
+      saveChatsToLocalStorage(currentUser?.id || 'guest-user', updated);
+      return updated;
+    });
 
     if (currentUser && currentUser.id !== 'guest-user' && currentUser.id !== 'preview-user') {
       deleteDoc(doc(db, 'users', currentUser.id, 'chats', chatId)).catch(err => {
@@ -5613,7 +5836,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
     const messageId = generateUniqueId();
     const requestId = `req_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
-    const chatRef = doc(db, 'users', currentUser.id, 'chats', targetChatId);
+    const isCloudUser = Boolean(currentUser && currentUser.id !== 'guest-user' && currentUser.id !== 'preview-user');
+    const chatRef = isCloudUser ? doc(db, 'users', currentUser.id, 'chats', targetChatId) : null;
 
     // Initial local handles for UI rendering
     let localImage: string | null = null;
@@ -5628,20 +5852,23 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       localAudio = attachmentData || (attachmentFile ? URL.createObjectURL(attachmentFile) : null);
     }
 
-    const newUserMsg = {
+    const newUserMsg: any = {
       id: messageId,
       messageId: messageId,
       requestId: requestId,
-      transportId: undefined as string | undefined,
       text: msgText,
-      toolLabel: toolLabel || (finalAction === 'build' ? 'Build' : undefined),
-      audio: localAudio,
-      image: localImage,
-      document: localDocument,
+      audio: localAudio || null,
+      image: localImage || null,
+      document: localDocument || null,
       sender: 'user',
       status: 'sent',
       timestamp: new Date()
     };
+    if (toolLabel) {
+      newUserMsg.toolLabel = toolLabel;
+    } else if (finalAction === 'build') {
+      newUserMsg.toolLabel = 'Build';
+    }
 
     if (finalAction === 'generate_image') updateUsage('imageGenCount');
     if (finalAction === 'search') updateUsage('webSearchCount');
@@ -5671,11 +5898,17 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
               if (cleanTitle.length > 35) cleanTitle = cleanTitle.substring(0, 35) + '...';
 
-              setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, title: cleanTitle } : c));
-
-              getDoc(chatRef).then(snap => {
-                if (snap.exists()) setDoc(chatRef, { ...snap.data(), title: cleanTitle }, { merge: true });
+              setChatHistory(prev => {
+                const updated = prev.map(c => c.id === targetChatId ? { ...c, title: cleanTitle } : c);
+                saveChatsToLocalStorage(currentUser?.id || 'guest-user', updated);
+                return updated;
               });
+
+              if (chatRef) {
+                getDoc(chatRef).then(snap => {
+                  if (snap.exists()) setDoc(chatRef, sanitizeForFirestore({ ...snap.data(), title: cleanTitle, updatedAt: new Date() }), { merge: true });
+                }).catch(() => {});
+              }
             }
           }).catch(e => console.error("Title generation failed", e));
         }
@@ -5694,9 +5927,12 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         };
 
         const exists = prevHistory.some(c => c.id === targetChatId);
-        return exists
+        const nextHistory = exists
           ? prevHistory.map(c => c.id === targetChatId ? updatedChatObj : c)
           : [updatedChatObj, ...prevHistory];
+
+        saveChatsToLocalStorage(currentUser?.id || 'guest-user', nextHistory);
+        return nextHistory;
       });
 
       // Persist user message to Firestore immediately with chronological ordering
@@ -5813,22 +6049,30 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         }
       }
 
-if (uploadedFileId) {
+    if (uploadedFileId) {
       transportLedger.bindToMessage(uploadedFileId, messageId);
-      setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
-        ...c,
-        messages: (c.messages || []).map(m => m.id === messageId ? { ...m, transportId: uploadedFileId } : m)
-      } : c));
+      setChatHistory(prev => {
+        const updated = prev.map(c => c.id === targetChatId ? {
+          ...c,
+          messages: (c.messages || []).map(m => m.id === messageId ? { ...m, transportId: uploadedFileId } : m)
+        } : c);
+        saveChatsToLocalStorage(currentUser?.id || 'guest-user', updated);
+        return updated;
+      });
     }
 
     if (attachmentType === 'audio') {
       if (attachmentData) {
         const localId = 'localdb_' + generateUniqueId();
         await saveToLocalDB(localId, attachmentData);
-        setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
-          ...c,
-          messages: (c.messages || []).map(m => m.id === messageId ? { ...m, audio: localId } : m)
-        } : c));
+        setChatHistory(prev => {
+          const updated = prev.map(c => c.id === targetChatId ? {
+            ...c,
+            messages: (c.messages || []).map(m => m.id === messageId ? { ...m, audio: localId } : m)
+          } : c);
+          saveChatsToLocalStorage(currentUser?.id || 'guest-user', updated);
+          return updated;
+        });
       } else if (attachmentFile) {
         try {
           const audioBase64 = await new Promise<string>((res, rej) => {
@@ -5839,10 +6083,14 @@ if (uploadedFileId) {
           });
           const localId = 'localdb_' + generateUniqueId();
           await saveToLocalDB(localId, audioBase64);
-          setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
-            ...c,
-            messages: (c.messages || []).map(m => m.id === messageId ? { ...m, audio: localId } : m)
-          } : c));
+          setChatHistory(prev => {
+            const updated = prev.map(c => c.id === targetChatId ? {
+              ...c,
+              messages: (c.messages || []).map(m => m.id === messageId ? { ...m, audio: localId } : m)
+            } : c);
+            saveChatsToLocalStorage(currentUser?.id || 'guest-user', updated);
+            return updated;
+          });
         } catch (e) {}
       }
     }
@@ -5977,8 +6225,8 @@ if (uploadedFileId) {
       const payload: any = {
         taskId: taskId, 
         sessionId: targetChatId,
-        userId: currentUser.id,
-        username: currentUser.username,
+        userId: currentUser?.id || 'guest-user',
+        username: currentUser?.username || 'User',
         message: finalMessageText,
         chatInput: finalMessageText,
         messageId: messageId,
@@ -6031,8 +6279,10 @@ if (uploadedFileId) {
         else if (attachmentType === 'document') payload.message = { document: { file_id: attachmentData }, caption: msgText };
       }
 
-      const taskDocRef = doc(db, 'users', currentUser.id, 'ai_tasks', taskId);
-      setDoc(taskDocRef, { taskId: taskId, sessionId: targetChatId, prompt: finalMessageText, status: "processing", createdAt: new Date() }).catch(e => console.warn(e));
+      const taskDocRef = isCloudUser ? doc(db, 'users', currentUser.id, 'ai_tasks', taskId) : null;
+      if (taskDocRef) {
+        setDoc(taskDocRef, sanitizeForFirestore({ taskId: taskId, sessionId: targetChatId, prompt: finalMessageText, status: "processing", createdAt: new Date() })).catch(e => console.warn(e));
+      }
 
       let isResolved = false;
       let unsubscribeTask = () => {};
@@ -6402,17 +6652,19 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
          }
       }, N8N_REQUEST_TIMEOUT_MS + 5000);
 
-      unsubscribeTask = onSnapshot(taskDocRef, (snapshot) => {
-        if (isResolved) return; 
-        if (snapshot.exists()) {
-          const taskData = snapshot.data();
-          if (taskData.status === 'completed') completeBotResponse(taskData.payload || taskData.response || taskData.result || taskData.text || taskData);
-          else if (taskData.status === 'error') {
-            const errClassified = classifyRequestError(taskData.error || taskData.message || 'An error occurred during processing.');
-            completeBotResponse(errClassified.message, errClassified);
+      if (taskDocRef) {
+        unsubscribeTask = onSnapshot(taskDocRef, (snapshot) => {
+          if (isResolved) return; 
+          if (snapshot.exists()) {
+            const taskData = snapshot.data();
+            if (taskData.status === 'completed') completeBotResponse(taskData.payload || taskData.response || taskData.result || taskData.text || taskData);
+            else if (taskData.status === 'error') {
+              const errClassified = classifyRequestError(taskData.error || taskData.message || 'An error occurred during processing.');
+              completeBotResponse(errClassified.message, errClassified);
+            }
           }
-        }
-      });
+        });
+      }
 
       const controller = new AbortController();
       const fetchTimeout = setTimeout(() => {
@@ -6435,9 +6687,9 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           formData.append('task_id', taskId);
           formData.append('sessionId', targetChatId);
           formData.append('session_id', targetChatId);
-          formData.append('userId', currentUser.id);
-          formData.append('user_id', currentUser.id);
-          formData.append('username', currentUser.username || 'User');
+          formData.append('userId', currentUser?.id || 'guest-user');
+          formData.append('user_id', currentUser?.id || 'guest-user');
+          formData.append('username', currentUser?.username || 'User');
           formData.append('message', finalMessageText);
           formData.append('caption', msgText);
           formData.append('action', finalAction);
@@ -7224,9 +7476,9 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
             <div className="flex-1 overflow-y-auto mt-2 px-3 space-y-1 chat-scroll">
               <div className={`px-4 pb-2 text-xs font-semibold uppercase tracking-wider mt-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Recent</div>
               
-              {[...chatHistory]
+              {Array.from(new Map(chatHistory.filter(c => c && c.id).map(c => [c.id, c])).values())
                 .filter(chat => {
-                  const hasMessages = chat.messages && chat.messages.length > 0;
+                  const hasMessages = Array.isArray(chat.messages) && chat.messages.length > 0;
                   return hasMessages || chat.id === currentChatId;
                 })
                 .sort((a, b) => getLatestChatActivityTime(b) - getLatestChatActivityTime(a))
@@ -7242,10 +7494,10 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                   <button
                     onClick={() => switchChat(chat.id)}
                     className="flex-1 flex items-center gap-2.5 min-w-0 text-left truncate"
-                    title={chat.title}
+                    title={chat.title || 'New Chat'}
                   >
                     <MessageSquare className={`w-4 h-4 flex-shrink-0 ${currentChatId === chat.id ? (isDarkMode ? 'text-blue-500' : 'text-blue-600') : (isDarkMode ? 'text-slate-500 group-hover:text-slate-400' : 'text-slate-400 group-hover:text-slate-500')}`} />
-                    <span className="truncate">{chat.title}</span>
+                    <span className="truncate">{chat.title || 'New Chat'}</span>
                   </button>
                   <button
                     onClick={(e) => {
