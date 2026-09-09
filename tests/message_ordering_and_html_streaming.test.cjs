@@ -1,4 +1,4 @@
-﻿const assert = require('assert');
+const assert = require('assert');
 
 const sortMessagesChronologically = (msgs) => {
   if (!Array.isArray(msgs)) return [];
@@ -202,6 +202,160 @@ runTest('Should create a fresh new chat with 0 messages when current chat has co
   assert.strictEqual(updatedHistory.length, 2);
   assert.strictEqual(updatedHistory[0].id, 'chat-fresh-2');
   assert.strictEqual(updatedHistory[0].messages.length, 0);
+});
+
+// --- Group 5: HTML Code Completeness & Multi-Chunk Continuation ---
+const checkHtmlCodeCompleteness = (text) => {
+  if (!text || typeof text !== 'string') return { isComplete: true, reason: '', cutoffSnippet: '', isHtml: false };
+  const trimmed = text.trim();
+  const hasHtmlFence = /```\s*(?:html|htm|svg)\b/i.test(trimmed);
+  const hasRawHtmlDoc = /<!doctype\s+html/i.test(trimmed) || /<html[\s>]/i.test(trimmed) || /<svg[\s>]/i.test(trimmed);
+  const hasScriptOrStyle = /<script[\s>]/i.test(trimmed) || /<style[\s>]/i.test(trimmed);
+  const isHtml = hasHtmlFence || hasRawHtmlDoc || hasScriptOrStyle;
+  if (!isHtml) return { isComplete: true, reason: '', cutoffSnippet: '', isHtml: false };
+
+  const fenceCount = (trimmed.match(/```/g) || []).length;
+  if (fenceCount % 2 !== 0) {
+    return { isComplete: false, reason: 'unclosed_fence', cutoffSnippet: trimmed.slice(-150), isHtml: true };
+  }
+
+  let htmlPayload = trimmed;
+  const fenceMatches = trimmed.match(/```\s*(?:html|htm|svg)\b([\s\S]*?)```/gi);
+  if (fenceMatches && fenceMatches.length > 0) {
+    const lastBlock = fenceMatches[fenceMatches.length - 1];
+    htmlPayload = lastBlock.replace(/^```\s*(?:html|htm|svg)\b/i, '').replace(/```$/, '').trim();
+  }
+
+  const scriptOpenCount = (htmlPayload.match(/<script\b[^>]*>/gi) || []).length;
+  const scriptCloseCount = (htmlPayload.match(/<\/script>/gi) || []).length;
+  if (scriptOpenCount > scriptCloseCount) {
+    return { isComplete: false, reason: 'unclosed_script', cutoffSnippet: trimmed.slice(-150), isHtml: true };
+  }
+
+  const styleOpenCount = (htmlPayload.match(/<style\b[^>]*>/gi) || []).length;
+  const styleCloseCount = (htmlPayload.match(/<\/style>/gi) || []).length;
+  if (styleOpenCount > styleCloseCount) {
+    return { isComplete: false, reason: 'unclosed_style', cutoffSnippet: trimmed.slice(-150), isHtml: true };
+  }
+
+  const hasHtmlOpen = /<html[\s>]/i.test(htmlPayload);
+  const hasHtmlClose = /<\/html>/i.test(htmlPayload);
+  if (hasHtmlOpen && !hasHtmlClose) {
+    return { isComplete: false, reason: 'missing_html_close', cutoffSnippet: trimmed.slice(-150), isHtml: true };
+  }
+
+  const hasBodyOpen = /<body[\s>]/i.test(htmlPayload);
+  const hasBodyClose = /<\/body>/i.test(htmlPayload);
+  if (hasBodyOpen && !hasBodyClose) {
+    return { isComplete: false, reason: 'missing_body_close', cutoffSnippet: trimmed.slice(-150), isHtml: true };
+  }
+
+  const hasSvgOpen = /<svg[\s>]/i.test(htmlPayload);
+  const hasSvgClose = /<\/svg>/i.test(htmlPayload);
+  if (hasSvgOpen && !hasSvgClose) {
+    return { isComplete: false, reason: 'unclosed_svg', cutoffSnippet: trimmed.slice(-150), isHtml: true };
+  }
+
+  const lastLt = htmlPayload.lastIndexOf('<');
+  const lastGt = htmlPayload.lastIndexOf('>');
+  if (lastLt > lastGt) {
+    return { isComplete: false, reason: 'truncated_tag', cutoffSnippet: trimmed.slice(-150), isHtml: true };
+  }
+
+  return { isComplete: true, reason: '', cutoffSnippet: '', isHtml: true };
+};
+
+const cleanAndMergeContinuation = (baseText, continuationText) => {
+  if (!continuationText || !continuationText.trim()) return baseText;
+  if (!baseText) return continuationText;
+  let cleanCont = continuationText.trimStart();
+  cleanCont = cleanCont.replace(
+    /^(?:(?:Here\s+(?:is|are)\s+(?:the\s+)?(?:continuation|rest|remaining|code)|Continuing(?:\s+from|\s+the)?|Resuming(?:\s+from)?|Sure,?\s+(?:here|continuing)|Below\s+is\s+the|Code\s+continuation)[\s\S]*?(?:(?=```)|(?:\n\s*\n)|(?:\r?\n)))/i,
+    ''
+  ).trimStart();
+  const firstLineEnd = cleanCont.indexOf('\n');
+  if (firstLineEnd !== -1) {
+    const firstLine = cleanCont.substring(0, firstLineEnd).trim();
+    if (/^(here\s+is|continuing|resuming|sure|below|as requested)/i.test(firstLine) && !firstLine.includes('```')) {
+      cleanCont = cleanCont.substring(firstLineEnd + 1).trimStart();
+    }
+  }
+  const baseFenceCount = (baseText.match(/```/g) || []).length;
+  if (baseFenceCount % 2 !== 0) {
+    cleanCont = cleanCont.replace(/^```[a-zA-Z0-9_\-\+\#]*\r?\n?/, '');
+  }
+  let merged = baseText + cleanCont;
+  const mergedFenceCount = (merged.match(/```/g) || []).length;
+  if (mergedFenceCount % 2 !== 0) {
+    const trimmedMerged = merged.trimEnd();
+    if (/<\/html>\s*$/i.test(trimmedMerged) || /<\/script>\s*$/i.test(trimmedMerged) || /<\/svg>\s*$/i.test(trimmedMerged)) {
+      merged = trimmedMerged + '\n```\n';
+    }
+  }
+  return merged;
+};
+
+runTest('Should flag incomplete HTML with unclosed code fence', () => {
+  const cutoff = '```html\n<!DOCTYPE html>\n<html>\n<body>\n<h1>Solar System</h1>';
+  const res = checkHtmlCodeCompleteness(cutoff);
+  assert.strictEqual(res.isComplete, false);
+  assert.strictEqual(res.reason, 'unclosed_fence');
+});
+
+runTest('Should flag incomplete HTML with unclosed <script> tag even if fence is present', () => {
+  const cutoff = '```html\n<!DOCTYPE html>\n<html><body>\n<script>\nconst planets = ["Mercury", "Venus"';
+  const res = checkHtmlCodeCompleteness(cutoff);
+  assert.strictEqual(res.isComplete, false);
+});
+
+runTest('Should flag incomplete HTML with missing </html> tag', () => {
+  const cutoff = '```html\n<!DOCTYPE html>\n<html><head></head><body><h1>Title</h1></body>```';
+  const res = checkHtmlCodeCompleteness(cutoff);
+  assert.strictEqual(res.isComplete, false);
+  assert.strictEqual(res.reason, 'missing_html_close');
+});
+
+runTest('Should flag incomplete HTML with unclosed <style> tag', () => {
+  const cutoff = '```html\n<!DOCTYPE html>\n<html><head><style>body { background: black;';
+  const res = checkHtmlCodeCompleteness(cutoff);
+  assert.strictEqual(res.isComplete, false);
+});
+
+runTest('Should confirm 100% complete HTML document is valid and ready', () => {
+  const completeDoc = '```html\n<!DOCTYPE html>\n<html><head><style>body{color:#fff}</style></head><body><h1>Working Game</h1><script>console.log("Ready");</script></body></html>\n```';
+  const res = checkHtmlCodeCompleteness(completeDoc);
+  assert.strictEqual(res.isComplete, true);
+  assert.strictEqual(res.isHtml, true);
+});
+
+runTest('Should strip conversational intro and stitch code continuation cleanly', () => {
+  const part1 = '```html\n<!DOCTYPE html>\n<html><body>\n<script>\nconst canvas = document.createElement("canvas");\n';
+  const part2 = 'Here is the continuation of the code:\n```javascript\ndocument.body.appendChild(canvas);\n</script>\n</body>\n</html>\n```';
+
+  const merged = cleanAndMergeContinuation(part1, part2);
+  assert.ok(!merged.includes('Here is the continuation'));
+  assert.ok(merged.includes('document.body.appendChild(canvas);'));
+  const check = checkHtmlCodeCompleteness(merged);
+  assert.strictEqual(check.isComplete, true);
+});
+
+runTest('Should assemble a massive 3-chunk website seamlessly into a working full HTML document', () => {
+  const chunk1 = '```html\n<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { margin: 0; background: #0b0f19; color: #fff; font-family: sans-serif; }\n    #game { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }\n  </style>\n</head>\n<body>\n  <div id="game"><h1>Interactive Orbit Simulator</h1></div>\n  <script>\n    const planets = [';
+  assert.strictEqual(checkHtmlCodeCompleteness(chunk1).isComplete, false);
+
+  const chunk2 = 'Continuing from code:\n    { name: "Earth", radius: 10, dist: 100 },\n    { name: "Mars", radius: 8, dist: 150 }\n    ];\n    function init() {\n      const c = document.createElement("canvas");\n';
+  const merged1_2 = cleanAndMergeContinuation(chunk1, chunk2);
+  assert.strictEqual(checkHtmlCodeCompleteness(merged1_2).isComplete, false);
+
+  const chunk3 = '      document.getElementById("game").appendChild(c);\n    }\n    init();\n  </script>\n</body>\n</html>\n```';
+  const fullAssembled = cleanAndMergeContinuation(merged1_2, chunk3);
+
+  const finalCheck = checkHtmlCodeCompleteness(fullAssembled);
+  assert.strictEqual(finalCheck.isComplete, true);
+  assert.ok(fullAssembled.includes('<!DOCTYPE html>'));
+  assert.ok(fullAssembled.includes('Interactive Orbit Simulator'));
+  assert.ok(fullAssembled.includes('</html>'));
+  assert.ok(fullAssembled.endsWith('```\n') || fullAssembled.endsWith('```'));
 });
 
 console.log('\n=== ALL TESTS COMPLETE: ' + passed + '/' + total + ' PASSED ===\n');

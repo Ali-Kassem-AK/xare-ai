@@ -3212,6 +3212,280 @@ const parsePayloadData = (payload: any) => {
   return { text: parsedText, audio: parsedAudio, image: parsedImage };
 };
 
+/**
+ * Result structure for HTML completeness inspection.
+ */
+export interface HtmlCodeCompleteness {
+  isComplete: boolean;
+  reason: string;
+  cutoffSnippet: string;
+  isHtml: boolean;
+}
+
+/**
+ * Robustly inspects whether an AI response represents or contains an HTML website/visualization,
+ * and whether it has cut off prematurely due to token generation limits.
+ * Inspects:
+ * 1. Unclosed markdown code fences (```)
+ * 2. Unclosed <html>, <head>, or <body> tags
+ * 3. Unclosed <script> ... </script> blocks (vital for interactive canvas/games/apps)
+ * 4. Unclosed <style> ... </style> blocks
+ * 5. Cutoff in the middle of an HTML tag (e.g. `<div class="main-card`)
+ * 6. Cutoff in the middle of inline JavaScript logic
+ */
+export const checkHtmlCodeCompleteness = (text: string): HtmlCodeCompleteness => {
+  if (!text || typeof text !== 'string') {
+    return { isComplete: true, reason: '', cutoffSnippet: '', isHtml: false };
+  }
+
+  const trimmed = text.trim();
+  const hasHtmlFence = /```\s*(?:html|htm|svg)\b/i.test(trimmed);
+  const hasRawHtmlDoc = /<!doctype\s+html/i.test(trimmed) || /<html[\s>]/i.test(trimmed) || /<svg[\s>]/i.test(trimmed);
+  const hasScriptOrStyle = /<script[\s>]/i.test(trimmed) || /<style[\s>]/i.test(trimmed);
+
+  const isHtml = hasHtmlFence || hasRawHtmlDoc || hasScriptOrStyle;
+  if (!isHtml) {
+    return { isComplete: true, reason: '', cutoffSnippet: '', isHtml: false };
+  }
+
+  // 1. Odd count of ``` backtick fences indicates an unclosed code block
+  const fenceCount = (trimmed.match(/```/g) || []).length;
+  if (fenceCount % 2 !== 0) {
+    return {
+      isComplete: false,
+      reason: 'unclosed_fence',
+      cutoffSnippet: trimmed.slice(-150),
+      isHtml: true
+    };
+  }
+
+  // Extract HTML payload inside code fences or raw body
+  let htmlPayload = trimmed;
+  const fenceMatches = trimmed.match(/```\s*(?:html|htm|svg)\b([\s\S]*?)```/gi);
+  if (fenceMatches && fenceMatches.length > 0) {
+    const lastBlock = fenceMatches[fenceMatches.length - 1];
+    htmlPayload = lastBlock.replace(/^```\s*(?:html|htm|svg)\b/i, '').replace(/```$/, '').trim();
+  }
+
+  // 2. Unclosed <script> tags
+  const scriptOpenCount = (htmlPayload.match(/<script\b[^>]*>/gi) || []).length;
+  const scriptCloseCount = (htmlPayload.match(/<\/script>/gi) || []).length;
+  if (scriptOpenCount > scriptCloseCount) {
+    return {
+      isComplete: false,
+      reason: 'unclosed_script',
+      cutoffSnippet: trimmed.slice(-150),
+      isHtml: true
+    };
+  }
+
+  // 3. Unclosed <style> tags
+  const styleOpenCount = (htmlPayload.match(/<style\b[^>]*>/gi) || []).length;
+  const styleCloseCount = (htmlPayload.match(/<\/style>/gi) || []).length;
+  if (styleOpenCount > styleCloseCount) {
+    return {
+      isComplete: false,
+      reason: 'unclosed_style',
+      cutoffSnippet: trimmed.slice(-150),
+      isHtml: true
+    };
+  }
+
+  // 4. Missing </html> or </body> tags if opened
+  const hasHtmlOpen = /<html[\s>]/i.test(htmlPayload);
+  const hasHtmlClose = /<\/html>/i.test(htmlPayload);
+  if (hasHtmlOpen && !hasHtmlClose) {
+    return {
+      isComplete: false,
+      reason: 'missing_html_close',
+      cutoffSnippet: trimmed.slice(-150),
+      isHtml: true
+    };
+  }
+
+  const hasBodyOpen = /<body[\s>]/i.test(htmlPayload);
+  const hasBodyClose = /<\/body>/i.test(htmlPayload);
+  if (hasBodyOpen && !hasBodyClose) {
+    return {
+      isComplete: false,
+      reason: 'missing_body_close',
+      cutoffSnippet: trimmed.slice(-150),
+      isHtml: true
+    };
+  }
+
+  // 5. Unclosed <svg> tag if opened
+  const hasSvgOpen = /<svg[\s>]/i.test(htmlPayload);
+  const hasSvgClose = /<\/svg>/i.test(htmlPayload);
+  if (hasSvgOpen && !hasSvgClose) {
+    return {
+      isComplete: false,
+      reason: 'unclosed_svg',
+      cutoffSnippet: trimmed.slice(-150),
+      isHtml: true
+    };
+  }
+
+  // 6. Truncated HTML tag at the very end
+  const lastLt = htmlPayload.lastIndexOf('<');
+  const lastGt = htmlPayload.lastIndexOf('>');
+  if (lastLt > lastGt) {
+    return {
+      isComplete: false,
+      reason: 'truncated_tag',
+      cutoffSnippet: trimmed.slice(-150),
+      isHtml: true
+    };
+  }
+
+  return { isComplete: true, reason: '', cutoffSnippet: '', isHtml: true };
+};
+
+/**
+ * Inner request continuation coordinator:
+ * Asynchronously verifies that an HTML response is 100% complete before presenting it to the user.
+ * If incomplete, sends inner requests with strict negative prompting (zero conversational text,
+ * zero explanations, pure code continuation only) to allow generating massive, rich websites.
+ * Keeps showing the modern loading circle until the full website is assembled and ready to execute.
+ */
+export const ensureCompleteHtmlCode = async (
+  initialCode: string,
+  targetChatId: string,
+  currentUser: any,
+  onPhaseUpdate?: (phase: string) => void
+): Promise<string> => {
+  let currentCode = initialCode;
+  const initialCheck = checkHtmlCodeCompleteness(currentCode);
+  if (initialCheck.isComplete) {
+    if (/<!doctype\s+html/i.test(currentCode) && !currentCode.includes('```')) {
+      return '```html\n' + currentCode.trim() + '\n```';
+    }
+    return currentCode;
+  }
+
+  let continuationsCount = 0;
+  const MAX_CONTINUATIONS = 8;
+
+  while (continuationsCount < MAX_CONTINUATIONS) {
+    const check = checkHtmlCodeCompleteness(currentCode);
+    if (check.isComplete) break;
+
+    continuationsCount++;
+    if (onPhaseUpdate) {
+      onPhaseUpdate(`Building complete website code (part ${continuationsCount + 1})...`);
+    }
+
+    const continuationPrompt = `[CRITICAL INSTRUCTION: DIRECT CODE CONTINUATION - DO NOT WRITE CONVERSATIONAL TEXT]
+The previous response was cut off mid-code due to output token length limits.
+Resume writing the code IMMEDIATELY from the exact character where you stopped.
+
+MANDATORY RULES:
+1. Output ONLY the remaining raw code directly.
+2. DO NOT write any conversational intro, explanation, summary, or outro (NEVER write "Here is the continuation", "Continuing:", "Here is the rest", etc.).
+3. DO NOT start a new markdown code fence if already inside one.
+4. DO NOT repeat any code from before.
+5. Continue writing until the HTML website is 100% complete with all tags (including </script>, </body>, </html>) and code fences fully closed.
+
+Cutoff point was:
+"...${check.cutoffSnippet}"`;
+
+    let chunkText = "";
+
+    // 1. Send inner continuation request to primary n8n webhook
+    if (N8N_WEBHOOK_URL && N8N_WEBHOOK_URL.trim() !== '') {
+      try {
+        const continuationTaskId = generateUniqueId();
+        const continuationPayload: any = {
+          taskId: continuationTaskId,
+          sessionId: targetChatId,
+          userId: currentUser?.id || 'guest-user',
+          username: currentUser?.username || 'Guest',
+          message: continuationPrompt,
+          systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+          system_instruction: DEFAULT_SYSTEM_INSTRUCTION,
+          action: 'chat',
+          timestamp: new Date().toISOString()
+        };
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+        const res = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-chatbot-token': 'ali1234' },
+          body: JSON.stringify(continuationPayload),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const resText = await res.text();
+          let data: any = resText;
+          try {
+            data = JSON.parse(resText);
+            if (Array.isArray(data) && data.length > 0) data = data[0];
+          } catch (e) {}
+
+          const parsed = parsePayloadData(data?.payload || data?.response || data?.result || data?.text || data);
+          chunkText = parsed.text || (typeof data === 'string' ? data : '');
+        }
+      } catch (n8nErr) {
+        console.warn("[HTML_CONTINUATION] n8n fetch error:", n8nErr);
+      }
+    }
+
+    // 2. Fallback to Gemini if n8n failed or returned empty text
+    if (!chunkText || !chunkText.trim()) {
+      try {
+        console.info("[HTML_CONTINUATION] Requesting code continuation chunk via Gemini...");
+        const geminiChunk = await callGeminiAPI(continuationPrompt);
+        if (geminiChunk && geminiChunk.trim()) {
+          chunkText = geminiChunk;
+        }
+      } catch (geminiErr) {
+        console.warn("[HTML_CONTINUATION] Gemini fallback error:", geminiErr);
+      }
+    }
+
+    if (!chunkText || !chunkText.trim()) {
+      console.warn("[HTML_CONTINUATION] No continuation text received; halting continuation loop.");
+      break;
+    }
+
+    currentCode = cleanAndMergeContinuation(currentCode, chunkText);
+  }
+
+  // Safe tag reconciliation for worst-case cutoff recovery
+  const finalCheck = checkHtmlCodeCompleteness(currentCode);
+  if (!finalCheck.isComplete) {
+    let reconciled = currentCode.trimEnd();
+    if (finalCheck.reason === 'unclosed_script') {
+      reconciled += '\n</script>\n';
+    }
+    if (finalCheck.reason === 'unclosed_style') {
+      reconciled += '\n</style>\n';
+    }
+    if (/<body[\s>]/i.test(reconciled) && !/<\/body>/i.test(reconciled)) {
+      reconciled += '\n</body>\n';
+    }
+    if (/<html[\s>]/i.test(reconciled) && !/<\/html>/i.test(reconciled)) {
+      reconciled += '\n</html>\n';
+    }
+    const fenceCount = (reconciled.match(/```/g) || []).length;
+    if (fenceCount % 2 !== 0) {
+      reconciled += '\n```\n';
+    }
+    currentCode = reconciled;
+  }
+
+  // Format raw HTML documents into markdown code block for the interactive live sandbox runner
+  if (/<!doctype\s+html/i.test(currentCode) && !currentCode.includes('```')) {
+    currentCode = '```html\n' + currentCode.trim() + '\n```';
+  }
+
+  return currentCode;
+};
+
 export const DeepgramOrb = ({ isDarkMode, onClose }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [agentStatus, setAgentStatus] = useState('Idle');
@@ -5504,6 +5778,53 @@ if (uploadedFileId) {
 
     // DIRECT GEMINI MODE ROUTER (If user previously clicked 'Switch to Gemini AI')
     if (activeMode === 'gemini' && (finalAction === 'chat' || !finalAction || finalAction === 'text')) {
+      const isVizPrompt = isVisualizationPrompt(finalMessageText);
+      if (isVizPrompt) {
+        setLoadingType('visualization');
+        setLoadingPhase('Generating full website code...');
+        setIsLoading(true);
+        setActiveLoadingChatId(targetChatId);
+        try {
+          const initialGemini = await callGeminiAPI(finalMessageText);
+          let fullHtml = initialGemini || "";
+          const check = checkHtmlCodeCompleteness(fullHtml);
+          if (!check.isComplete) {
+            setLoadingPhase('Building complete website code...');
+            fullHtml = await ensureCompleteHtmlCode(
+              fullHtml,
+              targetChatId,
+              currentUser,
+              (phase) => setLoadingPhase(phase)
+            );
+          } else if (/<!doctype\s+html/i.test(fullHtml) && !fullHtml.includes('```')) {
+            fullHtml = '```html\n' + fullHtml.trim() + '\n```';
+          }
+          const geminiMsg = {
+            id: generateUniqueId(),
+            text: fullHtml,
+            sender: 'bot',
+            modelEngine: 'gemini',
+            timestamp: new Date()
+          };
+          setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+            ...c,
+            messages: sortMessagesChronologically([...(c.messages || []).filter((m: any) => m.id !== geminiMsg.id), geminiMsg]),
+            updatedAt: new Date()
+          } : c));
+          setIsLoading(false);
+          setActiveLoadingChatId(null);
+          setLoadingType(null);
+          triggerSuggestions(fullHtml);
+          persistBotMessageToFirestore(targetChatId, geminiMsg, fullHtml);
+          return;
+        } catch (err) {
+          console.error("Gemini visualization generation error:", err);
+          setIsLoading(false);
+          setActiveLoadingChatId(null);
+          setLoadingType(null);
+        }
+      }
+
       const newGeminiMsg = {
         id: generateUniqueId(),
         text: "",
@@ -5657,6 +5978,55 @@ if (uploadedFileId) {
           setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, noticeMsg], updatedAt: new Date() } : c));
           
           setChatModelModes(prev => ({ ...prev, [targetChatId]: 'gemini' }));
+
+          const isViz = isVisualizationPrompt(finalMessageText);
+          if (isViz) {
+            setLoadingType('visualization');
+            setLoadingPhase('Generating full website code...');
+            setIsLoading(true);
+            setActiveLoadingChatId(targetChatId);
+            try {
+              const geminiRes = await callGeminiAPI(finalMessageText);
+              let fullHtml = geminiRes || "";
+              const check = checkHtmlCodeCompleteness(fullHtml);
+              if (!check.isComplete) {
+                setLoadingPhase('Building complete website code...');
+                fullHtml = await ensureCompleteHtmlCode(
+                  fullHtml,
+                  targetChatId,
+                  currentUser,
+                  (phase) => setLoadingPhase(phase)
+                );
+              } else if (/<!doctype\s+html/i.test(fullHtml) && !fullHtml.includes('```')) {
+                fullHtml = '```html\n' + fullHtml.trim() + '\n```';
+              }
+              const geminiMsg = {
+                id: generateUniqueId(),
+                text: fullHtml,
+                sender: 'bot',
+                modelEngine: 'gemini',
+                timestamp: new Date()
+              };
+              setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+                ...c,
+                messages: sortMessagesChronologically([...(c.messages || []).filter((m: any) => m.id !== geminiMsg.id), geminiMsg]),
+                updatedAt: new Date()
+              } : c));
+              setIsLoading(false);
+              setActiveLoadingChatId(null);
+              setLoadingType(null);
+              triggerSuggestions(fullHtml);
+              persistBotMessageToFirestore(targetChatId, geminiMsg, fullHtml);
+              return;
+            } catch (err) {
+              console.error("Gemini fallback visualization error:", err);
+              setIsLoading(false);
+              setActiveLoadingChatId(null);
+              setLoadingType(null);
+              showLocalBotMessage("I am currently unable to process this request. Please try again in a moment.");
+              return;
+            }
+          }
           
           const newGeminiMsg = {
             id: generateUniqueId(),
@@ -5876,13 +6246,21 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
             };
 
            let processedBotText = rawBotText;
-           const isHtmlViz = isHtmlVisualizationResponse(processedBotText);
+           const completeness = checkHtmlCodeCompleteness(processedBotText);
+           const isHtmlViz = isHtmlVisualizationResponse(processedBotText) || completeness.isHtml || (isVisualizationPrompt(finalMessageText) && (processedBotText.includes('<') || processedBotText.includes('```')));
 
-           // Auto-close unclosed code fence immediately for HTML visualizations so live preview executes instantly
            if (isHtmlViz) {
-             const check = detectIncompleteCodeBlock(processedBotText);
-             if (check.isIncomplete && check.reason === 'unclosed_fence') {
-               processedBotText = processedBotText.trimEnd() + '\n```\n';
+             setLoadingType('visualization');
+             if (!completeness.isComplete) {
+               setLoadingPhase('Building complete website code...');
+               processedBotText = await ensureCompleteHtmlCode(
+                 processedBotText,
+                 targetChatId,
+                 currentUser,
+                 (phase) => setLoadingPhase(phase)
+               );
+             } else if (/<!doctype\s+html/i.test(processedBotText) && !processedBotText.includes('```')) {
+               processedBotText = '```html\n' + processedBotText.trim() + '\n```';
              }
            }
 
@@ -6152,15 +6530,24 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         const noticeMsg = { id: generateUniqueId(), text: TOKEN_LIMIT_REDIRECTION_MSG, sender: 'bot', timestamp: new Date() };
         setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, noticeMsg], updatedAt: new Date() } : c));
         setChatModelModes(prev => ({ ...prev, [targetChatId]: 'gemini' }));
-        callGeminiAPI(finalMessageText).then(geminiRes => {
+        callGeminiAPI(finalMessageText).then(async geminiRes => {
           const rawGeminiAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
           let finalAnswer = rawGeminiAnswer;
-          const isHtmlViz = isHtmlVisualizationResponse(finalAnswer);
+          const completeness = checkHtmlCodeCompleteness(finalAnswer);
+          const isHtmlViz = isHtmlVisualizationResponse(finalAnswer) || completeness.isHtml || (isVisualizationPrompt(finalMessageText) && (finalAnswer.includes('<') || finalAnswer.includes('```')));
 
           if (isHtmlViz) {
-            const check = detectIncompleteCodeBlock(finalAnswer);
-            if (check.isIncomplete && check.reason === 'unclosed_fence') {
-              finalAnswer = finalAnswer.trimEnd() + '\n```\n';
+            setLoadingType('visualization');
+            if (!completeness.isComplete) {
+              setLoadingPhase('Building complete website code...');
+              finalAnswer = await ensureCompleteHtmlCode(
+                finalAnswer,
+                targetChatId,
+                currentUser,
+                (phase) => setLoadingPhase(phase)
+              );
+            } else if (/<!doctype\s+html/i.test(finalAnswer) && !finalAnswer.includes('```')) {
+              finalAnswer = '```html\n' + finalAnswer.trim() + '\n```';
             }
             const completedGeminiMsg = {
               id: generateUniqueId(),
@@ -6999,7 +7386,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                         </div>
                       </div>
                     </div>
-                  ) : loadingType === 'visualization' || (loadingPhase && (loadingPhase.toLowerCase().includes('visualization') || loadingPhase.toLowerCase().includes('html'))) ? (
+                  ) : loadingType === 'visualization' || (loadingPhase && (loadingPhase.toLowerCase().includes('visualization') || loadingPhase.toLowerCase().includes('html') || loadingPhase.toLowerCase().includes('website') || loadingPhase.toLowerCase().includes('code'))) ? (
                     <div className={`p-5 sm:p-6 rounded-2xl border shadow-sm flex items-center gap-4 my-1 select-none ${isDarkMode ? 'bg-[#080d1a]/90 border-slate-800/80 text-slate-200' : 'bg-white border-slate-200 text-slate-800'}`}>
                       <div className="relative flex items-center justify-center flex-shrink-0">
                         <div className="absolute w-12 h-12 rounded-full bg-cyan-500/20 blur-lg animate-pulse" />
