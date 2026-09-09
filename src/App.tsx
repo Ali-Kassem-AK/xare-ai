@@ -8088,24 +8088,6 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                 </a>
               </div>
 
-              {/* Font Size Adjuster for comfortable reading */}
-              <button
-                type="button"
-                onClick={cycleFontSize}
-                className={`px-2 py-1 rounded-full transition-all hover:scale-105 flex items-center gap-1 font-bold text-xs tracking-tight ${
-                  isDarkMode 
-                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60 border border-slate-700/50' 
-                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/60 border border-slate-300/50'
-                }`}
-                title={`Text size: ${fontSize.toUpperCase()} (Click to toggle)`}
-              >
-                <span className="flex items-baseline font-mono select-none">
-                  <span className="text-[11px]">A</span>
-                  <span className="text-[14px] font-black">A</span>
-                </span>
-                <span className="text-[10px] uppercase font-mono opacity-70">{fontSize}</span>
-              </button>
-
               <ThemeToggleSwitch isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
             </div>
           </header>
