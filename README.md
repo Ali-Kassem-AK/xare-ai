@@ -46,7 +46,7 @@
 <!--    (or save as `docs/images/xare-ai-ui.png` and update the path below)-->
 <!-- ===================================================================== -->
 <div align="center">
-  <img src="./docs/images/xare-ai-ui-placeholder.svg" alt="Xare AI Main Interface Preview Slot — Replace docs/images/xare-ai-ui-placeholder.svg with a live interface screenshot" width="100%" />
+  <img src="./docs/images/xare-ai-ui-placeholder.png" alt="Xare AI Main Interface Preview Slot — Replace docs/images/xare-ai-ui-placeholder.svg with a live interface screenshot" width="100%" />
   <p><em>Interface preview slot (<code>docs/images/xare-ai-ui-placeholder.svg</code>) — structured representation of the Xare AI workspace, live HTML5 sandbox, and background media pre-upload bar.</em></p>
 </div>
 
@@ -190,7 +190,7 @@ Every capability documented below has been verified directly against the reposit
 <!-- screenshot of DeepgramOrb and in-chat audio/PDF/image cards.          -->
 <!-- ===================================================================== -->
 <div align="center">
-  <img src="./docs/images/xare-ai-voice-orb-placeholder.svg" alt="Xare AI Voice Orb and Decoupled Local Media Renderers Preview Slot" width="100%" />
+  <img src="./docs/images/xare-ai-voice-orb-placeholder.png" alt="Xare AI Voice Orb and Decoupled Local Media Renderers Preview Slot" width="100%" />
   <p><em>Editable visual slot (<code>docs/images/xare-ai-voice-orb-placeholder.svg</code>) — illustrates the bi-directional WebSocket <code>DeepgramOrb</code> and IndexedDB-backed media renderers (<code>CustomAudioPlayer</code>, <code>LocalDocumentRenderer</code>, <code>LocalImageRenderer</code>).</em></p>
 </div>
 
@@ -202,7 +202,9 @@ Every capability documented below has been verified directly against the reposit
 <!-- recorded GIF, or wrap it in an `<a href="YOUR_VIDEO_URL">` tag.       -->
 <!-- ===================================================================== -->
 <div align="center">
-  <img src="./docs/images/xare-ai-demo-preview-placeholder.svg" alt="Xare AI Product Walkthrough GIF or Video Preview Slot" width="100%" />
+  <video src="https://videotourl.com/videos/1791755335274-923c3595-c87a-40b6-91c7-12b6741948db.mp4" width="100%" controls playsinline autoplay loop muted>
+    Your browser does not support the video tag.
+  </video>
 </div>
 
 ---
