@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" width="100%" height="100%" role="img" aria-labelledby="voiceTitle voiceDesc">
+  <title id="voiceTitle">Xare AI — Real-Time Deepgram Voice Orb &amp; Multimodal Interaction Slot</title>
+  <desc id="voiceDesc">Visual preview slot for the Xare AI real-time WebSocket Voice Orb (Deepgram + Groq) and multimodal audio/sandbox interaction. Replace docs/images/xare-ai-voice-orb-placeholder.svg with a real screenshot or GIF.</desc>
+  <defs>
+    <linearGradient id="vBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050914" />
+      <stop offset="100%" stop-color="#091326" />
+    </linearGradient>
+    <radialGradient id="orbHalo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.42" />
+      <stop offset="55%" stop-color="#1d9bf0" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#050914" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="orbRing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="520" rx="18" fill="url(#vBg)" stroke="#1e293b" stroke-width="2" />
+
+  <!-- Top Header Banner -->
+  <rect x="24" y="20" width="1152" height="44" rx="10" fill="#081121" stroke="#1e293b" stroke-width="1" />
+  <text x="44" y="47" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">Real-Time Voice Agent (DeepgramOrb) &amp; Multimodal Media Renderers</text>
+  <rect x="780" y="28" width="380" height="28" rx="7" fill="#0c2444" stroke="#38bdf8" stroke-width="1" stroke-dasharray="4 2" />
+  <text x="970" y="46" text-anchor="middle" fill="#38bdf8" font-family="ui-monospace, monospace" font-size="11" font-weight="700">SLOT: docs/images/xare-ai-voice-orb-placeholder.svg</text>
+
+  <!-- Left Panel: DeepgramOrb Real-Time WebSocket Voice Call -->
+  <rect x="24" y="80" width="560" height="416" rx="16" fill="#070e1c" stroke="#1e293b" stroke-width="1.5" />
+  <circle cx="304" cy="245" r="150" fill="url(#orbHalo)" />
+  <circle cx="304" cy="245" r="88" fill="#0b1730" stroke="url(#orbRing)" stroke-width="4" />
+  <circle cx="304" cy="245" r="68" fill="#091326" stroke="#1e293b" stroke-width="1" />
+  <polygon points="304,212 332,245 304,278 276,245" fill="#38bdf8" opacity="0.9" />
+
+  <!-- 11-Bar Reactive Blue Waveform -->
+  <g transform="translate(232, 360)" fill="#3b82f6">
+    <rect x="0" y="18" width="6" height="16" rx="3" opacity="0.45" />
+    <rect x="14" y="12" width="6" height="28" rx="3" opacity="0.6" />
+    <rect x="28" y="6" width="6" height="40" rx="3" opacity="0.75" />
+    <rect x="42" y="0" width="6" height="52" rx="3" opacity="0.9" />
+    <rect x="56" y="8" width="6" height="36" rx="3" opacity="0.85" />
+    <rect x="70" y="-4" width="6" height="60" rx="3" fill="#38bdf8" />
+    <rect x="84" y="6" width="6" height="40" rx="3" opacity="0.85" />
+    <rect x="98" y="2" width="6" height="48" rx="3" opacity="0.9" />
+    <rect x="112" y="10" width="6" height="32" rx="3" opacity="0.75" />
+    <rect x="126" y="14" width="6" height="24" rx="3" opacity="0.6" />
+    <rect x="140" y="18" width="6" height="16" rx="3" opacity="0.45" />
+  </g>
+
+  <text x="304" y="114" text-anchor="middle" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">Bi-Directional WebSocket Voice Orb</text>
+  <text x="304" y="134" text-anchor="middle" fill="#38bdf8" font-family="ui-monospace, monospace" font-size="11">wss://agent.deepgram.com/v1/agent/converse</text>
+  <text x="304" y="446" text-anchor="middle" fill="#94a3b8" font-family="ui-monospace, monospace" font-size="11">Listen: flux-general-en (48kHz PCM) • Think: gpt-oss-20b (Groq)</text>
+  <text x="304" y="466" text-anchor="middle" fill="#94a3b8" font-family="ui-monospace, monospace" font-size="11">Speak: aura-2-minerva-en (24kHz) • Dual Web Audio AnalyserNode</text>
+
+  <!-- Right Panel: Decoupled Local Media & Custom Audio / Vision Cards -->
+  <rect x="608" y="80" width="568" height="416" rx="16" fill="#070e1c" stroke="#1e293b" stroke-width="1.5" />
+  <text x="636" y="116" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">Decoupled Local Media Renderers (XareMediaDB)</text>
+  <text x="636" y="136" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="12">Media persists locally in IndexedDB even after remote ephemeral URLs are purged.</text>
+
+  <!-- CustomAudioPlayer Card -->
+  <rect x="636" y="156" width="512" height="92" rx="12" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+  <circle cx="676" cy="202" r="22" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5" />
+  <polygon points="671,193 686,202 671,211" fill="#38bdf8" />
+  <text x="714" y="184" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12.5" font-weight="600">CustomAudioPlayer • Voice Note &amp; Deepgram TTS Response</text>
+  <rect x="714" y="198" width="406" height="6" rx="3" fill="#1e293b" />
+  <rect x="714" y="198" width="248" height="6" rx="3" fill="#38bdf8" />
+  <circle cx="962" cy="201" r="7" fill="#38bdf8" />
+  <text x="714" y="226" fill="#64748b" font-family="ui-monospace, monospace" font-size="11">0:14 / 0:23  •  Source: localdb_audio_1741902 (IndexedDB Blob)</text>
+
+  <!-- LocalDocumentRenderer Card -->
+  <rect x="636" y="264" width="512" height="86" rx="12" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+  <rect x="656" y="285" width="44" height="44" rx="10" fill="#172554" stroke="#3b82f6" stroke-width="1" />
+  <text x="678" y="312" text-anchor="middle" fill="#60a5fa" font-family="ui-monospace, monospace" font-size="12" font-weight="700">PDF</text>
+  <text x="716" y="302" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12.5" font-weight="600">LocalDocumentRenderer • Multi-Tier OCR &amp; Document QA</text>
+  <text x="716" y="324" fill="#38bdf8" font-family="ui-monospace, monospace" font-size="11">Remote kappa.lol URL Purged (&lt;500ms) • Local Download Active</text>
+
+  <!-- ImageWithActions Card -->
+  <rect x="636" y="366" width="512" height="106" rx="12" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+  <rect x="656" y="384" width="70" height="70" rx="10" fill="#09192e" stroke="#1d9bf0" stroke-width="1" />
+  <circle cx="676" cy="404" r="6" fill="#38bdf8" />
+  <polygon points="660,446 684,418 702,436 712,424 722,446" fill="#1d9bf0" opacity="0.6" />
+  <text x="742" y="406" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12.5" font-weight="600">LocalImageRenderer &amp; ImageWithActions Lightbox</text>
+  <text x="742" y="426" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11.5">Supports pinch-to-zoom, double-tap zoom, pan gestures, and 1-click PNG export.</text>
+  <text x="742" y="448" fill="#10b981" font-family="ui-monospace, monospace" font-size="11">Auto-unwraps base64 JSON payloads &amp; detects MIME magic bytes</text>
+</svg>

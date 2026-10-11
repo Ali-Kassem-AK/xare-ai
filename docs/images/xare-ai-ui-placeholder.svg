@@ -1,0 +1,214 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 740" width="100%" height="100%" role="img" aria-labelledby="title desc">
+  <title id="title">Xare AI — Main Application Interface Preview Slot</title>
+  <desc id="desc">Stylized architectural wireframe of the Xare AI multimodal workspace. Replace docs/images/xare-ai-ui-placeholder.svg with a live application screenshot.</desc>
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050914" />
+      <stop offset="50%" stop-color="#070e1c" />
+      <stop offset="100%" stop-color="#0a1428" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1d9bf0" />
+      <stop offset="50%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0d172a" />
+      <stop offset="100%" stop-color="#091020" />
+    </linearGradient>
+    <radialGradient id="orbGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.28" />
+      <stop offset="60%" stop-color="#1d9bf0" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#070e1c" stop-opacity="0" />
+    </radialGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Outer Canvas -->
+  <rect width="1280" height="740" rx="18" fill="url(#bgGrad)" stroke="#1e293b" stroke-width="2" />
+  <circle cx="920" cy="260" r="320" fill="url(#orbGlow)" />
+  <circle cx="380" cy="520" r="260" fill="url(#orbGlow)" />
+
+  <!-- Top Browser / Window Chrome -->
+  <rect x="2" y="2" width="1276" height="44" rx="16" fill="#060b16" />
+  <line x1="2" y1="46" x2="1278" y2="46" stroke="#1e293b" stroke-width="1" />
+  <circle cx="28" cy="24" r="6" fill="#ef4444" opacity="0.8" />
+  <circle cx="48" cy="24" r="6" fill="#f59e0b" opacity="0.8" />
+  <circle cx="68" cy="24" r="6" fill="#10b981" opacity="0.8" />
+
+  <!-- URL Bar -->
+  <rect x="420" y="10" width="440" height="28" rx="8" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+  <text x="640" y="28" text-anchor="middle" fill="#94a3b8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12">https://xare-ai.vercel.app</text>
+
+  <!-- Replaceable Slot Banner (Top Right) -->
+  <rect x="915" y="10" width="345" height="28" rx="8" fill="#0c2444" stroke="#38bdf8" stroke-width="1" stroke-dasharray="4 2" />
+  <text x="1087" y="28" text-anchor="middle" fill="#38bdf8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" letter-spacing="0.5">UI SCREENSHOT SLOT • REPLACEABLE SVG</text>
+
+  <!-- Left Sidebar -->
+  <rect x="2" y="47" width="268" height="691" fill="#060b16" />
+  <line x1="270" y1="47" x2="270" y2="738" stroke="#1e293b" stroke-width="1" />
+
+  <!-- Brand Header in Sidebar -->
+  <circle cx="40" cy="84" r="14" fill="#1d9bf0" opacity="0.2" stroke="#38bdf8" stroke-width="1.5" />
+  <polygon points="40,73 49,84 40,95 31,84" fill="#38bdf8" />
+  <text x="64" y="89" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="800" letter-spacing="0.8">XARE AI</text>
+  <rect x="186" y="72" width="68" height="22" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" />
+  <text x="220" y="87" text-anchor="middle" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="600">EN / AR / TR / FR</text>
+
+  <!-- New Chat Button -->
+  <rect x="18" y="116" width="234" height="40" rx="12" fill="url(#accentGrad)" opacity="0.18" stroke="#38bdf8" stroke-width="1" />
+  <text x="135" y="141" text-anchor="middle" fill="#e0f2fe" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700">+  New Conversation</text>
+
+  <!-- Recent Chats List -->
+  <text x="24" y="184" fill="#64748b" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" letter-spacing="1">RECENT CONVERSATIONS</text>
+
+  <rect x="16" y="198" width="238" height="42" rx="10" fill="#0f1b33" stroke="#1d9bf0" stroke-width="1" />
+  <text x="32" y="218" fill="#f1f5f9" font-family="system-ui, -apple-system, sans-serif" font-size="12.5" font-weight="600">Interactive 3D Solar System</text>
+  <text x="32" y="233" fill="#38bdf8" font-family="ui-monospace, monospace" font-size="10">Build Tool • Direct Edge SSE</text>
+
+  <rect x="16" y="248" width="238" height="42" rx="10" fill="#091020" stroke="#1e293b" stroke-width="1" />
+  <text x="32" y="268" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12.5" font-weight="500">Research Paper OCR &amp; Summary</text>
+  <text x="32" y="283" fill="#64748b" font-family="ui-monospace, monospace" font-size="10">PDF Pipeline • IndexedDB Cached</text>
+
+  <rect x="16" y="298" width="238" height="42" rx="10" fill="#091020" stroke="#1e293b" stroke-width="1" />
+  <text x="32" y="318" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12.5" font-weight="500">Architecture Diagram Analysis</text>
+  <text x="32" y="333" fill="#64748b" font-family="ui-monospace, monospace" font-size="10">Vision Pipeline • Ephemeral URL</text>
+
+  <rect x="16" y="348" width="238" height="42" rx="10" fill="#091020" stroke="#1e293b" stroke-width="1" />
+  <text x="32" y="368" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="12.5" font-weight="500">Quantum Fourier Transform</text>
+  <text x="32" y="383" fill="#64748b" font-family="ui-monospace, monospace" font-size="10">Deep Thinking • KaTeX Rendered</text>
+
+  <!-- Daily Quota / Storage Status Card in Sidebar -->
+  <rect x="16" y="555" width="238" height="106" rx="12" fill="#091122" stroke="#1e293b" stroke-width="1" />
+  <text x="30" y="578" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700">STORAGE &amp; TRANSPORT LEDGER</text>
+  <text x="30" y="598" fill="#38bdf8" font-family="ui-monospace, monospace" font-size="11">Tier 1: Ephemeral URL (Active)</text>
+  <text x="30" y="616" fill="#64748b" font-family="ui-monospace, monospace" font-size="11">Tier 2: S3 / R2 / B2 (Optional)</text>
+  <text x="30" y="634" fill="#10b981" font-family="ui-monospace, monospace" font-size="11">Local: XareMediaDB (IndexedDB)</text>
+  <text x="30" y="651" fill="#94a3b8" font-family="ui-monospace, monospace" font-size="10">Sync: Firebase Auth + Firestore</text>
+
+  <!-- User Profile Pill -->
+  <rect x="16" y="675" width="238" height="48" rx="12" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+  <circle cx="42" cy="699" r="14" fill="#1d9bf0" opacity="0.25" />
+  <text x="42" y="704" text-anchor="middle" fill="#38bdf8" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700">AK</text>
+  <text x="66" y="696" fill="#f1f5f9" font-family="system-ui, -apple-system, sans-serif" font-size="12.5" font-weight="600">Authenticated Session</text>
+  <text x="66" y="712" fill="#64748b" font-family="system-ui, -apple-system, sans-serif" font-size="10.5">Dark Mode • 60fps Streaming Vault</text>
+
+  <!-- Main Workspace Header -->
+  <rect x="271" y="47" width="1007" height="52" fill="#070e1c" />
+  <line x1="271" y1="99" x2="1278" y2="99" stroke="#1e293b" stroke-width="1" />
+  <text x="300" y="78" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700">Hybrid Multimodal Workspace</text>
+  <rect x="520" y="60" width="190" height="26" rx="13" fill="#0c1930" stroke="#1d9bf0" stroke-width="1" />
+  <text x="615" y="77" text-anchor="middle" fill="#38bdf8" font-family="ui-monospace, monospace" font-size="11" font-weight="600">Edge SSE + n8n Webhook</text>
+
+  <!-- Header Right Controls -->
+  <rect x="1030" y="59" width="112" height="28" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1" />
+  <text x="1086" y="77" text-anchor="middle" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600">Architecture</text>
+  <rect x="1152" y="59" width="104" height="28" rx="8" fill="#1e1b4b" stroke="#6366f1" stroke-width="1" />
+  <text x="1204" y="77" text-anchor="middle" fill="#a5b4fc" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600">Voice Call</text>
+
+  <!-- User Prompt Bubble -->
+  <rect x="680" y="118" width="568" height="66" rx="20" fill="#090e1a" stroke="#1e293b" stroke-width="1.5" />
+  <text x="704" y="144" fill="#f1f5f9" font-family="system-ui, -apple-system, sans-serif" font-size="13.5" font-weight="500">Build an interactive 3D gravitational wave simulation with live controls</text>
+  <text x="704" y="166" fill="#38bdf8" font-family="ui-monospace, monospace" font-size="11">Tool: Build (HTML5 / Canvas / WebGL) • Auto-Continuation Enabled</text>
+
+  <!-- AI Response Area: Markdown + KaTeX + Live Interactive Sandbox -->
+  <circle cx="306" cy="216" r="14" fill="#0c2444" stroke="#38bdf8" stroke-width="1.2" />
+  <polygon points="306,207 313,216 306,225 299,216" fill="#38bdf8" />
+  <text x="330" y="221" fill="#38bdf8" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700">Xare AI — Interactive Artifact &amp; Mathematical Formulation</text>
+
+  <!-- KaTeX Formula Preview Box -->
+  <rect x="330" y="234" width="918" height="46" rx="10" fill="#091224" stroke="#1e293b" stroke-width="1" />
+  <text x="350" y="262" fill="#e2e8f0" font-family="Georgia, serif" font-style="italic" font-size="14">h₊(t, r) = (4Gμω²R² / r c⁴) cos(2ω(t − r/c))   •   Rendered inline via KaTeX (600-entry LRU Cache)</text>
+
+  <!-- Live Interactive CodeBlock / Sandbox Preview Card -->
+  <rect x="330" y="292" width="918" height="236" rx="14" fill="#050810" stroke="#1e293b" stroke-width="1.5" />
+  <rect x="331" y="293" width="916" height="38" rx="13" fill="#080c16" />
+  <line x1="330" y1="331" x2="1248" y2="331" stroke="#1e293b" stroke-width="1" />
+
+  <!-- Sandbox Header Pills -->
+  <rect x="346" y="302" width="54" height="20" rx="10" fill="#083344" stroke="#0891b2" stroke-width="1" />
+  <text x="373" y="316" text-anchor="middle" fill="#22d3ee" font-family="ui-monospace, monospace" font-size="10" font-weight="700">HTML5</text>
+
+  <rect x="412" y="301" width="94" height="22" rx="6" fill="#0e2a38" stroke="#22d3ee" stroke-width="1" />
+  <text x="459" y="316" text-anchor="middle" fill="#67e8f9" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700">▶ Live Preview</text>
+
+  <rect x="512" y="301" width="60" height="22" rx="6" fill="#0f172a" stroke="#334155" stroke-width="1" />
+  <text x="542" y="316" text-anchor="middle" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600">&lt;/&gt; Code</text>
+
+  <text x="990" y="316" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="11">Fit Screen  •  Fullscreen  •  Reset  •  Pop Out</text>
+
+  <!-- Simulated Canvas Graphic Inside Sandbox -->
+  <g opacity="0.9">
+    <ellipse cx="680" cy="430" rx="190" ry="64" fill="none" stroke="#1d9bf0" stroke-width="1.2" stroke-dasharray="6 4" />
+    <ellipse cx="680" cy="430" rx="130" ry="42" fill="none" stroke="#38bdf8" stroke-width="1.5" />
+    <ellipse cx="680" cy="430" rx="70" ry="22" fill="none" stroke="#818cf8" stroke-width="2" />
+    <circle cx="645" cy="430" r="12" fill="#38bdf8" filter="url(#softGlow)" />
+    <circle cx="715" cy="430" r="9" fill="#818cf8" filter="url(#softGlow)" />
+  </g>
+
+  <!-- Simulated Interactive Controls Overlay Inside Sandbox -->
+  <rect x="970" y="346" width="260" height="166" rx="10" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+  <text x="988" y="370" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700">Sandbox Telemetry &amp; Controls</text>
+  <text x="988" y="394" fill="#94a3b8" font-family="ui-monospace, monospace" font-size="11">Orbital Freq: 142 Hz</text>
+  <rect x="988" y="402" width="220" height="6" rx="3" fill="#1e293b" />
+  <rect x="988" y="402" width="150" height="6" rx="3" fill="#38bdf8" />
+  <text x="988" y="432" fill="#94a3b8" font-family="ui-monospace, monospace" font-size="11">Mass Ratio:   0.85 q</text>
+  <rect x="988" y="440" width="220" height="6" rx="3" fill="#1e293b" />
+  <rect x="988" y="440" width="180" height="6" rx="3" fill="#6366f1" />
+  <text x="988" y="474" fill="#10b981" font-family="ui-monospace, monospace" font-size="10.5">✓ CheckHtmlCodeCompleteness: PASS</text>
+  <text x="988" y="494" fill="#38bdf8" font-family="ui-monospace, monospace" font-size="10.5">✓ 63 Built-In Presets Available</text>
+
+  <!-- Placeholder Instruction Overlay Badge -->
+  <rect x="348" y="346" width="380" height="58" rx="10" fill="#071529" stroke="#38bdf8" stroke-width="1.2" />
+  <text x="364" y="370" fill="#38bdf8" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700">REPLACEABLE INTERFACE SCREENSHOT SLOT</text>
+  <text x="364" y="390" fill="#94a3b8" font-family="ui-monospace, monospace" font-size="11">Path: docs/images/xare-ai-ui-placeholder.svg</text>
+
+  <!-- Bottom Composer & AI Tool Presets Bar -->
+  <g transform="translate(300, 550)">
+    <!-- Tool Preset Pills -->
+    <rect x="0" y="0" width="84" height="30" rx="15" fill="#0c2444" stroke="#38bdf8" stroke-width="1" />
+    <text x="42" y="19" text-anchor="middle" fill="#38bdf8" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="700">⚒ Build</text>
+
+    <rect x="94" y="0" width="124" height="30" rx="15" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+    <text x="156" y="19" text-anchor="middle" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">🧠 Deep Thinking</text>
+
+    <rect x="228" y="0" width="132" height="30" rx="15" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+    <text x="294" y="19" text-anchor="middle" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">🖼 Generate Image</text>
+
+    <rect x="370" y="0" width="110" height="30" rx="15" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+    <text x="425" y="19" text-anchor="middle" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">🌐 Web Search</text>
+
+    <rect x="490" y="0" width="106" height="30" rx="15" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+    <text x="543" y="19" text-anchor="middle" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">📝 Summarize</text>
+
+    <rect x="606" y="0" width="114" height="30" rx="15" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+    <text x="663" y="19" text-anchor="middle" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">💻 Explain Code</text>
+
+    <rect x="730" y="0" width="98" height="30" rx="15" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+    <text x="779" y="19" text-anchor="middle" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">🌍 Translate</text>
+
+    <rect x="838" y="0" width="110" height="30" rx="15" fill="#0b1324" stroke="#1e293b" stroke-width="1" />
+    <text x="893" y="19" text-anchor="middle" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">✓ Fix Grammar</text>
+
+    <!-- Composer Input Box -->
+    <rect x="0" y="44" width="948" height="114" rx="22" fill="#0b1324" stroke="#1e293b" stroke-width="1.5" />
+    <text x="26" y="78" fill="#64748b" font-family="system-ui, -apple-system, sans-serif" font-size="14">Ask Xare AI anything, attach an image or PDF (up to 50 MB), record a voice note, or build live HTML5 apps...</text>
+
+    <!-- Attachment & Pre-Upload Status Pill -->
+    <rect x="24" y="110" width="128" height="32" rx="16" fill="#0f172a" stroke="#334155" stroke-width="1" />
+    <text x="88" y="130" text-anchor="middle" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">+ Attach Media</text>
+
+    <rect x="162" y="110" width="320" height="32" rx="16" fill="#09192e" stroke="#1d9bf0" stroke-width="1" />
+    <text x="322" y="130" text-anchor="middle" fill="#38bdf8" font-family="ui-monospace, monospace" font-size="11">SHA-256 Deduplicated Pre-Upload Ready (100%)</text>
+
+    <!-- Mic & Send Buttons -->
+    <circle cx="856" cy="126" r="18" fill="#0f172a" stroke="#334155" stroke-width="1" />
+    <text x="856" y="131" text-anchor="middle" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13">🎤</text>
+
+    <circle cx="906" cy="126" r="20" fill="url(#accentGrad)" />
+    <polygon points="899,118 916,126 899,134 903,126" fill="#ffffff" />
+  </g>
+</svg>
