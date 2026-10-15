@@ -1,0 +1,116 @@
+[
+  {
+    "runId": "warmup_1792077069461_ownvsq",
+    "idempotencyKey": "idem_warmup_1792077069461_ownvsq",
+    "scheduledCadence": "0 */2 * * * (Every 2 hours UTC)",
+    "timestamp": "2026-10-15T15:11:18.252Z",
+    "status": "partial_or_failed",
+    "targets": [
+      {
+        "target": "primary_n8n",
+        "endpoint": "https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika",
+        "status": 200,
+        "startTime": "2026-10-15T15:11:09.461Z",
+        "endTime": "2026-10-15T15:11:15.913Z",
+        "durationMs": 6452,
+        "modelIdentifier": "Qwen3.8-27b / LangChain Agent (n8n on Hugging Face Spaces)",
+        "responseVerified": true,
+        "responseExcerpt": "Hey! 👋 I'm Xare — happy to help with anything you need.  What's on your mind?",
+        "responseLength": 78,
+        "responseHash": "1dbadcadbf58d25a",
+        "retries": 0
+      },
+      {
+        "target": "edge_stream",
+        "endpoint": "https://xare-ai.vercel.app/api/chat/stream",
+        "status": 200,
+        "startTime": "2026-10-15T15:11:15.918Z",
+        "endTime": "2026-10-15T15:11:18.251Z",
+        "durationMs": 2333,
+        "firstTokenMs": 1597,
+        "modelIdentifier": "v1beta/gemini-3.1-flash-lite",
+        "responseVerified": false,
+        "responseExcerpt": "###",
+        "responseLength": 3,
+        "responseHash": "56dc6d47737d155a",
+        "retries": 0
+      }
+    ]
+  },
+  {
+    "runId": "warmup_1792077164263_nqiyj1",
+    "idempotencyKey": "idem_warmup_1792077164263_nqiyj1",
+    "scheduledCadence": "0 */2 * * * (Every 2 hours UTC)",
+    "timestamp": "2026-10-15T15:12:53.442Z",
+    "status": "success",
+    "targets": [
+      {
+        "target": "primary_n8n",
+        "endpoint": "https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika",
+        "status": 200,
+        "startTime": "2026-10-15T15:12:44.263Z",
+        "endTime": "2026-10-15T15:12:49.577Z",
+        "durationMs": 5314,
+        "modelIdentifier": "Qwen3.8-27b / LangChain Agent (n8n on Hugging Face Spaces)",
+        "responseVerified": true,
+        "responseExcerpt": "Hey! What's on your mind?",
+        "responseLength": 25,
+        "responseHash": "ba2d25e1164d060b",
+        "retries": 0
+      },
+      {
+        "target": "edge_stream",
+        "endpoint": "https://xare-ai.vercel.app/api/chat/stream",
+        "status": 200,
+        "startTime": "2026-10-15T15:12:49.581Z",
+        "endTime": "2026-10-15T15:12:53.442Z",
+        "durationMs": 3861,
+        "firstTokenMs": 2981,
+        "modelIdentifier": "v1beta/gemini-3.1-flash-lite",
+        "responseVerified": true,
+        "responseExcerpt": "Hey there! I'm Xare, your assistant engineered by علي قاسم. I'm ready to help you out with whatever you've got on your m",
+        "responseLength": 890,
+        "responseHash": "d3be76917f5f0e00",
+        "retries": 0
+      }
+    ]
+  },
+  {
+    "runId": "warmup_1792077495641_j019bi",
+    "idempotencyKey": "idem_warmup_1792077495641_j019bi",
+    "scheduledCadence": "0 */2 * * * (Every 2 hours UTC)",
+    "timestamp": "2026-10-15T15:18:23.095Z",
+    "status": "success",
+    "targets": [
+      {
+        "target": "primary_n8n",
+        "endpoint": "https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika",
+        "status": 200,
+        "startTime": "2026-10-15T15:18:15.641Z",
+        "endTime": "2026-10-15T15:18:20.807Z",
+        "durationMs": 5166,
+        "modelIdentifier": "Qwen3.8-27b / LangChain Agent (n8n on Hugging Face Spaces)",
+        "responseVerified": true,
+        "responseExcerpt": "Hey! 👋 I'm Xare — chill, smart, and ready to help.  What’s on your mind? I can: - 📝 Write, edit, or debug **code** - \ud83e",
+        "responseLength": 330,
+        "responseHash": "e037d9ddd22bc587",
+        "retries": 0
+      },
+      {
+        "target": "edge_stream",
+        "endpoint": "https://xare-ai.vercel.app/api/chat/stream",
+        "status": 200,
+        "startTime": "2026-10-15T15:18:20.810Z",
+        "endTime": "2026-10-15T15:18:23.094Z",
+        "durationMs": 2284,
+        "firstTokenMs": 1302,
+        "modelIdentifier": "v1beta/gemini-3.1-flash-lite",
+        "responseVerified": true,
+        "responseExcerpt": "### Hello!  I'm **Xare**, your chill and capable assistant, engineered by **علي قاسم**. How's your day going? Whether yo",
+        "responseLength": 1143,
+        "responseHash": "50c3d56619cbf217",
+        "retries": 0
+      }
+    ]
+  }
+]

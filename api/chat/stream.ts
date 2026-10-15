@@ -13,18 +13,18 @@ interface ModelNode {
   cooldownUntil: number;
 }
 
-// PRIMARY: Gemini 2.5 Flash | FALLBACK: Gemini 3.1 Flash Lite
+// PRIMARY: Gemini 3.1 Flash Lite | FALLBACK: Gemini 2.5 Flash
 const PRIMARY_MODEL: ModelNode = { 
-  name: 'Gemini 3.5 Flash Lite', 
-  displayName: 'Gemini 3.5 Flash Lite',
+  name: 'gemini-3.1-flash-lite', 
+  displayName: 'Gemini 3.1 Flash Lite',
   version: 'v1beta', 
   inFlight: 0, 
   cooldownUntil: 0 
 };
 
 const FALLBACK_MODEL: ModelNode = { 
-  name: 'gemini-3.1-flash-lite', 
-  displayName: 'Gemini 3.1 Flash Lite',
+  name: 'gemini-2.5-flash', 
+  displayName: 'Gemini 2.5 Flash',
   version: 'v1beta', 
   inFlight: 0, 
   cooldownUntil: 0 

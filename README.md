@@ -69,10 +69,11 @@
 13. [Environment & Configuration](#13-environment--configuration)
 14. [n8n Workflow Setup & Template Notes](#14-n8n-workflow-setup--template-notes)
 15. [Testing & Verification](#15-testing--verification)
-16. [Engineering Highlights](#16-engineering-highlights)
-17. [Security & Deployment Considerations](#17-security--deployment-considerations)
-18. [Roadmap & Future Improvements](#18-roadmap--future-improvements)
-19. [Credits & Contact](#19-credits--contact)
+16. [Automated 2-Hour Chat Warm-Up Subsystem](#16-automated-2-hour-chat-warm-up-subsystem)
+17. [Engineering Highlights](#17-engineering-highlights)
+18. [Security & Deployment Considerations](#18-security--deployment-considerations)
+19. [Roadmap & Future Improvements](#19-roadmap--future-improvements)
+20. [Credits & Contact](#20-credits--contact)
 
 ---
 
@@ -666,23 +667,51 @@ node scripts/verify_live_deploy.cjs
 
 ---
 
-## 16. Engineering Highlights
+## 16. Automated 2-Hour Chat Warm-Up Subsystem
 
-### 16.1 Zero-Flash 60fps Streaming Vault (`STREAMING_TEXT_VAULT`)
+To eliminate cold-start freezing and request timeouts when the application has been idle (such as overnight or during periods without real users), Xare AI implements a verified, automated **Two-Hour Chat Warm-Up Subsystem**.
+
+### Architecture & Pipeline Overview
+- **Recurring Cloud Cadence**: Scheduled every 2 hours continuously (`0 */2 * * * UTC`) via GitHub Actions (`.github/workflows/warmup.yml`) and supported by Vercel Cron (`vercel.json`). Operates completely in the cloud, independent of user browsers or open tabs.
+- **Genuine Synthetic User Turn**: Dispatches the exact synthetic message `Hi` through the real production chat submission pipeline using isolated synthetic identity `userId: 'xare-warmup-synthetic-agent'`.
+- **Target Inferences Warmed**:
+  1. **Primary Production Pipeline (`aliiis-24-7-n8n.hf.space`)**: Keeps the Hugging Face Spaces container awake, preventing container sleep and reducing cold starts from 35–75s+ down to ~5s.
+  2. **Vercel Edge Streaming Pipeline (`/api/chat/stream`)**: Warms Edge serverless instances and Google Generative AI streaming connections (TTFT ~800–1200ms).
+- **Inference Verification**: Verifies genuine non-empty assistant content (rejects empty/whitespace, raw HTTP 200 strings, and error messages). Records timing, SHA-256 content hashes, and writes durable evidence to [`docs/warmup/evidence.json`](./docs/warmup/evidence.json).
+- **Concurrency & Idempotency**: 60-second in-memory execution cooldown prevents duplicate runs and protects upstream quotas.
+
+### Warm-Up Verification Commands
+```bash
+# Execute full live warm-up against production
+npm run warmup
+
+# Run the 6-test unit & live integration suite
+npm test
+```
+Full subsystem specifications and benchmark reports are detailed in:
+- [`docs/warmup/README.md`](./docs/warmup/README.md)
+- [`docs/warmup/BENCHMARK_REPORT.md`](./docs/warmup/BENCHMARK_REPORT.md)
+- [`docs/warmup/evidence.json`](./docs/warmup/evidence.json)
+
+---
+
+## 17. Engineering Highlights
+
+### 17.1 Zero-Flash 60fps Streaming Vault (`STREAMING_TEXT_VAULT`)
 Instead of storing every incoming SSE token in React top-level state (`chatHistory`)—which would re-render the sidebar, header, and every historical message bubble on each animation frame—[`src/App.tsx`](./src/App.tsx) writes partial text into a module-scoped `Map` (`STREAMING_TEXT_VAULT`) and notifies only the active `ChatMessageItem` via React's `useSyncExternalStore`. `requestAnimationFrame` adaptive pacing (`STREAMING_CONFIG`) smoothly interpolates characters and pauses automatically at chunk boundaries while background code continuations are in flight (`PENDING_CONTINUATIONS`).
 
-### 16.2 Automated Multi-Chunk HTML Code Continuation
+### 17.2 Automated Multi-Chunk HTML Code Continuation
 When generating complex interactive 3D/Canvas/HTML5 applications in `Build` mode, LLM output-token limits can truncate code mid-script or mid-tag. [`src/App.tsx`](./src/App.tsx) implements a 3-stage continuation pipeline:
 1. **`checkHtmlCodeCompleteness(text)`**: Inspects odd backtick fence counts, unclosed `<script>`, `<style>`, `<html>`, `<body>`, or `<svg>` tags, and trailing `<` characters.
 2. **`cleanAndMergeContinuation(existingCode, continuationChunk)`**: Strips conversational filler or duplicate opening fences from the continuation chunk and performs longest-suffix/prefix overlap deduplication (up to 300 characters) for a seamless stitch.
 3. **`streamGeminiWithCodeContinuation` / `ensureCompleteHtmlCode`**: Automatically issues up to `MAX_CONTINUATIONS = 8` negative-prompted continuation requests until all tags and fences are closed before mounting the live sandbox `iframe`.
 
-### 16.3 Sandboxed Visualizer with Runtime Error Auto-Fix Bridge
+### 17.3 Sandboxed Visualizer with Runtime Error Auto-Fix Bridge
 The `CodeBlock` and `InteractivePreviewModal` components inject a responsive layout evaluator (`evaluateLayout`) and a global `window.onerror` / `unhandledrejection` listener into the sandboxed `iframe` (`srcDoc`). If generated JavaScript throws a runtime error, the `iframe` posts an `XARE_RUNTIME_ERROR` message to the parent window, surfacing a one-click **"Fix Error"** action that dispatches the exact stack trace back to the AI for self-healing.
 
 ---
 
-## 17. Security & Deployment Considerations
+## 18. Security & Deployment Considerations
 
 In keeping with transparent engineering documentation, developers forking or deploying this repository to public production environments should review and address the following implementation details:
 
@@ -695,11 +724,11 @@ In keeping with transparent engineering documentation, developers forking or dep
 4. **Configure Firebase Security Rules**:
    - [`src/App.tsx`](./src/App.tsx) includes the public client-side `firebaseConfig` for the `xare-ai` Firebase project. Ensure your Firestore Security Rules strictly enforce `request.auth != null && request.auth.uid == userId` on `users/{userId}/chats/{chatId}` and `users/{userId}/usage/{date}`.
 5. **Primary Model Identifier in `api/chat/stream.ts`**:
-   - In [`api/chat/stream.ts`](./api/chat/stream.ts), `PRIMARY_MODEL.name` is currently set to `'Gemini 3.5 Flash Lite'` (which contains spaces and is rejected by Google's `v1beta/models/...:streamGenerateContent` URL path), causing every request to fail over to `FALLBACK_MODEL` (`'gemini-3.1-flash-lite'`). Updating `PRIMARY_MODEL.name` to a valid slug (such as `'gemini-2.5-flash'` or `'gemini-3.1-flash-lite'`) eliminates the initial failed upstream hop.
+   - Resolved: `PRIMARY_MODEL.name` in [`api/chat/stream.ts`](./api/chat/stream.ts) is configured to `'gemini-3.1-flash-lite'` with failover to `'gemini-2.5-flash'`, eliminating previous failed upstream dispatch hops.
 
 ---
 
-## 18. Roadmap & Future Improvements
+## 19. Roadmap & Future Improvements
 
 - [ ] **Short-Lived Scoped Voice Tokens**: Upgrade [`api/voice/token.ts`](./api/voice/token.ts) to exchange `DEEPGRAM_API_KEY` for a 60-second TTL temporary token via Deepgram's `/v1/keys` endpoint.
 - [ ] **Firebase ID Token Verification at the Edge**: Verify Firebase Auth JWT signatures via Web Crypto API across `/api/chat/stream`, `/api/upload/presign`, and `/api/voice/token`.
@@ -708,7 +737,7 @@ In keeping with transparent engineering documentation, developers forking or dep
 
 ---
 
-## 19. Credits & Contact
+## 20. Credits & Contact
 
 <table>
   <tr>

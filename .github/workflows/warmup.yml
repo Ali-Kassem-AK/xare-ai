@@ -1,0 +1,57 @@
+name: Xare AI 2-Hour Chat Warm-Up Subsystem
+
+on:
+  schedule:
+    # Runs every 2 hours continuously: 00:00, 02:00, 04:00, 06:00, 08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00 UTC
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target inference pipeline to warm'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - n8n
+          - edge
+      repeat:
+        description: 'Number of consecutive warm-up iterations (for benchmarking)'
+        required: false
+        default: '1'
+        type: string
+
+concurrency:
+  group: xare-chat-warmup
+  cancel-in-progress: false
+
+jobs:
+  execute-warmup:
+    name: Run Synthetic Chat Warm-Up & Verify Inference
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20 Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Execute Synthetic User Turn ('Hi') & Record Proof
+        env:
+          WARMUP_SECRET: ${{ secrets.WARMUP_SECRET || secrets.CHATBOT_TOKEN || 'ali1234' }}
+          VERCEL_APP_URL: https://xare-ai.vercel.app
+          N8N_WEBHOOK_URL: https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika
+        run: |
+          node scripts/warmup_runner.cjs --target=${{ inputs.target || 'all' }} --repeat=${{ inputs.repeat || '1' }} --report
+
+      - name: Upload Telemetry & Evidence Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: warmup-telemetry-evidence
+          path: docs/warmup/evidence.json
+          if-no-files-found: ignore
