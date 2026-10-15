@@ -9,11 +9,11 @@ on:
       target:
         description: 'Target inference pipeline to warm'
         required: true
-        default: 'all'
+        default: 'n8n'
         type: choice
         options:
-          - all
           - n8n
+          - all
           - edge
       repeat:
         description: 'Number of consecutive warm-up iterations (for benchmarking)'
@@ -40,18 +40,26 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Validate Fail-Closed Secret Configuration
+        run: |
+          if [ -z "${{ secrets.WARMUP_SECRET }}" ]; then
+            echo "::error::Required secret WARMUP_SECRET is not configured in GitHub repository secrets. Halting execution to fail closed."
+            exit 1
+          fi
+
       - name: Execute Synthetic User Turn ('Hi') & Record Proof
         env:
-          WARMUP_SECRET: ${{ secrets.WARMUP_SECRET || secrets.CHATBOT_TOKEN || 'ali1234' }}
-          VERCEL_APP_URL: https://xare-ai.vercel.app
-          N8N_WEBHOOK_URL: https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika
+          WARMUP_SECRET: ${{ secrets.WARMUP_SECRET }}
+          VERCEL_APP_URL: ${{ vars.VERCEL_APP_URL || 'https://xare-ai.vercel.app' }}
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika' }}
         run: |
-          node scripts/warmup_runner.cjs --target=${{ inputs.target || 'all' }} --repeat=${{ inputs.repeat || '1' }} --report
+          node scripts/warmup_runner.cjs --target=${{ inputs.target || 'n8n' }} --repeat=${{ inputs.repeat || '1' }} --report
 
       - name: Upload Telemetry & Evidence Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: warmup-telemetry-evidence
+          name: warmup-telemetry-evidence-${{ github.run_id }}
           path: docs/warmup/evidence.json
           if-no-files-found: ignore
+          retention-days: 90

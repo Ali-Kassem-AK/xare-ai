@@ -23,7 +23,7 @@ async function test() {
     method: 'POST',
     headers: {
       'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      'x-chatbot-token': 'ali1234'
+      'x-chatbot-token': process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN || process.env.WARMUP_SECRET || ''
     },
     body: body
   });

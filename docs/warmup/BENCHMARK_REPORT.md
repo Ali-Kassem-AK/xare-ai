@@ -50,14 +50,22 @@ Measurements evaluate two critical inference targets:
 
 ## 4. Cost, Bandwidth & Resource Impact Audit
 
+### Schedule Target: Single-Target (`n8n` Primary Webhook)
+By default, the warm-up scheduler targets only the true cold bottleneck: the primary `n8n` Hugging Face container (`aliiis-24-7-n8n.hf.space`). Vercel Edge Gemini streaming is warmed on-demand or during dual-target verification.
+
 | Parameter | Value | Assessment |
 | :--- | :--- | :--- |
-| **Invocation Cadence** | Every 2 hours (`0 */2 * * *`) | Verified optimal for container retention |
-| **Runs Per 24 Hours** | 12 runs | Extremely lightweight footprint |
-| **Runs Per Month (30 days)** | 360 runs | Safe within all free-tier limits |
-| **Prompt Size per Run** | 2 bytes (`"Hi"`) ~ 1 token | Minimal overhead |
-| **Tokens Consumed per Month** | ~36,000 tokens | Cost: < $0.005 / month (effectively $0.00) |
-| **Bandwidth per Month** | ~1.8 MB | Zero impact on CDN bandwidth |
+| **Invocation Cadence** | Every 2 hours (`0 */2 * * * UTC`) | Matches Hugging Face container sleep threshold |
+| **Runs Per 24 Hours** | 12 runs | Continuous 24/7 background Priming |
+| **Runs Per Month (30 days)** | 360 runs | Safe within GitHub Actions & API free tiers |
+| **User Prompt Length** | 2 bytes (`"Hi"`) | Exactly 1 token |
+| **System Instruction Ingestion** | ~450 tokens | Standard Xare AI LangChain persona preamble |
+| **Generated Completion Length** | ~50–100 tokens | "Hey! I'm Xare... What's on your mind?" |
+| **Total Tokens per Run** | ~500 – 550 tokens | Minimal inference footprint |
+| **Monthly Tokens Consumed** | **~180,000 – 198,000 tokens** | 360 runs × 550 tokens |
+| **Model & Hosting Provider** | Qwen3.8-27b / LangChain on HF Spaces | Basic CPU container / free inference tier |
+| **Incremental Monthly Cost** | **$0.00** | $0.00 billed across all services |
+| **Bandwidth per Month** | ~1.8 MB | Zero impact on bandwidth limits |
 | **Impact on Real Users** | Zero lock contention | Improves real-user first-turn response by up to 90% |
 
 ---

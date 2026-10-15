@@ -133,7 +133,7 @@ export class TransportLifetimeLedger {
 - **Endpoint**: `POST https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika`
 - **Headers**:
   - `Content-Type: application/json`
-  - `x-chatbot-token: ali1234`
+  - `x-chatbot-token: <CONFIGURED_N8N_TOKEN>`
 - **Payload**:
   ```json
   {

@@ -7,7 +7,7 @@ const assert = require('assert');
 // -----------------------------------------------------------------------------
 
 const WEBHOOK_URL = 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika';
-const CHATBOT_TOKEN = 'ali1234';
+const CHATBOT_TOKEN = process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN || process.env.WARMUP_SECRET || '';
 
 // Helper: Build a minimal valid PDF of specified approximate size
 function createTestPdf(targetSizeBytes) {

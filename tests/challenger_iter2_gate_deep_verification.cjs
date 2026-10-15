@@ -403,7 +403,10 @@ async function runGateVerification() {
 
         const res = await fetch(mockWebhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-chatbot-token': 'ali1234' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-chatbot-token': process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN || process.env.WARMUP_SECRET || ''
+          },
           body: JSON.stringify(payload)
         });
 

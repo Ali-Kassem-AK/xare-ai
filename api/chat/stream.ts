@@ -4,6 +4,44 @@ export const config = {
 
 // Fail-closed server-side secret management
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const WARMUP_SECRET = process.env.WARMUP_SECRET;
+const CHATBOT_TOKEN = process.env.CHATBOT_TOKEN;
+
+interface RateLimitBucket {
+  count: number;
+  resetAt: number;
+}
+const IP_RATE_LIMITS = new Map<string, RateLimitBucket>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 30; // 30 requests per minute per IP
+
+function isRateLimited(clientIp: string): boolean {
+  const now = Date.now();
+  const bucket = IP_RATE_LIMITS.get(clientIp);
+
+  if (!bucket || now > bucket.resetAt) {
+    IP_RATE_LIMITS.set(clientIp, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    if (IP_RATE_LIMITS.size > 10000) {
+      for (const [ip, b] of IP_RATE_LIMITS.entries()) {
+        if (now > b.resetAt) IP_RATE_LIMITS.delete(ip);
+      }
+    }
+    return false;
+  }
+
+  bucket.count++;
+  return bucket.count > MAX_REQUESTS_PER_WINDOW;
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
 
 interface ModelNode {
   name: string;
@@ -90,12 +128,52 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 2. Cryptographic Authentication Guard
-    const authHeader = req.headers.get('Authorization') || req.headers.get('x-chatbot-token');
-    if (!authHeader || authHeader.length < 4) {
-      return new Response(JSON.stringify({ error: 'Unauthorized: Missing or invalid authentication token' }), {
-        status: 401,
+    // 2. Origin & Abuse Protection Guards
+    const origin = req.headers.get('Origin');
+    const isAllowedOrigin = (urlStr: string | null) => {
+      if (!urlStr) return false;
+      try {
+        const u = new URL(urlStr);
+        return (
+          u.hostname === 'xare-ai.vercel.app' ||
+          u.hostname.endsWith('.vercel.app') ||
+          u.hostname === 'localhost' ||
+          u.hostname === '127.0.0.1'
+        );
+      } catch (e) {
+        return false;
+      }
+    };
+
+    // Check service-to-service authentication (e.g. warm-up subsystem)
+    const authHeader = req.headers.get('Authorization') || req.headers.get('x-warmup-secret') || req.headers.get('x-chatbot-token');
+    const token = authHeader ? (authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()) : '';
+
+    const isWarmupAuth = Boolean(
+      (WARMUP_SECRET && token && timingSafeEqual(token, WARMUP_SECRET)) ||
+      (CHATBOT_TOKEN && token && timingSafeEqual(token, CHATBOT_TOKEN))
+    );
+
+    // If an untrusted third-party Origin is specified and request is not authenticated, block it
+    if (origin && !isAllowedOrigin(origin) && !isWarmupAuth) {
+      return new Response(JSON.stringify({ error: 'Forbidden: Untrusted request origin' }), {
+        status: 403,
         headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Client IP Sliding-Window Abuse Protection & Rate Limiting
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || '127.0.0.1';
+    if (!isWarmupAuth && isRateLimited(clientIp)) {
+      return new Response(JSON.stringify({ 
+        error: 'Too Many Requests', 
+        message: 'Rate limit exceeded. Please wait a moment before sending another message.' 
+      }), {
+        status: 429,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Retry-After': '60'
+        },
       });
     }
 

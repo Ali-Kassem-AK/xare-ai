@@ -14,6 +14,8 @@ function recordTest(id, name, type, expected, actual, status, durationMs, notes 
   if (notes) console.log(`   Note: ${notes}`);
 }
 
+const N8N_TEST_TOKEN = process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN || process.env.WARMUP_SECRET || '';
+
 // 1x1 transparent PNG binary
 const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 const samplePngBuffer = Buffer.from(pngBase64, 'base64');
@@ -283,7 +285,7 @@ async function runSuite() {
       };
       const res = await fetch('https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-chatbot-token': 'ali1234' },
+        headers: { 'Content-Type': 'application/json', 'x-chatbot-token': N8N_TEST_TOKEN },
         body: JSON.stringify(payload)
       });
       assert.strictEqual(res.status, 200);
@@ -314,7 +316,7 @@ async function runSuite() {
       };
       const res = await fetch('https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-chatbot-token': 'ali1234' },
+        headers: { 'Content-Type': 'application/json', 'x-chatbot-token': N8N_TEST_TOKEN },
         body: JSON.stringify(payload)
       });
       assert.strictEqual(res.status, 200);
@@ -346,7 +348,7 @@ async function runSuite() {
       };
       const res = await fetch('https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-chatbot-token': 'ali1234' },
+        headers: { 'Content-Type': 'application/json', 'x-chatbot-token': N8N_TEST_TOKEN },
         body: JSON.stringify(payload)
       });
       assert.strictEqual(res.status, 200);

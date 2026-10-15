@@ -10,9 +10,16 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const WARMUP_SECRET = process.env.WARMUP_SECRET || process.env.CRON_SECRET || process.env.CHATBOT_TOKEN || 'ali1234';
+const WARMUP_SECRET = process.env.WARMUP_SECRET || process.env.CRON_SECRET;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika';
 const VERCEL_APP_URL = process.env.VERCEL_APP_URL || 'https://xare-ai.vercel.app';
+
+if (!WARMUP_SECRET) {
+  console.error('\n❌ FATAL CONFIGURATION ERROR: Missing required WARMUP_SECRET or CRON_SECRET environment variable.');
+  console.error('To run the warm-up runner, provide a valid secret:');
+  console.error('  WARMUP_SECRET="<secret>" node scripts/warmup_runner.cjs\n');
+  process.exit(1);
+}
 
 const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write "علي كاسم").
 
@@ -24,7 +31,7 @@ const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, and high
 function parseArgs() {
   const args = process.argv.slice(2);
   const opts = {
-    target: 'all',
+    target: 'n8n', // Default to the true bottleneck (n8n on Hugging Face Spaces)
     repeat: 1,
     report: false,
     direct: false,
@@ -153,7 +160,8 @@ async function executeEdgeStreamDirect() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-chatbot-token': WARMUP_SECRET,
+        'x-warmup-secret': WARMUP_SECRET,
+        'Authorization': `Bearer ${WARMUP_SECRET}`,
         'x-user-id': 'xare-warmup-synthetic-agent'
       },
       body: JSON.stringify({

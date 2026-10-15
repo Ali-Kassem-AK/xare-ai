@@ -16,6 +16,9 @@ function recordTest(id, name, type, expected, actual, status, durationMs, notes 
   if (notes) console.log(`   Note: ${notes}`);
 }
 
+// Helper token from environment
+const N8N_TEST_TOKEN = process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN || process.env.WARMUP_SECRET || '';
+
 // ---------------------------------------------------------
 // Helper functions replicating backend presign logic
 // ---------------------------------------------------------
@@ -429,7 +432,7 @@ async function runAllTests() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-chatbot-token': 'ali1234'
+        'x-chatbot-token': N8N_TEST_TOKEN
       },
       body: JSON.stringify(e2ePayload)
     });
@@ -464,7 +467,7 @@ async function runAllTests() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-chatbot-token': 'ali1234'
+        'x-chatbot-token': N8N_TEST_TOKEN
       },
       body: JSON.stringify(pdfPayload)
     });
@@ -500,7 +503,7 @@ async function runAllTests() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-chatbot-token': 'ali1234'
+        'x-chatbot-token': N8N_TEST_TOKEN
       },
       body: JSON.stringify(audioPayload)
     });
@@ -525,7 +528,7 @@ async function runAllTests() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-chatbot-token': 'ali1234'
+        'x-chatbot-token': N8N_TEST_TOKEN
       },
       body: JSON.stringify({
         fileName: 'test_audit_probe.jpg',
@@ -567,7 +570,7 @@ async function runAllTests() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-chatbot-token': 'ali1234'
+        'x-chatbot-token': N8N_TEST_TOKEN
       },
       body: JSON.stringify(smallPayload)
     });

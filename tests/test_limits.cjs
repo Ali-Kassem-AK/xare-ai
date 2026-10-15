@@ -2,7 +2,7 @@ const fs = require('fs');
 
 async function testPayloadSize() {
   const url = 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika';
-  const token = 'ali1234';
+  const token = process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN || process.env.WARMUP_SECRET || '';
 
   console.log('================================================================');
   console.log('PROBING N8N / HUGGING FACE NETWORK & PAYLOAD LIMITS');

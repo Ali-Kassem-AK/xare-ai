@@ -76,8 +76,9 @@ The synthetic warm-up turn strictly adheres to the exact request contract used b
 - **Concurrency Guard**: `group: xare-chat-warmup`, `cancel-in-progress: false` ensures zero duplicate overlapping runs.
 - **Manual Trigger**: Supports `workflow_dispatch` with custom target selection (`all`, `n8n`, `edge`) and repeat count for benchmarking.
 
-### B. Vercel Cron (`vercel.json`)
-- **Plan Rule**: Vercel Hobby accounts are restricted to at most one cron job per day (`0 0 * * *`). To avoid build rejection on Hobby accounts, `vercel.json` is set to `0 0 * * *`. If upgraded to Vercel Pro, `schedule` can be updated to `0 */2 * * *`. GitHub Actions executes the full 2-hour cadence continuously.
+### B. Scheduler Single Source of Truth
+- **Dedicated Cloud Runner**: GitHub Actions executes the full 2-hour cadence continuously (`0 */2 * * * UTC`) without plan restrictions or charges.
+- **Vercel Cron Removed**: The daily cron was removed from `vercel.json` to eliminate duplicate scheduler drift, eliminate confusion between daily vs 2-hour triggers, and avoid Vercel Hobby plan 1-cron/day restrictions. All scheduling is managed strictly via GitHub Actions.
 
 ---
 
@@ -87,8 +88,8 @@ Endpoints [`api/warmup/index.ts`](../../api/warmup/index.ts) and [`api/cron/warm
 - **Accepted Headers**:
   - `Authorization: Bearer <WARMUP_SECRET>`
   - `x-warmup-secret: <WARMUP_SECRET>`
-  - `x-chatbot-token: <CHATBOT_TOKEN>`
-- **Unauthorized Behavior**: Returns HTTP `401 Unauthorized` with zero upstream model dispatch.
+  - `Authorization: Bearer <CRON_SECRET>`
+- **Unauthorized Behavior**: Returns HTTP `401 Unauthorized` with zero upstream model dispatch. Fail closed if neither secret is configured on the server.
 - **Idempotency Protection**: 60-second cooldown gate prevents rapid request storms or denial-of-wallet loops.
 
 ---
@@ -107,7 +108,7 @@ npm test
 ### Inspect Subsystem Health & Telemetry
 ```bash
 # Query live health and recent run history
-curl -H "x-chatbot-token: ali1234" https://xare-ai.vercel.app/api/warmup
+curl -H "Authorization: Bearer <WARMUP_SECRET>" https://xare-ai.vercel.app/api/warmup
 ```
 
 ---

@@ -2,7 +2,7 @@ const fs = require('fs');
 
 async function testMultipartE2E() {
   const url = 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika';
-  const token = 'ali1234';
+  const token = process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN || process.env.WARMUP_SECRET || '';
 
   console.log('================================================================');
   console.log('TESTING MULTIPART FORM-DATA E2E WITH REAL MEDIA PIPELINE');

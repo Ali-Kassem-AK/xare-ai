@@ -2,10 +2,10 @@ export const config = {
   runtime: 'edge',
 };
 
-// Fail-closed secret management
+// Fail-closed server-side secret management — ZERO hardcoded fallbacks
 const WARMUP_SECRET = process.env.WARMUP_SECRET;
 const CRON_SECRET = process.env.CRON_SECRET;
-const CHATBOT_TOKEN = process.env.CHATBOT_TOKEN || 'ali1234';
+const N8N_WEBHOOK_TOKEN = process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN || process.env.WARMUP_SECRET;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika';
 
 export const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write "علي كاسم").
@@ -31,6 +31,7 @@ export interface TargetExecutionRecord {
   responseVerified: boolean;
   responseExcerpt: string;
   responseLength: number;
+  responseHash?: string;
   error?: string;
   retries: number;
 }
@@ -54,22 +55,37 @@ const MAX_HISTORY = 20;
 const RUN_HISTORY: WarmupRunSummary[] = [];
 
 /**
- * Authenticates request against WARMUP_SECRET, CRON_SECRET, or CHATBOT_TOKEN
+ * Constant-time string comparison to prevent timing side-channel attacks
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+/**
+ * Strict authentication: verifies caller token against configured server-side secrets.
+ * Fails closed if no secret is configured on the server.
  */
 function isAuthorized(req: Request): boolean {
-  const authHeader = req.headers.get('Authorization') || req.headers.get('x-warmup-secret') || req.headers.get('x-chatbot-token');
+  if (!WARMUP_SECRET && !CRON_SECRET) {
+    return false;
+  }
+
+  const authHeader = req.headers.get('Authorization') || req.headers.get('x-warmup-secret');
   if (!authHeader) return false;
 
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
-  if (!token || token.length < 4) return false;
+  if (!token || token.length < 8) return false;
 
-  // Check against all authorized secrets
-  if (WARMUP_SECRET && token === WARMUP_SECRET) return true;
-  if (CRON_SECRET && token === CRON_SECRET) return true;
-  if (CHATBOT_TOKEN && token === CHATBOT_TOKEN) return true;
-  
-  // Safe default fallback for development and authorized staging
-  return token === 'ali1234';
+  if (WARMUP_SECRET && timingSafeEqual(token, WARMUP_SECRET)) return true;
+  if (CRON_SECRET && timingSafeEqual(token, CRON_SECRET)) return true;
+
+  return false;
 }
 
 /**
@@ -96,6 +112,13 @@ async function warmPrimaryN8n(runId: string): Promise<TargetExecutionRecord> {
     timestamp: startIso
   };
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  if (N8N_WEBHOOK_TOKEN) {
+    headers['x-chatbot-token'] = N8N_WEBHOOK_TOKEN;
+  }
+
   while (retries <= MAX_RETRIES) {
     try {
       const controller = new AbortController();
@@ -103,10 +126,7 @@ async function warmPrimaryN8n(runId: string): Promise<TargetExecutionRecord> {
 
       const res = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-chatbot-token': CHATBOT_TOKEN
-        },
+        headers,
         body: JSON.stringify(payload),
         signal: controller.signal
       });
@@ -173,17 +193,21 @@ async function warmEdgeStream(originUrl: string): Promise<TargetExecutionRecord>
   const startIso = new Date(startTime).toISOString();
   const targetUrl = `${originUrl}/api/chat/stream`;
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-user-id': 'xare-warmup-synthetic-agent'
+  };
+  if (WARMUP_SECRET) {
+    headers['x-warmup-secret'] = WARMUP_SECRET;
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
     const res = await fetch(targetUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-chatbot-token': CHATBOT_TOKEN,
-        'x-user-id': 'xare-warmup-synthetic-agent'
-      },
+      headers,
       body: JSON.stringify({
         prompt: 'Hi',
         systemInstruction: DEFAULT_SYSTEM_INSTRUCTION
@@ -294,17 +318,28 @@ export default async function handler(req: Request) {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-warmup-secret, x-chatbot-token',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-warmup-secret',
         'Access-Control-Max-Age': '86400',
       },
     });
   }
 
-  // 1. Authentication Guard
+  // 1. Fail Closed Server Configuration Guard
+  if (!WARMUP_SECRET && !CRON_SECRET) {
+    return new Response(JSON.stringify({
+      error: 'Server Misconfiguration',
+      message: 'Warm-up subsystem is disabled: server-side WARMUP_SECRET or CRON_SECRET is not configured.'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // 2. Strict Authentication Guard (Checked before ANY action or query parameter parsing)
   if (!isAuthorized(req)) {
     return new Response(JSON.stringify({
       error: 'Unauthorized',
-      message: 'Missing or invalid warm-up authorization secret. Provide Authorization Bearer token, x-warmup-secret, or x-chatbot-token header.'
+      message: 'Missing or invalid warm-up authentication secret. Provide a valid Authorization Bearer token or x-warmup-secret header matching the configured secret.'
     }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -314,12 +349,12 @@ export default async function handler(req: Request) {
   const url = new URL(req.url);
   const isForce = url.searchParams.get('force') === 'true';
 
-  // 2. Health & Telemetry inspection (GET without force execution)
+  // 3. Health & Telemetry inspection (GET without trigger parameter)
   if (req.method === 'GET' && !url.searchParams.has('trigger')) {
     return new Response(JSON.stringify({
       service: 'Xare AI Chat Warm-Up Subsystem',
       status: 'online',
-      cadence: 'Every 2 hours (0 */2 * * *)',
+      cadence: 'Every 2 hours (0 */2 * * * UTC)',
       environment: process.env.VERCEL_ENV || 'production',
       lastExecutionTime: lastExecutionTime ? new Date(lastExecutionTime).toISOString() : null,
       cooldownRemainingSeconds: Math.max(0, Math.ceil((EXECUTION_COOLDOWN_MS - (Date.now() - lastExecutionTime)) / 1000)),
@@ -335,7 +370,7 @@ export default async function handler(req: Request) {
     });
   }
 
-  // 3. Concurrency & Idempotency Lock
+  // 4. Concurrency & Distributed Idempotency Lock
   const now = Date.now();
   if (isExecutionInProgress) {
     return new Response(JSON.stringify({
@@ -361,7 +396,7 @@ export default async function handler(req: Request) {
     });
   }
 
-  // 4. Execute Genuine Warm-Up Run
+  // 5. Execute Genuine Warm-Up Run
   isExecutionInProgress = true;
   const runId = `warmup_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const idempotencyKey = `idem_${runId}`;
@@ -369,7 +404,8 @@ export default async function handler(req: Request) {
 
   try {
     const origin = url.origin && url.origin !== 'null' ? url.origin : 'https://xare-ai.vercel.app';
-    const targetMode = url.searchParams.get('target') || 'all';
+    // Default to the true bottleneck (n8n on Hugging Face Spaces) unless caller explicitly requested 'all' or 'edge'
+    const targetMode = url.searchParams.get('target') || 'n8n';
 
     const targets: TargetExecutionRecord[] = [];
 
@@ -379,7 +415,7 @@ export default async function handler(req: Request) {
       targets.push(n8nRecord);
     }
 
-    // Target 2: Vercel Edge Gemini Streaming Pipeline
+    // Target 2: Vercel Edge Gemini Streaming Pipeline (Optional secondary target)
     if (targetMode === 'all' || targetMode === 'edge') {
       const edgeRecord = await warmEdgeStream(origin);
       targets.push(edgeRecord);

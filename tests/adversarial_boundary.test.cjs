@@ -423,7 +423,10 @@ async function runAdversarialSuite() {
 
       const res = await fetch('https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-chatbot-token': 'ali1234' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-chatbot-token': process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN || process.env.WARMUP_SECRET || ''
+        },
         body: JSON.stringify(payload)
       });
 
