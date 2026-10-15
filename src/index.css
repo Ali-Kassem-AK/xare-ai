@@ -71,7 +71,7 @@
   .chat-message-list {
     gap: 1rem !important;
     padding-top: 4px !important;
-    padding-bottom: 4px !important;
+    padding-bottom: 2.5rem !important;
   }
   .chat-disclaimer {
     display: none !important;

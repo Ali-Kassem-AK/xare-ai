@@ -4839,16 +4839,41 @@ export function App() {
     if (typeof window === 'undefined') return;
 
     const updateViewport = () => {
-      if (window.visualViewport) {
-        setVisualViewportHeight(window.visualViewport.height);
+      const vv = window.visualViewport;
+      if (!vv) {
+        setVisualViewportHeight(null);
+        return;
+      }
+
+      // Check if user is zooming (pinch zoom on mobile or trackpad/browser zoom)
+      const isZoomed = Math.abs(vv.scale - 1.0) > 0.05;
+      const isTouchDevice = 'ontouchstart' in window || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0);
+
+      // Only restrict the root element height to visualViewport.height when:
+      // 1. It is a mobile touch device
+      // 2. The user is NOT zooming (scale ~ 1.0)
+      // 3. The mobile virtual keyboard is actually open (window.innerHeight - vv.height > 80)
+      if (isTouchDevice && !isZoomed) {
+        const keyboardOpen = window.innerHeight - vv.height > 80;
+        if (keyboardOpen) {
+          setVisualViewportHeight(vv.height);
+        } else {
+          setVisualViewportHeight(null);
+        }
       } else {
-        setVisualViewportHeight(window.innerHeight);
+        // Desktop / PC (all zoom levels), and mobile pinch-zoom:
+        // Do NOT constrain height with fixed pixels. Let CSS h-[100dvh] cleanly fill the viewport without collapsing or leaving black voids.
+        setVisualViewportHeight(null);
       }
-      if (window.scrollY !== 0 || window.scrollX !== 0) {
-        window.scrollTo(0, 0);
-      }
-      if (chatContainerRef.current && !isUserScrolledUpRef.current) {
-        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+
+      // Only reset window scroll if NOT zoomed, so users can pan freely without being snapped back
+      if (!isZoomed) {
+        if (window.scrollY !== 0 || window.scrollX !== 0) {
+          window.scrollTo(0, 0);
+        }
+        if (chatContainerRef.current && !isUserScrolledUpRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
       }
     };
 
@@ -4856,27 +4881,24 @@ export function App() {
 
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', updateViewport);
-      window.visualViewport.addEventListener('scroll', updateViewport);
     }
     window.addEventListener('resize', updateViewport);
-    window.addEventListener('scroll', updateViewport);
 
     return () => {
       if (window.visualViewport) {
         window.visualViewport.removeEventListener('resize', updateViewport);
-        window.visualViewport.removeEventListener('scroll', updateViewport);
       }
       window.removeEventListener('resize', updateViewport);
-      window.removeEventListener('scroll', updateViewport);
     };
   }, []);
 
   const handleTextareaFocus = () => {
-    if (window.scrollY !== 0 || window.scrollX !== 0) {
+    const isZoomed = window.visualViewport ? Math.abs(window.visualViewport.scale - 1.0) > 0.05 : false;
+    if (!isZoomed && (window.scrollY !== 0 || window.scrollX !== 0)) {
       window.scrollTo(0, 0);
     }
     setTimeout(() => {
-      if (window.scrollY !== 0 || window.scrollX !== 0) {
+      if (!isZoomed && (window.scrollY !== 0 || window.scrollX !== 0)) {
         window.scrollTo(0, 0);
       }
       if (chatContainerRef.current && !isUserScrolledUpRef.current) {
@@ -7693,7 +7715,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
   if (isCheckingSession) {
     return (
-      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
+      <div className={`xare-app relative h-[100dvh] w-full overflow-hidden flex flex-col items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
         <GoogleStyles />
         <div className="relative z-10 flex flex-col items-center animate-pulse">
           {/* ========================================== */}
@@ -7714,7 +7736,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
   if (!currentUser) {
     return (
-      <div className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
+      <div className={`xare-app relative h-[100dvh] w-full overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}>
         <GoogleStyles />
 
         <div className="absolute top-6 right-6 z-50">
@@ -7812,7 +7834,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
   return (
     <div 
       style={{ height: visualViewportHeight ? `${visualViewportHeight}px` : undefined }}
-      className={`xare-app relative h-[100dvh] w-screen overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}
+      className={`xare-app relative h-[100dvh] w-full overflow-hidden flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-[#030407] text-slate-50' : 'bg-[#f8fafc] text-slate-900'}`}
     >
       <GoogleStyles />
 
@@ -8102,7 +8124,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
             onTouchCancel={handleTouchEnd} 
             className={`flex-1 overflow-y-auto chat-scroll gpu-accelerated w-full relative z-10 text-size-${fontSize}`}
           >
-            <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-8 pt-2 chat-message-list">
+            <div className="max-w-5xl mx-auto p-4 sm:p-6 pb-12 sm:pb-16 space-y-8 pt-2 chat-message-list">
 
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center min-h-[50vh] text-center my-auto px-4 animate-float-up select-none">
@@ -8627,7 +8649,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-[#030407] text-white p-6 text-center">
+        <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-[#030407] text-white p-6 text-center">
           <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl max-w-md w-full space-y-4 backdrop-blur-xl">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/20">
               <XareLogo className="w-8 h-8" scale={2.5} x="-8%" isDarkMode={true} />
