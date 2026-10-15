@@ -112,5 +112,28 @@
         "retries": 0
       }
     ]
+  },
+  {
+    "runId": "warmup_1792080862179_p7nwph",
+    "idempotencyKey": "idem_warmup_1792080862179_p7nwph",
+    "scheduledCadence": "0 */2 * * * (Every 2 hours UTC)",
+    "timestamp": "2026-10-15T16:14:26.772Z",
+    "status": "success",
+    "targets": [
+      {
+        "target": "primary_n8n",
+        "endpoint": "https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika",
+        "status": 200,
+        "startTime": "2026-10-15T16:14:22.180Z",
+        "endTime": "2026-10-15T16:14:26.770Z",
+        "durationMs": 4590,
+        "modelIdentifier": "Qwen3.8-27b / LangChain Agent (n8n on Hugging Face Spaces)",
+        "responseVerified": true,
+        "responseExcerpt": "Hey there! 👋 What's up? How can I help you today?",
+        "responseLength": 50,
+        "responseHash": "ba2f1604b3f44185",
+        "retries": 0
+      }
+    ]
   }
 ]
