@@ -10,16 +10,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const N8N_WEBHOOK_TOKEN = process.env.N8N_WEBHOOK_TOKEN;
 const WARMUP_SECRET = process.env.WARMUP_SECRET || process.env.CRON_SECRET;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika';
 const VERCEL_APP_URL = process.env.VERCEL_APP_URL || 'https://xare-ai.vercel.app';
-
-if (!WARMUP_SECRET) {
-  console.error('\n❌ FATAL CONFIGURATION ERROR: Missing required WARMUP_SECRET or CRON_SECRET environment variable.');
-  console.error('To run the warm-up runner, provide a valid secret:');
-  console.error('  WARMUP_SECRET="<secret>" node scripts/warmup_runner.cjs\n');
-  process.exit(1);
-}
 
 const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write "علي كاسم").
 
@@ -83,7 +77,7 @@ async function executePrimaryN8nDirect(runId) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-chatbot-token': WARMUP_SECRET
+          'x-chatbot-token': N8N_WEBHOOK_TOKEN
         },
         body: JSON.stringify(payload),
         signal: controller.signal
@@ -289,6 +283,25 @@ async function executeWarmupEndpoint() {
 
 async function main() {
   const opts = parseArgs();
+
+  // Strict Fail-Closed Credentials Validation
+  if (!opts.endpoint) {
+    if ((opts.target === 'n8n' || opts.target === 'all') && !N8N_WEBHOOK_TOKEN) {
+      console.error('\n❌ FATAL CONFIGURATION ERROR: Missing required N8N_WEBHOOK_TOKEN environment variable for n8n target.');
+      console.error('The n8n webhook requires its own dedicated credential passed via N8N_WEBHOOK_TOKEN.');
+      console.error('WARMUP_SECRET is reserved exclusively for the Edge/API warm-up path.\n');
+      process.exit(1);
+    }
+    if ((opts.target === 'edge' || opts.target === 'all') && !WARMUP_SECRET) {
+      console.error('\n❌ FATAL CONFIGURATION ERROR: Missing required WARMUP_SECRET environment variable for edge stream target.\n');
+      process.exit(1);
+    }
+  } else {
+    if (!WARMUP_SECRET) {
+      console.error('\n❌ FATAL CONFIGURATION ERROR: Missing required WARMUP_SECRET environment variable for warm-up endpoint.\n');
+      process.exit(1);
+    }
+  }
   console.log('======================================================================');
   console.log('   XARE AI — AUTOMATIC 2-HOUR CHAT WARM-UP SUB-SYSTEM');
   console.log('   Target Cadence: Every 2 Hours (0 */2 * * * UTC)');

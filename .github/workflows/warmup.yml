@@ -46,10 +46,15 @@ jobs:
             echo "::error::Required secret WARMUP_SECRET is not configured in GitHub repository secrets. Halting execution to fail closed."
             exit 1
           fi
+          if [ -z "${{ secrets.N8N_WEBHOOK_TOKEN }}" ]; then
+            echo "::error::Required secret N8N_WEBHOOK_TOKEN is not configured in GitHub repository secrets. Halting execution to fail closed."
+            exit 1
+          fi
 
       - name: Execute Synthetic User Turn ('Hi') & Record Proof
         env:
           WARMUP_SECRET: ${{ secrets.WARMUP_SECRET }}
+          N8N_WEBHOOK_TOKEN: ${{ secrets.N8N_WEBHOOK_TOKEN }}
           VERCEL_APP_URL: ${{ vars.VERCEL_APP_URL || 'https://xare-ai.vercel.app' }}
           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika' }}
         run: |

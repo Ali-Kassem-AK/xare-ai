@@ -5,7 +5,7 @@ export const config = {
 // Fail-closed server-side secret management — ZERO hardcoded fallbacks
 const WARMUP_SECRET = process.env.WARMUP_SECRET;
 const CRON_SECRET = process.env.CRON_SECRET;
-const N8N_WEBHOOK_TOKEN = process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN || process.env.WARMUP_SECRET;
+const N8N_WEBHOOK_TOKEN = process.env.N8N_WEBHOOK_TOKEN || process.env.CHATBOT_TOKEN;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika';
 
 export const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write "علي كاسم").
@@ -112,12 +112,27 @@ async function warmPrimaryN8n(runId: string): Promise<TargetExecutionRecord> {
     timestamp: startIso
   };
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-  if (N8N_WEBHOOK_TOKEN) {
-    headers['x-chatbot-token'] = N8N_WEBHOOK_TOKEN;
+  if (!N8N_WEBHOOK_TOKEN) {
+    return {
+      target: 'primary_n8n',
+      endpoint: N8N_WEBHOOK_URL,
+      status: 500,
+      startTime: startIso,
+      endTime: new Date().toISOString(),
+      durationMs: 0,
+      modelIdentifier: 'Qwen3.8-27b / LangChain Agent (n8n on Hugging Face Spaces)',
+      responseVerified: false,
+      responseExcerpt: 'Missing required N8N_WEBHOOK_TOKEN server-side environment variable',
+      responseLength: 0,
+      error: 'Missing required N8N_WEBHOOK_TOKEN for n8n webhook authentication',
+      retries: 0
+    };
   }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-chatbot-token': N8N_WEBHOOK_TOKEN
+  };
 
   while (retries <= MAX_RETRIES) {
     try {

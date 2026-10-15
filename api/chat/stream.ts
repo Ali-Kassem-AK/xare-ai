@@ -15,30 +15,34 @@ const IP_RATE_LIMITS = new Map<string, RateLimitBucket>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 30; // 30 requests per minute per IP
 
-function isRateLimited(clientIp: string): boolean {
+function checkRateLimit(clientIp: string): { isLimited: boolean; remaining: number; resetAt: number } {
   const now = Date.now();
-  const bucket = IP_RATE_LIMITS.get(clientIp);
+  let bucket = IP_RATE_LIMITS.get(clientIp);
 
   if (!bucket || now > bucket.resetAt) {
-    IP_RATE_LIMITS.set(clientIp, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    bucket = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    IP_RATE_LIMITS.set(clientIp, bucket);
     if (IP_RATE_LIMITS.size > 10000) {
       for (const [ip, b] of IP_RATE_LIMITS.entries()) {
         if (now > b.resetAt) IP_RATE_LIMITS.delete(ip);
       }
     }
-    return false;
+    return { isLimited: false, remaining: MAX_REQUESTS_PER_WINDOW - 1, resetAt: bucket.resetAt };
   }
 
   bucket.count++;
-  return bucket.count > MAX_REQUESTS_PER_WINDOW;
+  const remaining = Math.max(0, MAX_REQUESTS_PER_WINDOW - bucket.count);
+  return { isLimited: bucket.count > MAX_REQUESTS_PER_WINDOW, remaining, resetAt: bucket.resetAt };
 }
 
-function timingSafeEqual(a: string, b: string): boolean {
+function timingSafeCompare(a: string, b: string): boolean {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) {
-    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  let mismatch = a.length ^ b.length;
+  const maxLen = Math.max(a.length, b.length);
+  for (let i = 0; i < maxLen; i++) {
+    const charA = i < a.length ? a.charCodeAt(i) : 0;
+    const charB = i < b.charCodeAt(i) ? b.charCodeAt(i) : 0;
+    mismatch |= charA ^ charB;
   }
   return mismatch === 0;
 }
@@ -146,15 +150,22 @@ export default async function handler(req: Request) {
     };
 
     // Check service-to-service authentication (e.g. warm-up subsystem)
-    const authHeader = req.headers.get('Authorization') || req.headers.get('x-warmup-secret') || req.headers.get('x-chatbot-token');
+    const authHeader = req.headers.get('Authorization') || req.headers.get('x-warmup-secret');
     const token = authHeader ? (authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()) : '';
 
     const isWarmupAuth = Boolean(
-      (WARMUP_SECRET && token && timingSafeEqual(token, WARMUP_SECRET)) ||
-      (CHATBOT_TOKEN && token && timingSafeEqual(token, CHATBOT_TOKEN))
+      WARMUP_SECRET && token && timingSafeCompare(token, WARMUP_SECRET)
     );
 
-    // If an untrusted third-party Origin is specified and request is not authenticated, block it
+    // Multi-Layer Defense: Sec-Fetch-Site and Origin verification
+    const secFetchSite = req.headers.get('sec-fetch-site');
+    if (secFetchSite === 'cross-site' && !isWarmupAuth) {
+      return new Response(JSON.stringify({ error: 'Forbidden: Cross-site requests rejected' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     if (origin && !isAllowedOrigin(origin) && !isWarmupAuth) {
       return new Response(JSON.stringify({ error: 'Forbidden: Untrusted request origin' }), {
         status: 403,
@@ -164,7 +175,9 @@ export default async function handler(req: Request) {
 
     // Client IP Sliding-Window Abuse Protection & Rate Limiting
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || '127.0.0.1';
-    if (!isWarmupAuth && isRateLimited(clientIp)) {
+    const rateCheck = checkRateLimit(clientIp);
+    if (!isWarmupAuth && rateCheck.isLimited) {
+      const retryAfterSec = Math.max(1, Math.ceil((rateCheck.resetAt - Date.now()) / 1000));
       return new Response(JSON.stringify({ 
         error: 'Too Many Requests', 
         message: 'Rate limit exceeded. Please wait a moment before sending another message.' 
@@ -172,7 +185,10 @@ export default async function handler(req: Request) {
         status: 429,
         headers: { 
           'Content-Type': 'application/json',
-          'Retry-After': '60'
+          'Retry-After': String(retryAfterSec),
+          'X-RateLimit-Limit': String(MAX_REQUESTS_PER_WINDOW),
+          'X-RateLimit-Remaining': String(rateCheck.remaining),
+          'X-RateLimit-Reset': String(Math.ceil(rateCheck.resetAt / 1000))
         },
       });
     }
