@@ -5020,7 +5020,7 @@ export function App() {
   const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [previewProgress, setPreviewProgress] = useState(0);
-  const [audioLevels, setAudioLevels] = useState<number[]>(() => new Array(38).fill(0.12));
+  const [audioLevels, setAudioLevels] = useState<number[]>(() => new Array(160).fill(0.12));
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<any>(null); 
   const pendingAttachmentRef = useRef<any>(null);
@@ -7668,7 +7668,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     setIsPlayingPreview(false);
     setPreviewProgress(0);
     setRecordingTime(0);
-    setAudioLevels(new Array(38).fill(0.12));
+    setAudioLevels(new Array(160).fill(0.12));
   };
 
   const startRecording = async () => {
@@ -7684,7 +7684,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
-      // Set up real-time audio analyser for reactive waveform
+      // Set up real-time audio analyser for reactive waveform streaming from right to left
       try {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioCtx) {
@@ -7694,42 +7694,44 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           }
           audioContextRef.current = audioCtx;
           const analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 128;
-          analyser.smoothingTimeConstant = 0.65;
+          analyser.fftSize = 64;
+          analyser.smoothingTimeConstant = 0.5;
           analyserRef.current = analyser;
           const source = audioCtx.createMediaStreamSource(stream);
           source.connect(analyser);
 
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
-          const numBars = 38;
+          let lastTick = performance.now();
 
-          const updateWaveform = () => {
+          const updateWaveform = (now: number) => {
             if (!analyserRef.current) return;
-            analyserRef.current.getByteFrequencyData(dataArray);
 
-            let sum = 0;
-            for (let j = 0; j < dataArray.length; j++) sum += dataArray[j];
-            const avg = sum / dataArray.length;
+            // Stream new bar from right every ~55ms
+            if (now - lastTick >= 55) {
+              lastTick = now;
+              analyserRef.current.getByteFrequencyData(dataArray);
 
-            const newLevels: number[] = [];
-            const step = Math.max(1, Math.floor(dataArray.length / numBars));
-
-            for (let i = 0; i < numBars; i++) {
-              const idx = Math.min(i * step, dataArray.length - 1);
-              const raw = dataArray[idx] / 255;
-              const envelope = Math.sin((i / (numBars - 1)) * Math.PI);
-
-              if (avg < 4) {
-                // Low audio / resting dots with subtle natural rhythm
-                const idle = 0.12 + Math.sin(Date.now() / 350 + i * 0.25) * 0.03 * envelope;
-                newLevels.push(Math.max(0.1, idle));
-              } else {
-                // Active voice waveform with natural envelope
-                const vocal = (raw * 1.6 + (avg / 255) * 0.6) * (0.35 + 0.65 * envelope);
-                newLevels.push(Math.max(0.12, Math.min(1.0, vocal)));
+              let sum = 0;
+              let count = 0;
+              const maxBin = Math.min(22, dataArray.length);
+              for (let i = 1; i < maxBin; i++) {
+                sum += dataArray[i];
+                count++;
               }
+              const vocalAvg = count > 0 ? sum / count : 0;
+
+              let sample = 0.12;
+              if (vocalAvg > 5) {
+                sample = Math.max(0.18, Math.min(1.0, (vocalAvg / 115) * 1.45));
+              }
+
+              setAudioLevels((prev) => {
+                const next = prev.slice(1);
+                next.push(sample);
+                return next;
+              });
             }
-            setAudioLevels(newLevels);
+
             animFrameRef.current = requestAnimationFrame(updateWaveform);
           };
           animFrameRef.current = requestAnimationFrame(updateWaveform);
@@ -8506,29 +8508,23 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                     <X className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
                   </button>
 
-                  {/* Duration Timer */}
-                  <div className="flex items-center gap-1.5 pl-0.5 sm:pl-1 flex-shrink-0 select-none">
-                    {isRecording && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />}
-                    <span className={`font-mono text-xs sm:text-sm font-semibold tracking-wider ${
-                      isDarkMode ? 'text-slate-300' : 'text-slate-700'
-                    }`}>
-                      {formatTime(recordingTime)}
-                    </span>
-                  </div>
-
-                  {/* Audio Waveform Track (Center) */}
-                  <div className="flex-1 flex items-center justify-center gap-[2.5px] sm:gap-[3.5px] px-1 sm:px-3 h-10 sm:h-11 overflow-hidden select-none">
+                  {/* Full-width Audio Waveform Track (Starts from right next to stop button, flows smoothly till left cancel button) */}
+                  <div 
+                    title={isRecording ? `Recording: ${formatTime(recordingTime)}` : `Voice Note: ${formatTime(recordingTime)}`}
+                    className="flex-1 flex items-center justify-end overflow-hidden h-10 px-2 sm:px-3 gap-[2.5px] sm:gap-[3px] select-none"
+                  >
                     {audioLevels.map((lvl, idx) => {
                       const isPlayed = isPreviewingAudio && (idx / audioLevels.length) <= previewProgress;
-                      const barHeight = Math.max(3, Math.round(lvl * 26));
+                      const isDot = lvl <= 0.14;
+                      const barHeight = isDot ? 3 : Math.max(4, Math.round(lvl * 24));
                       return (
                         <div
                           key={idx}
-                          className={`w-[2.5px] sm:w-[3px] rounded-full transition-all duration-75 flex-shrink-0 ${
+                          className={`w-[2px] sm:w-[2.5px] rounded-full transition-all duration-75 flex-shrink-0 ${
                             isPlayed
                               ? 'bg-blue-500'
-                              : lvl > 0.18
-                                ? (isDarkMode ? 'bg-slate-300' : 'bg-slate-700')
+                              : !isDot
+                                ? (isDarkMode ? 'bg-slate-200' : 'bg-slate-800')
                                 : (isDarkMode ? 'bg-slate-600/70' : 'bg-slate-300')
                           }`}
                           style={{
