@@ -6,7 +6,7 @@ import {
   LogOut, AlignLeft, CheckCircle, Code, Languages, 
   Globe, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AudioLines, Copy, Brain, Download,
   Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, Minimize2, ExternalLink, ArrowUp,
-  Info, Lightbulb, AlertTriangle, AlertCircle, Trash2, Hammer, Box
+  Info, Lightbulb, AlertTriangle, AlertCircle, Trash2, Hammer, Box, Square
 } from 'lucide-react';
 import katex from 'katex';
 
@@ -5016,6 +5016,11 @@ export function App() {
   // --- Media & Tools State ---
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isPreviewingAudio, setIsPreviewingAudio] = useState(false);
+  const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [previewProgress, setPreviewProgress] = useState(0);
+  const [audioLevels, setAudioLevels] = useState<number[]>(() => new Array(38).fill(0.12));
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<any>(null); 
   const pendingAttachmentRef = useRef<any>(null);
@@ -5032,10 +5037,14 @@ export function App() {
   const attachMenuRef = useRef(null);
   const imageInputRef = useRef(null);
   const documentInputRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const mediaStreamRef = useRef(null);
-  const audioChunksRef = useRef([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const textareaRef = useRef(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // ==========================================
   // --- 2. CONSTANTS & CONFIGURATION
@@ -5734,13 +5743,11 @@ export function App() {
   }, [currentChatId, chatHistory, isLoading, isVoiceModeActive, isGeneratingImage, loadingPhase, suggestions]);
 
   useEffect(() => {
-    let interval;
+    let interval: any;
     if (isRecording) {
       interval = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-    } else {
-      setRecordingTime(0);
     }
     return () => clearInterval(interval);
   }, [isRecording]);
@@ -5914,6 +5921,7 @@ export function App() {
   }, [currentUser]);
 
   const switchChat = (chatId: string) => {
+    cancelRecording();
     if (streamingAnimFrameRef.current) {
       cancelAnimationFrame(streamingAnimFrameRef.current);
       streamingAnimFrameRef.current = null;
@@ -6048,19 +6056,7 @@ export function App() {
     setInputValue('');
     setPendingAttachment(null);
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try {
-        mediaRecorderRef.current.onstop = null;
-        mediaRecorderRef.current.stop();
-      } catch (e) {}
-    }
-    if (mediaStreamRef.current) {
-      try {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      } catch (e) {}
-    }
-    setIsRecording(false);
-    setRecordingTime(0);
+    cancelRecording();
 
     const newChatId = generateUniqueId();
     const newChat = {
@@ -7639,8 +7635,45 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     setShowAttachMenu(false);
   };
 
+  const cleanupRecordingState = () => {
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((track: any) => track.stop());
+      } catch (e) {}
+      mediaStreamRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close().catch(() => {});
+      } catch (e) {}
+      audioContextRef.current = null;
+    }
+    if (analyserRef.current) {
+      analyserRef.current = null;
+    }
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (previewAudioRef.current) {
+      try {
+        previewAudioRef.current.pause();
+        previewAudioRef.current.src = '';
+      } catch (e) {}
+      previewAudioRef.current = null;
+    }
+    setIsRecording(false);
+    setIsPreviewingAudio(false);
+    setRecordedAudioBlob(null);
+    setIsPlayingPreview(false);
+    setPreviewProgress(0);
+    setRecordingTime(0);
+    setAudioLevels(new Array(38).fill(0.12));
+  };
+
   const startRecording = async () => {
     try {
+      cleanupRecordingState();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
@@ -7651,39 +7684,163 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
-      mediaRecorder.onstop = () => {
-        const mimeType = mediaRecorder.mimeType || 'audio/webm';
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        const voiceFile = new File([audioBlob], 'voice_message.webm', { type: mimeType });
-        updateUsage('voiceMessagesCount');
-        sendMessageToBackend("🎤 Voice Message", null, 'audio', "", null, null, null, false, voiceFile);
-        if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      };
+      // Set up real-time audio analyser for reactive waveform
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const audioCtx = new AudioCtx();
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+          audioContextRef.current = audioCtx;
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 128;
+          analyser.smoothingTimeConstant = 0.65;
+          analyserRef.current = analyser;
+          const source = audioCtx.createMediaStreamSource(stream);
+          source.connect(analyser);
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const numBars = 38;
+
+          const updateWaveform = () => {
+            if (!analyserRef.current) return;
+            analyserRef.current.getByteFrequencyData(dataArray);
+
+            let sum = 0;
+            for (let j = 0; j < dataArray.length; j++) sum += dataArray[j];
+            const avg = sum / dataArray.length;
+
+            const newLevels: number[] = [];
+            const step = Math.max(1, Math.floor(dataArray.length / numBars));
+
+            for (let i = 0; i < numBars; i++) {
+              const idx = Math.min(i * step, dataArray.length - 1);
+              const raw = dataArray[idx] / 255;
+              const envelope = Math.sin((i / (numBars - 1)) * Math.PI);
+
+              if (avg < 4) {
+                // Low audio / resting dots with subtle natural rhythm
+                const idle = 0.12 + Math.sin(Date.now() / 350 + i * 0.25) * 0.03 * envelope;
+                newLevels.push(Math.max(0.1, idle));
+              } else {
+                // Active voice waveform with natural envelope
+                const vocal = (raw * 1.6 + (avg / 255) * 0.6) * (0.35 + 0.65 * envelope);
+                newLevels.push(Math.max(0.12, Math.min(1.0, vocal)));
+              }
+            }
+            setAudioLevels(newLevels);
+            animFrameRef.current = requestAnimationFrame(updateWaveform);
+          };
+          animFrameRef.current = requestAnimationFrame(updateWaveform);
+        }
+      } catch (audioErr) {
+        console.warn("AudioContext visualizer fallback:", audioErr);
+      }
 
       mediaRecorder.start();
       setIsRecording(true);
+      setIsPreviewingAudio(false);
+      setRecordedAudioBlob(null);
       setRecordingTime(0);
     } catch (err) {
       console.error(err);
+      cleanupRecordingState();
       const errorMsg = { id: generateUniqueId(), text: "⚠️ Could not access your microphone.", sender: 'bot', timestamp: new Date() };
       setChatHistory(prev => prev.map(chat => chat.id === currentChatId ? { ...chat, messages: [...chat.messages, errorMsg], updatedAt: new Date() } : chat));
     }
   };
 
   const stopRecordingAndSend = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop(); 
-    setIsRecording(false);
-    setRecordingTime(0);
+    if (recordedAudioBlob) {
+      const mimeType = recordedAudioBlob.type || 'audio/webm';
+      const voiceFile = new File([recordedAudioBlob], 'voice_message.webm', { type: mimeType });
+      updateUsage('voiceMessagesCount');
+      sendMessageToBackend("🎤 Voice Message", null, 'audio', "", null, null, null, false, voiceFile);
+      cleanupRecordingState();
+      return;
+    }
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.onstop = () => {
+        const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const voiceFile = new File([audioBlob], 'voice_message.webm', { type: mimeType });
+        updateUsage('voiceMessagesCount');
+        sendMessageToBackend("🎤 Voice Message", null, 'audio', "", null, null, null, false, voiceFile);
+        cleanupRecordingState();
+      };
+      mediaRecorderRef.current.stop();
+    } else {
+      cleanupRecordingState();
+    }
+  };
+
+  const stopRecordingAndPreview = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.onstop = () => {
+        const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        setRecordedAudioBlob(audioBlob);
+        setIsRecording(false);
+        setIsPreviewingAudio(true);
+        if (mediaStreamRef.current) {
+          try { mediaStreamRef.current.getTracks().forEach(track => track.stop()); } catch (e) {}
+          mediaStreamRef.current = null;
+        }
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          try { audioContextRef.current.close().catch(() => {}); } catch (e) {}
+          audioContextRef.current = null;
+        }
+        if (animFrameRef.current) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = null;
+        }
+      };
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const togglePreviewPlayback = () => {
+    if (!recordedAudioBlob) return;
+    if (previewAudioRef.current) {
+      if (isPlayingPreview) {
+        previewAudioRef.current.pause();
+        setIsPlayingPreview(false);
+      } else {
+        previewAudioRef.current.play().then(() => setIsPlayingPreview(true)).catch(() => setIsPlayingPreview(false));
+      }
+      return;
+    }
+
+    const audioUrl = URL.createObjectURL(recordedAudioBlob);
+    const audio = new Audio(audioUrl);
+    previewAudioRef.current = audio;
+
+    audio.ontimeupdate = () => {
+      if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
+        setPreviewProgress(audio.currentTime / audio.duration);
+      }
+    };
+
+    audio.onended = () => {
+      setIsPlayingPreview(false);
+      setPreviewProgress(0);
+    };
+
+    audio.play().then(() => {
+      setIsPlayingPreview(true);
+    }).catch(() => {
+      setIsPlayingPreview(false);
+    });
   };
 
   const cancelRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.onstop = null; 
-      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.onstop = null;
+      try { mediaRecorderRef.current.stop(); } catch (e) {}
     }
-    if (mediaStreamRef.current) mediaStreamRef.current.getTracks().forEach(track => track.stop());
-    setIsRecording(false);
-    setRecordingTime(0);
+    cleanupRecordingState();
   };
 
   const handleKeyDown = (e) => {
@@ -8323,36 +8480,117 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
             <div className="relative max-w-5xl mx-auto pointer-events-auto">
               
-              {isRecording && (
-                <div className={`absolute right-0 bottom-full mb-3 flex items-center gap-3 backdrop-blur-xl border px-5 py-2.5 rounded-full shadow-md animate-float-up cursor-pointer transition-colors group ${isDarkMode ? 'bg-[#0c1324]/90 border-slate-700/60 hover:bg-slate-800 text-slate-200' : 'bg-white/95 border-slate-200/60 hover:bg-slate-50 text-slate-700'}`}
-                  onClick={cancelRecording}
-                  title="Cancel Recording"
-                >
-                  <div className="flex items-center gap-[3px] h-4">
-                    <div className="dynamic-wave" style={{ animationDelay: '0.0s, 0s' }} />
-                    <div className="dynamic-wave" style={{ animationDelay: '0.2s, -0.6s' }} />
-                    <div className="dynamic-wave" style={{ animationDelay: '0.4s, -1.2s' }} />
-                    <div className="dynamic-wave" style={{ animationDelay: '0.1s, -1.8s' }} />
-                    <div className="dynamic-wave" style={{ animationDelay: '0.3s, -2.4s' }} />
-                  </div>
-                  <span className="font-mono text-sm font-bold tracking-wider">
-                    {formatTime(recordingTime)}
-                  </span>
-                  <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-md transition-colors ${isDarkMode ? 'bg-slate-700 group-hover:bg-slate-600 text-slate-300' : 'bg-slate-200 group-hover:bg-slate-300 text-slate-600'}`}>Cancel</span>
-                </div>
-              )}
-
               <input type="file" accept="image/*" className="hidden" ref={imageInputRef} onChange={handleImageSelect} />
               <input type="file" accept="application/pdf" className="hidden" ref={documentInputRef} onChange={handleDocumentSelect} />
 
-              <form 
-                onSubmit={handleSendMessage}
-                className={`relative flex items-end gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 w-full chat-input-form ${
-                  isDarkMode 
-                    ? 'bg-[#070e1c] border-blue-500/30 shadow-[0_8px_32px_0_rgba(2,10,35,0.85)] focus-within:border-cyan-400/60' 
-                    : 'bg-white border-slate-200/90 shadow-xl focus-within:border-blue-400'
-                }`}
-              >
+              {isRecording || isPreviewingAudio ? (
+                /* Modern Inline Voice Note Bar (Matching Image 2 without changing Xare main colors) */
+                <div 
+                  className={`relative flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 w-full chat-input-form animate-float-up ${
+                    isDarkMode 
+                      ? 'bg-[#070e1c] border-blue-500/30 shadow-[0_8px_32px_0_rgba(2,10,35,0.85)]' 
+                      : 'bg-white border-slate-200/90 shadow-xl'
+                  }`}
+                >
+                  {/* Cancel / Discard Button (Far Left) */}
+                  <button
+                    type="button"
+                    onClick={cancelRecording}
+                    title={isPreviewingAudio ? "Discard Voice Note" : "Cancel Recording"}
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 active:scale-95 cursor-pointer ${
+                      isDarkMode
+                        ? 'bg-[#0c1324] hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/60 shadow-sm'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 border border-slate-200 shadow-sm'
+                    }`}
+                  >
+                    <X className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
+                  </button>
+
+                  {/* Duration Timer */}
+                  <div className="flex items-center gap-1.5 pl-0.5 sm:pl-1 flex-shrink-0 select-none">
+                    {isRecording && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />}
+                    <span className={`font-mono text-xs sm:text-sm font-semibold tracking-wider ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                      {formatTime(recordingTime)}
+                    </span>
+                  </div>
+
+                  {/* Audio Waveform Track (Center) */}
+                  <div className="flex-1 flex items-center justify-center gap-[2.5px] sm:gap-[3.5px] px-1 sm:px-3 h-10 sm:h-11 overflow-hidden select-none">
+                    {audioLevels.map((lvl, idx) => {
+                      const isPlayed = isPreviewingAudio && (idx / audioLevels.length) <= previewProgress;
+                      const barHeight = Math.max(3, Math.round(lvl * 26));
+                      return (
+                        <div
+                          key={idx}
+                          className={`w-[2.5px] sm:w-[3px] rounded-full transition-all duration-75 flex-shrink-0 ${
+                            isPlayed
+                              ? 'bg-blue-500'
+                              : lvl > 0.18
+                                ? (isDarkMode ? 'bg-slate-300' : 'bg-slate-700')
+                                : (isDarkMode ? 'bg-slate-600/70' : 'bg-slate-300')
+                          }`}
+                          style={{
+                            height: `${barHeight}px`,
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {/* Stop / Play Preview Button (Right side) */}
+                  {isRecording ? (
+                    <button
+                      type="button"
+                      onClick={stopRecordingAndPreview}
+                      title="Stop and preview voice note"
+                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 active:scale-95 cursor-pointer ${
+                        isDarkMode
+                          ? 'bg-[#0c1324] hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700/60 shadow-sm'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 shadow-sm'
+                      }`}
+                    >
+                      <div className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-[3px] ${isDarkMode ? 'bg-slate-100' : 'bg-slate-800'}`} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={togglePreviewPlayback}
+                      title={isPlayingPreview ? "Pause preview" : "Play preview"}
+                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 active:scale-95 cursor-pointer ${
+                        isDarkMode
+                          ? 'bg-[#0c1324] hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700/60 shadow-sm'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 shadow-sm'
+                      }`}
+                    >
+                      {isPlayingPreview ? (
+                        <Pause className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current" />
+                      ) : (
+                        <Play className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current ml-0.5" />
+                      )}
+                    </button>
+                  )}
+
+                  {/* Send Button (Far Right) */}
+                  <button
+                    type="button"
+                    onClick={() => stopRecordingAndSend()}
+                    title="Send Voice Note"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-950/50 active:scale-95 cursor-pointer"
+                  >
+                    <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
+                  </button>
+                </div>
+              ) : (
+                <form 
+                  onSubmit={handleSendMessage}
+                  className={`relative flex items-end gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 w-full chat-input-form ${
+                    isDarkMode 
+                      ? 'bg-[#070e1c] border-blue-500/30 shadow-[0_8px_32px_0_rgba(2,10,35,0.85)] focus-within:border-cyan-400/60' 
+                      : 'bg-white border-slate-200/90 shadow-xl focus-within:border-blue-400'
+                  }`}
+                >
               {/* Integrated + Attachment Button */}
               <div className="relative flex-shrink-0" ref={attachMenuRef}>
                 {showAttachMenu && (
@@ -8607,19 +8845,18 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                     ) : (
                       <button
                         type="button"
-                        onClick={() => isRecording ? stopRecordingAndSend() : startRecording()}
-                        title={isRecording ? "Send Voice Note" : "Record Voice Note"}
+                        onClick={startRecording}
+                        title="Record Voice Note"
                         className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all shadow-md active:scale-95 flex-shrink-0 ${
-                          isRecording
-                          ? 'bg-blue-600 text-white animate-pulse'
-                          : (isDarkMode ? 'bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:bg-slate-700/80' : 'bg-slate-200/80 text-slate-700 hover:bg-slate-300')
+                          isDarkMode ? 'bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:bg-slate-700/80' : 'bg-slate-200/80 text-slate-700 hover:bg-slate-300'
                         }`}
                       >
-                        {isRecording ? <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" /> : <Mic className="w-5 h-5" />}
+                        <Mic className="w-5 h-5" />
                       </button>
                     )}
                   </div>
                 </form>
+              )}
               </div>
 
               <div className={`text-center mt-4 text-[11px] font-medium pointer-events-auto chat-disclaimer ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
