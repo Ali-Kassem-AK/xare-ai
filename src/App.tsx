@@ -5020,7 +5020,7 @@ export function App() {
   const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [previewProgress, setPreviewProgress] = useState(0);
-  const [audioLevels, setAudioLevels] = useState<number[]>(() => new Array(160).fill(0.12));
+  const [audioLevels, setAudioLevels] = useState<number[]>(() => new Array(80).fill(0.12));
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<any>(null); 
   const pendingAttachmentRef = useRef<any>(null);
@@ -5045,6 +5045,10 @@ export function App() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const recordedSamplesRef = useRef<number[]>([]);
+  const recordingStartTimeRef = useRef<number>(0);
+  const recordingDurationRef = useRef<number>(0);
+  const waveformContainerRef = useRef<HTMLDivElement | null>(null);
 
   // ==========================================
   // --- 2. CONSTANTS & CONFIGURATION
@@ -7662,13 +7666,70 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       } catch (e) {}
       previewAudioRef.current = null;
     }
+    recordedSamplesRef.current = [];
+    recordingStartTimeRef.current = 0;
+    recordingDurationRef.current = 0;
     setIsRecording(false);
     setIsPreviewingAudio(false);
     setRecordedAudioBlob(null);
     setIsPlayingPreview(false);
     setPreviewProgress(0);
     setRecordingTime(0);
-    setAudioLevels(new Array(160).fill(0.12));
+    setAudioLevels(new Array(getOptimalBarCount()).fill(0.12));
+  };
+
+  const getOptimalBarCount = () => {
+    if (waveformContainerRef.current) {
+      const width = waveformContainerRef.current.clientWidth;
+      if (width > 0) {
+        const slot = window.innerWidth >= 640 ? 5.5 : 4.5;
+        return Math.max(30, Math.min(180, Math.floor(width / slot)));
+      }
+    }
+    const estimatedWidth = typeof window !== 'undefined'
+      ? (window.innerWidth >= 640 ? Math.min(window.innerWidth - 200, 650) : window.innerWidth - 120)
+      : 500;
+    const slot = typeof window !== 'undefined' && window.innerWidth >= 640 ? 5.5 : 4.5;
+    return Math.max(30, Math.min(180, Math.floor(estimatedWidth / slot)));
+  };
+
+  const generatePreviewWaveform = (samples: number[], targetBars: number): number[] => {
+    if (!samples || samples.length === 0) {
+      return new Array(targetBars).fill(0.12);
+    }
+    if (samples.length === 1) {
+      return new Array(targetBars).fill(samples[0]);
+    }
+
+    const result: number[] = [];
+    const n = samples.length;
+
+    if (n <= targetBars) {
+      // Smooth interpolation across all bars
+      for (let i = 0; i < targetBars; i++) {
+        const t = (i / (targetBars - 1)) * (n - 1);
+        const low = Math.floor(t);
+        const high = Math.min(low + 1, n - 1);
+        const frac = t - low;
+        const val = samples[low] * (1 - frac) + samples[high] * frac;
+        result.push(Math.max(0.12, Number(val.toFixed(3))));
+      }
+    } else {
+      // Peak detection per window to preserve vocal peaks and tone dynamics
+      for (let i = 0; i < targetBars; i++) {
+        const start = Math.floor((i / targetBars) * n);
+        const end = Math.max(start + 1, Math.floor(((i + 1) / targetBars) * n));
+        let maxVal = 0.12;
+        for (let j = start; j < end && j < n; j++) {
+          if (samples[j] > maxVal) {
+            maxVal = samples[j];
+          }
+        }
+        result.push(Math.max(0.12, Number(maxVal.toFixed(3))));
+      }
+    }
+
+    return result;
   };
 
   const startRecording = async () => {
@@ -7679,10 +7740,15 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      recordedSamplesRef.current = [];
+      recordingStartTimeRef.current = Date.now();
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
+
+      const optimalCount = getOptimalBarCount();
+      setAudioLevels(new Array(optimalCount).fill(0.12));
 
       // Set up real-time audio analyser for reactive waveform streaming from right to left
       try {
@@ -7729,6 +7795,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
               // Exponential smoothing so consecutive bars form graceful, rounded wave curves
               smoothedVolume = smoothedVolume * 0.35 + targetSample * 0.65;
               const sample = Math.max(0.12, Number(smoothedVolume.toFixed(3)));
+
+              recordedSamplesRef.current.push(sample);
 
               setAudioLevels((prev) => {
                 const next = prev.slice(1);
@@ -7791,6 +7859,12 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         setRecordedAudioBlob(audioBlob);
         setIsRecording(false);
         setIsPreviewingAudio(true);
+        setPreviewProgress(0);
+
+        if (recordingStartTimeRef.current) {
+          recordingDurationRef.current = Math.max(0.5, (Date.now() - recordingStartTimeRef.current) / 1000);
+        }
+
         if (mediaStreamRef.current) {
           try { mediaStreamRef.current.getTracks().forEach(track => track.stop()); } catch (e) {}
           mediaStreamRef.current = null;
@@ -7803,6 +7877,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           cancelAnimationFrame(animFrameRef.current);
           animFrameRef.current = null;
         }
+
+        // Generate full-width preview waveform matching the actual recorded voice note
+        const count = getOptimalBarCount();
+        const previewWaveform = generatePreviewWaveform(recordedSamplesRef.current, count);
+        setAudioLevels(previewWaveform);
       };
       mediaRecorderRef.current.stop();
     }
@@ -7825,8 +7904,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     previewAudioRef.current = audio;
 
     audio.ontimeupdate = () => {
-      if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
-        setPreviewProgress(audio.currentTime / audio.duration);
+      const duration = (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0)
+        ? audio.duration
+        : recordingDurationRef.current;
+      if (duration > 0) {
+        setPreviewProgress(Math.min(1, Math.max(0, audio.currentTime / duration)));
       }
     };
 
@@ -8513,13 +8595,29 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                     <X className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
                   </button>
 
-                  {/* Full-width Audio Waveform Track (Starts from right next to stop button, flows smoothly till left cancel button) */}
+                  {/* Full-width Audio Waveform Track (Smooth right-to-left recording flow, precise synchronized playback highlight) */}
                   <div 
+                    ref={waveformContainerRef}
+                    onClick={(e) => {
+                      if (!isPreviewingAudio || !previewAudioRef.current) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const clickX = e.clientX - rect.left;
+                      const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+                      const duration = (previewAudioRef.current.duration && !isNaN(previewAudioRef.current.duration) && isFinite(previewAudioRef.current.duration) && previewAudioRef.current.duration > 0)
+                        ? previewAudioRef.current.duration
+                        : recordingDurationRef.current;
+                      if (duration > 0) {
+                        previewAudioRef.current.currentTime = ratio * duration;
+                        setPreviewProgress(ratio);
+                      }
+                    }}
                     title={isRecording ? `Recording: ${formatTime(recordingTime)}` : `Voice Note: ${formatTime(recordingTime)}`}
-                    className="flex-1 flex items-center justify-end overflow-hidden h-10 px-2 sm:px-3 gap-[2.5px] sm:gap-[3px] select-none"
+                    className={`flex-1 flex items-center overflow-hidden h-10 px-2 sm:px-3 select-none ${
+                      isPreviewingAudio ? 'justify-between cursor-pointer' : 'justify-end gap-[2.5px] sm:gap-[3px]'
+                    }`}
                   >
                     {audioLevels.map((lvl, idx) => {
-                      const isPlayed = isPreviewingAudio && (idx / audioLevels.length) <= previewProgress;
+                      const isPlayed = isPreviewingAudio && previewProgress > 0 && (idx / Math.max(1, audioLevels.length - 1)) <= previewProgress;
                       const isDot = lvl <= 0.14;
                       const barHeight = isDot ? 3 : Math.max(4, Math.round(lvl * 24));
                       return (
