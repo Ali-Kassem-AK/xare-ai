@@ -5113,7 +5113,7 @@ export function App() {
     icon: CheckCircle, 
     label: 'Fix grammar', 
     action: 'fix', 
-    prompt: 'Please fix the grammar and improve the writing of the following text:\n\n', 
+    prompt: 'Provide two versions of the following text: 1. **Corrected Version:** Fix only grammar, spelling, and punctuation in one pass. Preserve the original wording, structure, tone, and meaning. Do not rewrite or polish. 2. **Improved Version:** Rewrite for clarity, flow, and readability while preserving the original meaning and tone. Label both versions in this order. Do not include explanations or additional versions, \n\n', 
     placeholder: 'Paste text to fix...' 
   },
 ];
