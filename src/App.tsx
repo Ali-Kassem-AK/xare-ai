@@ -7695,19 +7695,20 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           audioContextRef.current = audioCtx;
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 64;
-          analyser.smoothingTimeConstant = 0.5;
+          analyser.smoothingTimeConstant = 0.82;
           analyserRef.current = analyser;
           const source = audioCtx.createMediaStreamSource(stream);
           source.connect(analyser);
 
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
           let lastTick = performance.now();
+          let smoothedVolume = 0.12;
 
           const updateWaveform = (now: number) => {
             if (!analyserRef.current) return;
 
-            // Stream new bar from right every ~55ms
-            if (now - lastTick >= 55) {
+            // Stream new bar from right every ~95ms (calm, smooth, non-rushed pacing)
+            if (now - lastTick >= 95) {
               lastTick = now;
               analyserRef.current.getByteFrequencyData(dataArray);
 
@@ -7720,10 +7721,14 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
               }
               const vocalAvg = count > 0 ? sum / count : 0;
 
-              let sample = 0.12;
+              let targetSample = 0.12;
               if (vocalAvg > 5) {
-                sample = Math.max(0.18, Math.min(1.0, (vocalAvg / 115) * 1.45));
+                targetSample = Math.max(0.2, Math.min(1.0, (vocalAvg / 110) * 1.45));
               }
+
+              // Exponential smoothing so consecutive bars form graceful, rounded wave curves
+              smoothedVolume = smoothedVolume * 0.35 + targetSample * 0.65;
+              const sample = Math.max(0.12, Number(smoothedVolume.toFixed(3)));
 
               setAudioLevels((prev) => {
                 const next = prev.slice(1);
@@ -8520,7 +8525,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                       return (
                         <div
                           key={idx}
-                          className={`w-[2px] sm:w-[2.5px] rounded-full transition-all duration-75 flex-shrink-0 ${
+                          className={`w-[2px] sm:w-[2.5px] rounded-full transition-all duration-150 ease-out flex-shrink-0 ${
                             isPlayed
                               ? 'bg-blue-500'
                               : !isDot
