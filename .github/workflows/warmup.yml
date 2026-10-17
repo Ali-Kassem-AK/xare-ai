@@ -1,11 +1,9 @@
 name: Xare AI 1-Hour Chat Warm-Up Subsystem
 
+# Authoritative Scheduling: Triggered externally once per hour via authenticated
+# GitHub Actions REST API dispatch (Option A). Native GitHub on:schedule has been
+# decommissioned to eliminate platform-level queue drops and uncoordinated duplicate triggers.
 on:
-  schedule:
-    # Runs once every hour, 24 hours a day, continuously: 00:35, 01:35, ..., 23:35 UTC.
-    # Scheduled at minute 35 (off-peak) to eliminate exposure to GitHub Actions
-    # top-of-hour (:00) queue contention delays and dropped triggers under high load.
-    - cron: '35 * * * *'
   workflow_dispatch:
     inputs:
       target:
@@ -22,6 +20,11 @@ on:
         description: 'Number of consecutive warm-up iterations (for benchmarking)'
         required: false
         default: '1'
+        type: string
+      force:
+        description: 'Bypass duplicate-prevention cooldown guard'
+        required: false
+        default: 'false'
         type: string
 
 concurrency:
@@ -71,7 +74,11 @@ jobs:
           VERCEL_APP_URL: ${{ vars.VERCEL_APP_URL || 'https://xare-ai.vercel.app' }}
           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika' }}
         run: |
-          node scripts/warmup_runner.cjs --target=${{ inputs.target || 'browser' }} --repeat=${{ inputs.repeat || '1' }} --report
+          FORCE_OPT=""
+          if [ "${{ inputs.force }}" = "true" ]; then
+            FORCE_OPT="--force"
+          fi
+          node scripts/warmup_runner.cjs --target=${{ inputs.target || 'browser' }} --repeat=${{ inputs.repeat || '1' }} $FORCE_OPT --report
 
       - name: Upload Telemetry & Evidence Artifact
         if: always()

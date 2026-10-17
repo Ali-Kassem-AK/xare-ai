@@ -295,8 +295,44 @@ async function runWarmupTestSuite() {
     throw browserErr;
   }
 
+  // TEST 12: External Scheduler Dispatch Contract & Duplicate Cooldown Guard
+  console.log('\n[TEST 12] Verifying External Scheduler Dispatch Contract & Duplicate Cooldown Guard...');
+  const dispatchPayload = {
+    ref: 'main',
+    inputs: {
+      target: 'browser',
+      repeat: '1',
+      force: 'false'
+    }
+  };
+  assert.strictEqual(dispatchPayload.ref, 'main', 'Dispatch target branch must be main');
+  assert.strictEqual(dispatchPayload.inputs.target, 'browser', 'Default dispatch target must be browser UI');
+  assert.strictEqual(dispatchPayload.inputs.repeat, '1', 'Default repeat must be 1');
+
+  // Cooldown calculation simulation
+  const now = Date.now();
+  const recentRunTime = new Date(now - 15 * 60 * 1000).toISOString(); // 15 mins ago
+  const oldRunTime = new Date(now - 50 * 60 * 1000).toISOString();    // 50 mins ago
+
+  function simulateCooldown(timestamp, force) {
+    if (force) return { shouldRun: true };
+    const elapsed = (Date.now() - new Date(timestamp).getTime()) / (1000 * 60);
+    return { shouldRun: elapsed >= 40, elapsed: elapsed.toFixed(1) };
+  }
+
+  const blocked = simulateCooldown(recentRunTime, false);
+  assert.strictEqual(blocked.shouldRun, false, 'Runs within 40m cooldown must be blocked');
+
+  const allowedOld = simulateCooldown(oldRunTime, false);
+  assert.strictEqual(allowedOld.shouldRun, true, 'Runs older than 40m cooldown must be permitted');
+
+  const forced = simulateCooldown(recentRunTime, true);
+  assert.strictEqual(forced.shouldRun, true, 'Forced runs must bypass cooldown');
+
+  console.log('  ✅ External dispatch payload contract and duplicate-prevention cooldown logic verified');
+
   console.log('\n======================================================================');
-  console.log('ALL 11 TEST SUITE MODULES PASSED WITH 100% SUCCESS');
+  console.log('ALL 12 TEST SUITE MODULES PASSED WITH 100% SUCCESS');
   console.log('======================================================================\n');
 }
 

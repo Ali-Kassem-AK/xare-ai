@@ -33,7 +33,8 @@ function parseArgs() {
     report: false,
     direct: false,
     endpoint: false,
-    live: true
+    live: true,
+    force: false
   };
 
   for (const arg of args) {
@@ -43,6 +44,7 @@ function parseArgs() {
     else if (arg === '--direct') opts.direct = true;
     else if (arg === '--endpoint') opts.endpoint = true;
     else if (arg === '--live') opts.live = true;
+    else if (arg === '--force') opts.force = true;
   }
   return opts;
 }
@@ -441,8 +443,61 @@ async function executeWarmupEndpoint() {
   };
 }
 
+const COOLDOWN_MINUTES = 40; // Enforce minimum interval between automatic synthetic warm-ups
+
+function checkCooldownGuard(force) {
+  if (force) {
+    console.log('⚡ Force execution requested (--force). Bypassing cooldown guard.');
+    return { shouldRun: true };
+  }
+
+  const docsDir = path.join(__dirname, '..', 'docs', 'warmup');
+  const evidencePath = path.join(docsDir, 'evidence.json');
+  if (!fs.existsSync(evidencePath)) {
+    return { shouldRun: true };
+  }
+
+  try {
+    const history = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
+    if (!Array.isArray(history) || history.length === 0) return { shouldRun: true };
+
+    // Find the latest completed successful run
+    const lastRun = history[history.length - 1];
+    if (!lastRun.timestamp) return { shouldRun: true };
+
+    const lastTime = new Date(lastRun.timestamp).getTime();
+    const now = Date.now();
+    const elapsedMinutes = (now - lastTime) / (1000 * 60);
+
+    if (elapsedMinutes < COOLDOWN_MINUTES) {
+      return {
+        shouldRun: false,
+        lastRunTimestamp: lastRun.timestamp,
+        elapsedMinutes: elapsedMinutes.toFixed(1)
+      };
+    }
+  } catch (e) {
+    // If parsing fails, fail open to allow execution
+    return { shouldRun: true };
+  }
+
+  return { shouldRun: true };
+}
+
 async function main() {
   const opts = parseArgs();
+
+  // Check duplicate execution cooldown guard
+  const cooldown = checkCooldownGuard(opts.force);
+  if (!cooldown.shouldRun) {
+    console.log(`\n======================================================================`);
+    console.log(`🛡️ DUPLICATE EXECUTION PREVENTED (COOLDOWN GUARD ACTIVE)`);
+    console.log(`   Last successful warm-up ran at: ${cooldown.lastRunTimestamp} (${cooldown.elapsedMinutes}m ago)`);
+    console.log(`   Cooldown threshold: ${COOLDOWN_MINUTES} minutes.`);
+    console.log(`   Skipping synthetic browser submission to prevent duplicate inference load.`);
+    console.log(`======================================================================\n`);
+    process.exit(0);
+  }
 
   // Strict Fail-Closed Credentials Validation for upstream targets
   if (opts.endpoint) {
