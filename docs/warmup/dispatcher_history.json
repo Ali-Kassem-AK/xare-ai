@@ -1,0 +1,48 @@
+[
+  {
+    "timestamp": "2026-10-17T16:37:56.789Z",
+    "event": "EXTERNAL_SCHEDULER_INVOKED",
+    "status": "STARTING",
+    "message": "External scheduler invoked with target=browser, force=false"
+  },
+  {
+    "timestamp": "2026-10-17T16:37:58.614Z",
+    "event": "DISPATCH_SKIPPED_COOLDOWN",
+    "status": "GUARD_BLOCKED",
+    "message": "Recent run #12 occurred at 2026-10-17T16:36:55Z (1.1m ago). Cooldown threshold is 40m. Skipping duplicate dispatch."
+  },
+  {
+    "timestamp": "2026-10-17T16:38:57.716Z",
+    "event": "EXTERNAL_SCHEDULER_INVOKED",
+    "status": "STARTING",
+    "message": "External scheduler invoked with target=browser, force=true"
+  },
+  {
+    "timestamp": "2026-10-17T16:39:00.449Z",
+    "event": "DISPATCH_ACCEPTED",
+    "status": "HTTP_204",
+    "message": "Workflow dispatch accepted by GitHub Actions API"
+  },
+  {
+    "timestamp": "2026-10-17T16:39:51.391Z",
+    "event": "RUN_COMPLETED",
+    "status": "success",
+    "runId": 39050326496,
+    "runNumber": 13,
+    "htmlUrl": "https://github.com/Ali-Kassem-AK/xare-ai/actions/runs/39050326496",
+    "durationSec": 54,
+    "message": "Workflow completed with conclusion: success"
+  },
+  {
+    "timestamp": "2026-10-17T16:40:18.421Z",
+    "event": "EXTERNAL_SCHEDULER_INVOKED",
+    "status": "STARTING",
+    "message": "External scheduler invoked with target=browser, force=false"
+  },
+  {
+    "timestamp": "2026-10-17T16:40:19.665Z",
+    "event": "DISPATCH_SKIPPED_COOLDOWN",
+    "status": "GUARD_BLOCKED",
+    "message": "Recent run #13 occurred at 2026-10-17T16:38:58Z (1.4m ago). Cooldown threshold is 40m. Skipping duplicate dispatch."
+  }
+]
