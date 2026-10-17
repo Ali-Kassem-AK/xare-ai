@@ -160,7 +160,7 @@ Every capability documented below has been verified directly against the reposit
 | **Firebase Auth, Firestore Sync & Guest Mode** | **Active** | Google OAuth, Email/Password, and `localStorage` Guest Mode implemented in [`src/App.tsx`](./src/App.tsx) with Firestore `users/{uid}/chats` and daily usage tracking. |
 | **Tier 2 S3 / R2 / B2 Presigned Upload** | **Optional / Dormant** | Fully implemented in [`api/upload/presign.ts`](./api/upload/presign.ts) and `uploadViaS3Presigned` in [`src/services/storage/storageService.ts`](./src/services/storage/storageService.ts); dormant by default (`s3Enabled = false`) until S3 env vars are configured. |
 | **n8n Workflow JSON (`n8n/Xare AI.json`)** | **Sanitized Template** | Committed 70-node template uses placeholder credentials (`REPLACE_WITH_YOUR_OWN_CREDENTIAL`) and `ALLOWED_STORAGE_HOSTS = ['storage.example.com']`. |
-| **n8n Remote URL Downloader (`Download Supabase File`)** | **Disabled in Template** | Marked `"disabled": true` in [`n8n/Xare AI.json`](./n8n/Xare%20AI.json); enabled and patched with allowed storage hosts via [`scripts/update_workflow.cjs`](./scripts/update_workflow.cjs). |
+| **n8n Remote URL Downloader (`Download Ephemeral Media File`)** | **Active / Configurable** | Powered by zero-cost `kappa.lol` ephemeral media transport; fetches temporary binaries and streams them into multimodal pipelines. |
 | **n8n Secondary Image Gen (`Pollinations Private`, `Imagen-4-ultra`)** | **Disabled in Template** | `Pollinations.ai (General)` (`flux`) is enabled; `Pollinations.ai (Private)` and `Imagen-4-ultra Image Generator_ID` are disabled fallback nodes in the template. |
 | **n8n ConvertAPI PDF-to-Image (`pdf-to-image`)** | **Disabled in Template** | Primary Gemini `PDF Analyzer` and `Extract from File` text extraction paths are active; the ConvertAPI `pdf-to-image` OCR fallback node is disabled in the template. |
 | **n8n Firestore Write (`Create or update a document`)** | **Disabled in Template** | Disabled in the public template (`"disabled": true`); client-side Firestore persistence in [`src/App.tsx`](./src/App.tsx) handles chat history synchronization directly. |
@@ -610,9 +610,10 @@ The repository includes a sanitized, 70-node workflow template at [`n8n/Xare AI.
    - **Groq API** (`groqApi`) LLM and Whisper STT nodes
    - **Deepgram API** (`deepgramApi`) TTS node
    - **Tavily Web Search** (`web_search1`–`web_search4` HTTP Request Tool nodes)
-3. **Enable Remote Storage URL Fetching**:
-   - In the sanitized template, `Identify Media Type` sets `ALLOWED_STORAGE_HOSTS = ['storage.example.com']` and the `Download Supabase File` HTTP Request node is `"disabled": true`.
-   - To enable fetching ephemeral URLs from `kappa.lol` or S3-compatible buckets, enable the `Download Supabase File` node and add `'kappa.lol'` (and/or your R2/B2/S3 hostname) to `ALLOWED_STORAGE_HOSTS` inside `Identify Media Type` (see [`scripts/update_workflow.cjs`](./scripts/update_workflow.cjs) for the exact node patch logic).
+3. **Remote Storage & Ephemeral Media Transport**:
+   - Architecture utilizes zero-cost **`kappa.lol` ephemeral media transport** (with background pre-upload and automated post-inference deletion) alongside decoupled client-side `XareMediaDB` (IndexedDB) persistence and optional S3/R2/B2 presigned fallback.
+   - In the n8n orchestration workflow, `Identify Media Type` validates incoming media URLs and feeds them to the remote media downloader (`Download Ephemeral Media File` HTTP Request node).
+   - Ensure `'kappa.lol'` (and/or your S3-compatible host) is included in `ALLOWED_STORAGE_HOSTS` inside `Identify Media Type`.
 4. **Verify Model Identifiers**:
    - Update any placeholder model identifiers in the template (such as `models/gemini-3.5-flash` or `qwen/qwen3.8-27b`) to match the active model slugs available in your Google AI Studio and Groq accounts.
 5. **Connect the Webhook URL**:
