@@ -2,8 +2,10 @@ name: Xare AI 1-Hour Chat Warm-Up Subsystem
 
 on:
   schedule:
-    # Runs every 1 hour continuously: 00:00, 01:00, 02:00, 03:00, ..., 23:00 UTC
-    - cron: '0 * * * *'
+    # Runs once every hour, 24 hours a day, continuously: 00:35, 01:35, ..., 23:35 UTC.
+    # Scheduled at minute 35 (off-peak) to eliminate exposure to GitHub Actions
+    # top-of-hour (:00) queue contention delays and dropped triggers under high load.
+    - cron: '35 * * * *'
   workflow_dispatch:
     inputs:
       target:

@@ -2,7 +2,7 @@
 /**
  * Xare AI — Automated 1-Hour Chat Warm-Up Subsystem CLI & CI/CD Runner
  * 
- * Dispatches automated synthetic messages ("Hi") every hour (0 * * * * UTC)
+ * Dispatches automated synthetic messages ("Hi") every hour (35 * * * * UTC)
  * through the live Xare website chat interface via browser automation,
  * with support for direct upstream inference validation.
  */
@@ -123,27 +123,25 @@ async function executeBrowserUI(runId) {
     for (let i = 0; i < 45; i++) {
       await page.waitForTimeout(1000);
 
-      // Check text in conversation blocks
-      const messages = await page.locator('.prose, [data-message-sender="bot"], .bot-message').allTextContents().catch(() => []);
-      if (messages.length > 0 && messages[messages.length - 1].trim().length > 5) {
-        botText = messages[messages.length - 1].trim();
+      // Check for Xare's assistant message card (.chat-message-card.justify-start)
+      const botCards = await page.locator('.chat-message-card.justify-start').allTextContents().catch(() => []);
+      const isSending = (await page.locator('text=Sending').count().catch(() => 0)) > 0;
+      const isReading = (await page.locator('text=Reading Prompt').count().catch(() => 0)) > 0;
+      const isThinking = (await page.locator('text=Understanding Context').count().catch(() => 0)) > 0;
+
+      if (botCards.length > 0 && botCards[0].trim().length > 5 && !isSending && !isReading && !isThinking) {
+        // Strip UI action buttons (e.g. "Copy", "Regenerate") from excerpt
+        botText = botCards[0].replace(/Copy/g, '').replace(/Regenerate/g, '').trim();
         responseFound = true;
         break;
       }
 
-      // Check full chat body for conversation flow
-      const pageText = await page.innerText('body').catch(() => '');
-      if (pageText.includes('Hi') && (pageText.includes('Xare') || pageText.includes('Hey!') || pageText.includes("How's it going?"))) {
-        const idx = pageText.indexOf('Hi\n');
-        if (idx !== -1) {
-          const afterHi = pageText.slice(idx + 3).trim();
-          const lines = afterHi.split('\n').filter(l => l.trim().length > 0);
-          if (lines.length > 0 && lines[0].length > 5) {
-            botText = lines.slice(0, 4).join(' ');
-            responseFound = true;
-            break;
-          }
-        }
+      // Secondary selector check (.prose, .chat-content-text)
+      const contentTexts = await page.locator('.chat-content-text').allTextContents().catch(() => []);
+      if (contentTexts.length > 1 && !isSending && !isReading && !isThinking) {
+        botText = contentTexts[contentTexts.length - 1].trim();
+        responseFound = true;
+        break;
       }
     }
 
@@ -456,7 +454,7 @@ async function main() {
 
   console.log('======================================================================');
   console.log('   XARE AI — AUTOMATIC 1-HOUR CHAT WARM-UP SUB-SYSTEM');
-  console.log('   Target Cadence: Every 1 Hour (0 * * * * UTC)');
+  console.log('   Target Cadence: Every 1 Hour (35 * * * * UTC)');
   console.log('======================================================================\n');
   console.log(`Execution Mode: ${opts.endpoint ? 'Vercel Serverless Endpoint' : 'Automated Synthetic Run'}`);
   console.log(`Target: ${opts.target} | Iterations: ${opts.repeat}\n`);
@@ -516,7 +514,7 @@ async function main() {
     const summary = {
       runId,
       idempotencyKey,
-      scheduledCadence: '0 * * * * (Every 1 hour UTC)',
+      scheduledCadence: '35 * * * * (Every 1 hour UTC)',
       timestamp: new Date().toISOString(),
       status: allVerified ? 'success' : 'partial_or_failed',
       targets

@@ -9,7 +9,7 @@ When unvisited overnight or during idle hours:
 2. **Hugging Face Spaces (`aliiis-24-7-n8n.hf.space`)**: Pauses or puts container resources into an idle state. Un-warmed first requests to the primary chat pipeline took **30s to 75s+**, occasionally triggering client abort timeouts (`N8N_REQUEST_TIMEOUT_MS = 75000`).
 3. **Vercel Edge Functions (`/api/chat/stream`)**: Unloaded V8 worker instances, requiring cold DNS resolution and upstream SSL handshakes to Google Generative AI endpoints.
 
-The Warm-Up Subsystem dispatches an automated synthetic message (`Hi`) every **one hour** (`0 * * * * UTC`) through Xare's genuine website chat interface using headless browser automation (Playwright), verifying non-empty AI-generated completions in the real UI while keeping client-side pipelines, n8n, and Edge workers primed.
+The Warm-Up Subsystem dispatches an automated synthetic message (`Hi`) every **one hour** (`35 * * * * UTC`) through Xare's genuine website chat interface using headless browser automation (Playwright), verifying non-empty AI-generated completions in the real UI while keeping client-side pipelines, n8n, and Edge workers primed.
 
 ---
 
@@ -17,7 +17,7 @@ The Warm-Up Subsystem dispatches an automated synthetic message (`Hi`) every **o
 
 ```mermaid
 flowchart TD
-    Scheduler["Scheduler (GitHub Actions 0 * * * * UTC)"] --> Runner["Warm-Up Runner (scripts/warmup_runner.cjs)"]
+    Scheduler["Scheduler (GitHub Actions 35 * * * * UTC)"] --> Runner["Warm-Up Runner (scripts/warmup_runner.cjs)"]
     
     subgraph TargetUI ["Primary Target: Real Xare Website Chat Interface (Playwright)"]
         Runner -->|"Launch Headless Chromium"| Browser["Browser Automation Engine"]
@@ -79,14 +79,14 @@ The synthetic warm-up turn operates through the real user-facing web interface a
 ## 4. Scheduling & Cadence Configuration
 
 ### A. Recurring GitHub Actions Scheduler (`.github/workflows/warmup.yml`)
-- **Cadence**: Every 1 hour continuously (`0 * * * *`), firing at 00:00, 01:00, 02:00, 03:00, ..., 23:00 UTC.
+- **Cadence**: Every 1 hour continuously (`35 * * * *`), firing at 00:35, 01:35, 02:35, 03:35, ..., 23:35 UTC. Scheduled at minute 35 to avoid GitHub platform-level top-of-hour (:00) queue contention delays.
 - **Independence**: Runs completely in the cloud on GitHub Actions runners, independent of any open browser tab or client machine.
 - **Browser Automation in CI**: Headless Chromium is installed and executed in the runner (`npx playwright install --with-deps chromium`).
 - **Concurrency Guard**: `group: xare-chat-warmup`, `cancel-in-progress: false` ensures zero duplicate overlapping runs.
 - **Manual Trigger**: Supports `workflow_dispatch` with custom target selection (`browser`, `all`, `n8n`, `edge`) and repeat count for benchmarking.
 
 ### B. Scheduler Single Source of Truth
-- **Dedicated Cloud Runner**: GitHub Actions executes the full 1-hour cadence continuously (`0 * * * * UTC`) without plan restrictions or charges.
+- **Dedicated Cloud Runner**: GitHub Actions executes the full 1-hour cadence continuously (`35 * * * * UTC`) without plan restrictions or charges.
 - **Vercel Cron Removed**: The daily cron was removed from `vercel.json` to eliminate duplicate scheduler drift, eliminate confusion between daily vs 1-hour triggers, and avoid Vercel Hobby plan 1-cron/day restrictions. All scheduling is managed strictly via GitHub Actions.
 
 ---

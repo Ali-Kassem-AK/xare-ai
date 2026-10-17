@@ -673,7 +673,7 @@ node scripts/verify_live_deploy.cjs
 To eliminate cold-start freezing and request timeouts when the application has been idle (such as overnight or during periods without real users), Xare AI implements a verified, automated **One-Hour Chat Warm-Up Subsystem**.
 
 ### Architecture & Pipeline Overview
-- **Recurring Cloud Cadence**: Scheduled every 1 hour continuously (`0 * * * * UTC`) via GitHub Actions (`.github/workflows/warmup.yml`). Operates completely in the cloud, running resilient headless browser automation.
+- **Recurring Cloud Cadence**: Scheduled every 1 hour continuously (`35 * * * * UTC`) via GitHub Actions (`.github/workflows/warmup.yml`). Operates completely in the cloud, running resilient headless browser automation.
 - **Genuine Browser UI Interaction**: Dispatches the exact synthetic message `Hi` through the real user-facing Xare chat interface using browser automation (Playwright), entering guest mode, typing into the input textarea, submitting via Enter, and capturing before/after screenshots as durable proof.
 - **Target Inferences Warmed**:
   1. **Live Web Chat Interface (`https://xare-ai.vercel.app/`)**: Full browser-driven user interaction traversing client-side React state, WebSocket/SSE streaming, and rendering pipelines.

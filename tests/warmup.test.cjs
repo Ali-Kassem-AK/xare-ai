@@ -268,15 +268,13 @@ async function runWarmupTestSuite() {
     let botReplySnippet = '';
     for (let i = 0; i < 40; i++) {
       await page.waitForTimeout(1000);
-      const messages = await page.locator('.prose, [data-message-sender="bot"], .bot-message').allTextContents().catch(() => []);
-      if (messages.length > 0 && messages[messages.length - 1].trim().length > 5) {
-        botReplySnippet = messages[messages.length - 1].trim();
-        botResponseFound = true;
-        break;
-      }
-      const pageText = await page.innerText('body').catch(() => '');
-      if (pageText.includes('Hi') && (pageText.includes('Xare') || pageText.includes('Hey!') || pageText.includes("How's it going?"))) {
-        botReplySnippet = 'Verified in conversation';
+      const botCards = await page.locator('.chat-message-card.justify-start').allTextContents().catch(() => []);
+      const isSending = (await page.locator('text=Sending').count().catch(() => 0)) > 0;
+      const isReading = (await page.locator('text=Reading Prompt').count().catch(() => 0)) > 0;
+      const isThinking = (await page.locator('text=Understanding Context').count().catch(() => 0)) > 0;
+
+      if (botCards.length > 0 && botCards[0].trim().length > 5 && !isSending && !isReading && !isThinking) {
+        botReplySnippet = botCards[0].replace(/Copy/g, '').replace(/Regenerate/g, '').trim();
         botResponseFound = true;
         break;
       }

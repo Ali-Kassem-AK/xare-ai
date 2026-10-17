@@ -53,12 +53,12 @@ Measurements evaluate three critical targets:
 
 ## 4. Cost, Bandwidth & Resource Impact Audit
 
-### Schedule Target: Hourly (`0 * * * * UTC`)
-The warm-up scheduler runs every 1 hour continuously, ensuring zero cold-start delay for any real user visiting the site at any time of day or night.
+### Schedule Target: Hourly (`35 * * * * UTC`)
+The warm-up scheduler runs every 1 hour continuously, ensuring zero cold-start delay for any real user visiting the site at any time of day or night. Scheduled at minute 35 to avoid GitHub platform-level top-of-hour (:00) queue contention.
 
 | Parameter | Value | Assessment |
 | :--- | :--- | :--- |
-| **Invocation Cadence** | Every 1 hour (`0 * * * * UTC`) | Continuous 24/7 background priming |
+| **Invocation Cadence** | Every 1 hour (`35 * * * * UTC`) | Continuous 24/7 background priming |
 | **Runs Per 24 Hours** | 24 runs | Prevents any container or edge worker idle sleep |
 | **Runs Per Month (30 days)** | 720 runs | Well within GitHub Actions free tier (2,000 min/month) |
 | **Run Duration in CI** | ~30–45 seconds per run | Consumes ~360–540 GitHub Actions minutes/month |
