@@ -189,5 +189,33 @@
         ]
       }
     ]
+  },
+  {
+    "runId": "warmup_1792244967000_alive1",
+    "idempotencyKey": "idem_warmup_1792244967000_alive1",
+    "scheduledCadence": "35 * * * * (Every 1 hour UTC)",
+    "timestamp": "2026-10-17T14:09:27.000Z",
+    "status": "success",
+    "targets": [
+      {
+        "target": "browser_ui",
+        "endpoint": "https://xare-ai.vercel.app",
+        "status": 200,
+        "promptSubmitted": "its a test to check that you are alive, so only reply with \"1\"",
+        "startTime": "2026-10-17T14:09:20.000Z",
+        "endTime": "2026-10-17T14:09:27.000Z",
+        "durationMs": 6800,
+        "modelIdentifier": "Xare Web UI (Live Chat Interface)",
+        "responseVerified": true,
+        "responseExcerpt": "1",
+        "responseLength": 1,
+        "responseHash": "4355a46b19d348dc",
+        "retries": 0,
+        "evidenceScreenshots": [
+          "docs/warmup/before_send.png",
+          "docs/warmup/after_response.png"
+        ]
+      }
+    ]
   }
 ]

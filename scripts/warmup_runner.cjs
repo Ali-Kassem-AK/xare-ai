@@ -16,6 +16,7 @@ const N8N_WEBHOOK_TOKEN = process.env.N8N_WEBHOOK_TOKEN;
 const WARMUP_SECRET = process.env.WARMUP_SECRET || process.env.CRON_SECRET;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika';
 const VERCEL_APP_URL = process.env.VERCEL_APP_URL || 'https://xare-ai.vercel.app';
+const WARMUP_PROMPT_MESSAGE = 'its a test to check that you are alive, so only reply with "1"';
 
 const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write "علي كاسم").
 
@@ -102,9 +103,9 @@ async function executeBrowserUI(runId) {
     const textarea = page.locator('textarea');
     await textarea.waitFor({ state: 'visible', timeout: 15000 });
 
-    // Type the synthetic message "Hi"
-    console.log('     Typing "Hi" into user chat input...');
-    await textarea.fill('Hi');
+    // Type the synthetic message
+    console.log(`     Typing "${WARMUP_PROMPT_MESSAGE}" into user chat input...`);
+    await textarea.fill(WARMUP_PROMPT_MESSAGE);
     await page.waitForTimeout(500);
 
     // Capture pre-submission screenshot
@@ -129,19 +130,25 @@ async function executeBrowserUI(runId) {
       const isReading = (await page.locator('text=Reading Prompt').count().catch(() => 0)) > 0;
       const isThinking = (await page.locator('text=Understanding Context').count().catch(() => 0)) > 0;
 
-      if (botCards.length > 0 && botCards[0].trim().length > 5 && !isSending && !isReading && !isThinking) {
+      if (botCards.length > 0 && !isSending && !isReading && !isThinking) {
         // Strip UI action buttons (e.g. "Copy", "Regenerate") from excerpt
-        botText = botCards[0].replace(/Copy/g, '').replace(/Regenerate/g, '').trim();
-        responseFound = true;
-        break;
+        const candidate = botCards[0].replace(/Copy/g, '').replace(/Regenerate/g, '').trim();
+        if (candidate.length >= 1) {
+          botText = candidate;
+          responseFound = true;
+          break;
+        }
       }
 
       // Secondary selector check (.prose, .chat-content-text)
       const contentTexts = await page.locator('.chat-content-text').allTextContents().catch(() => []);
       if (contentTexts.length > 1 && !isSending && !isReading && !isThinking) {
-        botText = contentTexts[contentTexts.length - 1].trim();
-        responseFound = true;
-        break;
+        const candidate = contentTexts[contentTexts.length - 1].trim();
+        if (candidate.length >= 1) {
+          botText = candidate;
+          responseFound = true;
+          break;
+        }
       }
     }
 
@@ -155,7 +162,7 @@ async function executeBrowserUI(runId) {
     await browser.close();
     browser = null;
 
-    const isNonEmpty = responseFound && botText.trim().length > 3;
+    const isNonEmpty = responseFound && botText.trim().length >= 1;
     const isNotError = !botText.toLowerCase().includes('request could not be processed') && !botText.toLowerCase().includes('error');
     const hash = crypto.createHash('sha256').update(botText).digest('hex').substring(0, 16);
 
@@ -211,8 +218,8 @@ async function executePrimaryN8nDirect(runId) {
     sessionId: `warmup_session_${runId}`,
     userId: 'xare-warmup-synthetic-agent',
     username: 'Xare Warmup Agent',
-    message: 'Hi',
-    chatInput: 'Hi',
+    message: WARMUP_PROMPT_MESSAGE,
+    chatInput: WARMUP_PROMPT_MESSAGE,
     messageId: `msg_${runId}`,
     requestId: `req_${runId}`,
     systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
@@ -312,7 +319,7 @@ async function executeEdgeStreamDirect() {
         'x-user-id': 'xare-warmup-synthetic-agent'
       },
       body: JSON.stringify({
-        prompt: 'Hi',
+        prompt: WARMUP_PROMPT_MESSAGE,
         systemInstruction: DEFAULT_SYSTEM_INSTRUCTION
       }),
       signal: controller.signal
@@ -470,7 +477,7 @@ async function main() {
 
     // Target 0: Real Browser UI
     if (opts.target === 'all' || opts.target === 'browser' || opts.target === 'browser_ui') {
-      console.log(`  -> Dispatching genuine 'Hi' through real Xare Website UI (${VERCEL_APP_URL})...`);
+      console.log(`  -> Dispatching synthetic message through real Xare Website UI (${VERCEL_APP_URL})...`);
       const browserResult = await executeBrowserUI(runId);
       targets.push(browserResult);
       console.log(`     Status: ${browserResult.status} | Duration: ${browserResult.durationMs}ms | Verified: ${browserResult.responseVerified ? 'YES (Genuine AI Content in UI)' : 'NO'}`);
@@ -484,7 +491,7 @@ async function main() {
 
     // Target 1: n8n Direct Webhook
     if (opts.target === 'all' || opts.target === 'n8n') {
-      console.log(`  -> Dispatching genuine 'Hi' to Primary n8n Webhook (${N8N_WEBHOOK_URL})...`);
+      console.log(`  -> Dispatching synthetic message to Primary n8n Webhook (${N8N_WEBHOOK_URL})...`);
       const n8nResult = await executePrimaryN8nDirect(runId);
       targets.push(n8nResult);
       console.log(`     Status: ${n8nResult.status} | Duration: ${n8nResult.durationMs}ms | Verified: ${n8nResult.responseVerified ? 'YES (Genuine AI Content)' : 'NO'}`);
@@ -498,7 +505,7 @@ async function main() {
 
     // Target 2: Edge Streaming Direct
     if (opts.target === 'all' || opts.target === 'edge') {
-      console.log(`  -> Dispatching genuine 'Hi' to Vercel Edge Stream (${VERCEL_APP_URL}/api/chat/stream)...`);
+      console.log(`  -> Dispatching synthetic message to Vercel Edge Stream (${VERCEL_APP_URL}/api/chat/stream)...`);
       const edgeResult = await executeEdgeStreamDirect();
       targets.push(edgeResult);
       console.log(`     Status: ${edgeResult.status} | TTFT: ${edgeResult.firstTokenMs}ms | Total: ${edgeResult.durationMs}ms | Verified: ${edgeResult.responseVerified ? 'YES (Genuine AI Content)' : 'NO'}`);

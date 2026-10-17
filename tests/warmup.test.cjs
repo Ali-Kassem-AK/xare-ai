@@ -5,6 +5,7 @@ const { chromium } = require('playwright');
 const WARMUP_SECRET = process.env.WARMUP_SECRET || process.env.CRON_SECRET;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika';
 const VERCEL_APP_URL = process.env.VERCEL_APP_URL || 'https://xare-ai.vercel.app';
+const WARMUP_PROMPT_MESSAGE = 'its a test to check that you are alive, so only reply with "1"';
 
 function timingSafeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
@@ -29,16 +30,16 @@ async function runWarmupTestSuite() {
     sessionId: `warmup_session_${runId}`,
     userId: 'xare-warmup-synthetic-agent',
     username: 'Xare Warmup Agent',
-    message: 'Hi',
-    chatInput: 'Hi',
+    message: WARMUP_PROMPT_MESSAGE,
+    chatInput: WARMUP_PROMPT_MESSAGE,
     messageId: `msg_${runId}`,
     requestId: `req_${runId}`,
     action: 'chat',
     timestamp: new Date().toISOString()
   };
 
-  assert.strictEqual(testPayload.message, 'Hi', 'Synthetic message must be exactly "Hi"');
-  assert.strictEqual(testPayload.chatInput, 'Hi', 'Synthetic chatInput must match message');
+  assert.strictEqual(testPayload.message, WARMUP_PROMPT_MESSAGE, 'Synthetic message must match WARMUP_PROMPT_MESSAGE');
+  assert.strictEqual(testPayload.chatInput, WARMUP_PROMPT_MESSAGE, 'Synthetic chatInput must match message');
   assert.strictEqual(testPayload.action, 'chat', 'Action must be regular chat');
   assert.strictEqual(testPayload.userId, 'xare-warmup-synthetic-agent', 'Synthetic identity must not collide with real users');
   console.log('  ✅ Payload contract matches production client specification exactly');
@@ -48,7 +49,7 @@ async function runWarmupTestSuite() {
   const unauthRes = await fetch(`${VERCEL_APP_URL}/api/warmup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: 'Hi' })
+    body: JSON.stringify({ prompt: WARMUP_PROMPT_MESSAGE })
   });
   assert.ok(unauthRes.status === 401 || unauthRes.status === 500, `Expected HTTP 401 or 500, got ${unauthRes.status}`);
   console.log(`  ✅ Request without credentials rejected with HTTP ${unauthRes.status} (Secure fail-closed/unauthorized)`);
@@ -134,7 +135,7 @@ async function runWarmupTestSuite() {
   const validateResponse = (text) => {
     if (typeof text !== 'string') return false;
     const trimmed = text.trim();
-    if (trimmed.length < 5) return false;
+    if (trimmed.length < 1) return false;
     if (trimmed.toLowerCase().includes('request could not be processed')) return false;
     if (trimmed.toLowerCase().includes('internal server error')) return false;
     if (/^(200(\s*ok)?|ok|status:\s*200)$/i.test(trimmed)) return false;
@@ -145,6 +146,7 @@ async function runWarmupTestSuite() {
   assert.strictEqual(validateResponse('   '), false, 'Whitespace must be rejected');
   assert.strictEqual(validateResponse('200 OK'), false, 'HTTP status string must be rejected');
   assert.strictEqual(validateResponse('Request could not be processed.'), false, 'Error message must be rejected');
+  assert.strictEqual(validateResponse('1'), true, '"1" response must be accepted');
   assert.strictEqual(validateResponse('Hey! 👋 How can I help you today?'), true, 'Genuine AI response must be accepted');
   console.log('  ✅ AI response verification rejects fake, empty, and error responses');
 
@@ -190,7 +192,7 @@ async function runWarmupTestSuite() {
   const edgeRes = await fetch(`${VERCEL_APP_URL}/api/chat/stream`, {
     method: 'POST',
     headers: edgeHeaders,
-    body: JSON.stringify({ prompt: 'Hi' })
+    body: JSON.stringify({ prompt: WARMUP_PROMPT_MESSAGE })
   });
 
   if (!edgeToken) {
@@ -261,7 +263,7 @@ async function runWarmupTestSuite() {
 
     const textarea = page.locator('textarea');
     await textarea.waitFor({ state: 'visible', timeout: 15000 });
-    await textarea.fill('Hi');
+    await textarea.fill(WARMUP_PROMPT_MESSAGE);
     await textarea.press('Enter');
 
     let botResponseFound = false;
@@ -273,17 +275,20 @@ async function runWarmupTestSuite() {
       const isReading = (await page.locator('text=Reading Prompt').count().catch(() => 0)) > 0;
       const isThinking = (await page.locator('text=Understanding Context').count().catch(() => 0)) > 0;
 
-      if (botCards.length > 0 && botCards[0].trim().length > 5 && !isSending && !isReading && !isThinking) {
-        botReplySnippet = botCards[0].replace(/Copy/g, '').replace(/Regenerate/g, '').trim();
-        botResponseFound = true;
-        break;
+      if (botCards.length > 0 && !isSending && !isReading && !isThinking) {
+        const candidate = botCards[0].replace(/Copy/g, '').replace(/Regenerate/g, '').trim();
+        if (candidate.length >= 1) {
+          botReplySnippet = candidate;
+          botResponseFound = true;
+          break;
+        }
       }
     }
 
     await browserInstance.close();
     browserInstance = null;
     assert.ok(botResponseFound, 'Bot response not received in browser UI within 40 seconds');
-    console.log('  ✅ Real browser successfully submitted "Hi" and received AI response in chat interface');
+    console.log('  ✅ Real browser successfully submitted synthetic test message and received AI response in chat interface');
     console.log(`     UI Confirmation: "${botReplySnippet.slice(0, 80).replace(/\n/g, ' ')}..."`);
   } catch (browserErr) {
     if (browserInstance) await browserInstance.close().catch(() => {});

@@ -64,7 +64,7 @@ jobs:
             fi
           fi
 
-      - name: Execute Synthetic User Turn ('Hi') & Record Proof
+      - name: Execute Synthetic User Turn & Record Proof
         env:
           WARMUP_SECRET: ${{ secrets.WARMUP_SECRET }}
           N8N_WEBHOOK_TOKEN: ${{ secrets.N8N_WEBHOOK_TOKEN }}

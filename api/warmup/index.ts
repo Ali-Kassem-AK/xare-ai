@@ -102,8 +102,8 @@ async function warmPrimaryN8n(runId: string): Promise<TargetExecutionRecord> {
     sessionId: `warmup_session_${runId}`,
     userId: 'xare-warmup-synthetic-agent',
     username: 'Xare Warmup Agent',
-    message: 'Hi',
-    chatInput: 'Hi',
+    message: 'its a test to check that you are alive, so only reply with "1"',
+    chatInput: 'its a test to check that you are alive, so only reply with "1"',
     messageId: `msg_${runId}`,
     requestId: `req_${runId}`,
     systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
@@ -224,7 +224,7 @@ async function warmEdgeStream(originUrl: string): Promise<TargetExecutionRecord>
       method: 'POST',
       headers,
       body: JSON.stringify({
-        prompt: 'Hi',
+        prompt: 'its a test to check that you are alive, so only reply with "1"',
         systemInstruction: DEFAULT_SYSTEM_INSTRUCTION
       }),
       signal: controller.signal
