@@ -1,0 +1,7 @@
+name = "xare-warmup-scheduler"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# Runs continuously in Cloudflare's global edge network every hour at minute 35 UTC
+[triggers]
+crons = ["35 * * * *"]
