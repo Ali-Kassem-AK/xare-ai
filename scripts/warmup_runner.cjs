@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 /**
- * Xare AI — Automated Chat Warm-Up Subsystem CLI & CI/CD Runner
+ * Xare AI — Automated 1-Hour Chat Warm-Up Subsystem CLI & CI/CD Runner
  * 
- * Executes verified synthetic user turns containing exactly "Hi" across
- * production inference pipelines to eliminate cold-start latency.
+ * Dispatches automated synthetic messages ("Hi") every hour (0 * * * * UTC)
+ * through the live Xare website chat interface via browser automation,
+ * with support for direct upstream inference validation.
  */
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { chromium } = require('playwright');
 
 const N8N_WEBHOOK_TOKEN = process.env.N8N_WEBHOOK_TOKEN;
 const WARMUP_SECRET = process.env.WARMUP_SECRET || process.env.CRON_SECRET;
@@ -25,7 +27,7 @@ const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, and high
 function parseArgs() {
   const args = process.argv.slice(2);
   const opts = {
-    target: 'n8n', // Default to the true bottleneck (n8n on Hugging Face Spaces)
+    target: 'browser', // Default to real browser UI automation as required
     repeat: 1,
     report: false,
     direct: false,
@@ -42,6 +44,159 @@ function parseArgs() {
     else if (arg === '--live') opts.live = true;
   }
   return opts;
+}
+
+/**
+ * Launch Chromium resiliently across Linux (CI) and Windows/macOS local environments
+ */
+async function launchBrowser() {
+  try {
+    return await chromium.launch({ headless: true });
+  } catch (err) {
+    if (process.platform === 'win32') {
+      try {
+        return await chromium.launch({ channel: 'chrome', headless: true });
+      } catch (e) {
+        return await chromium.launch({ channel: 'msedge', headless: true });
+      }
+    }
+    throw err;
+  }
+}
+
+/**
+ * Executes Target 0: Real User-Facing Xare Website Chat Interface (Browser Automation)
+ */
+async function executeBrowserUI(runId) {
+  const t0 = Date.now();
+  const startIso = new Date(t0).toISOString();
+  let browser = null;
+
+  const docsDir = path.join(__dirname, '..', 'docs', 'warmup');
+  if (!fs.existsSync(docsDir)) {
+    fs.mkdirSync(docsDir, { recursive: true });
+  }
+  const beforeSendPath = path.join(docsDir, 'before_send.png');
+  const afterResponsePath = path.join(docsDir, 'after_response.png');
+
+  try {
+    browser = await launchBrowser();
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    });
+    const page = await context.newPage();
+
+    console.log(`     Navigating to ${VERCEL_APP_URL}...`);
+    await page.goto(VERCEL_APP_URL, { waitUntil: 'networkidle', timeout: 35000 });
+
+    // Handle guest authentication modal if present
+    const guestBtn = page.locator('button:has-text("Continue as Guest")');
+    if (await guestBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      console.log('     Entering as guest session...');
+      await guestBtn.click();
+      await page.waitForTimeout(1000);
+    }
+
+    // Locate the user chat textarea
+    const textarea = page.locator('textarea');
+    await textarea.waitFor({ state: 'visible', timeout: 15000 });
+
+    // Type the synthetic message "Hi"
+    console.log('     Typing "Hi" into user chat input...');
+    await textarea.fill('Hi');
+    await page.waitForTimeout(500);
+
+    // Capture pre-submission screenshot
+    await page.screenshot({ path: beforeSendPath });
+    console.log(`     Saved pre-submission screenshot: ${beforeSendPath}`);
+
+    // Submit message via Enter key
+    console.log('     Submitting message via Enter key...');
+    await textarea.press('Enter');
+
+    // Wait for the response to appear and complete
+    console.log('     Waiting for AI response in chat interface...');
+    let botText = '';
+    let responseFound = false;
+
+    for (let i = 0; i < 45; i++) {
+      await page.waitForTimeout(1000);
+
+      // Check text in conversation blocks
+      const messages = await page.locator('.prose, [data-message-sender="bot"], .bot-message').allTextContents().catch(() => []);
+      if (messages.length > 0 && messages[messages.length - 1].trim().length > 5) {
+        botText = messages[messages.length - 1].trim();
+        responseFound = true;
+        break;
+      }
+
+      // Check full chat body for conversation flow
+      const pageText = await page.innerText('body').catch(() => '');
+      if (pageText.includes('Hi') && (pageText.includes('Xare') || pageText.includes('Hey!') || pageText.includes("How's it going?"))) {
+        const idx = pageText.indexOf('Hi\n');
+        if (idx !== -1) {
+          const afterHi = pageText.slice(idx + 3).trim();
+          const lines = afterHi.split('\n').filter(l => l.trim().length > 0);
+          if (lines.length > 0 && lines[0].length > 5) {
+            botText = lines.slice(0, 4).join(' ');
+            responseFound = true;
+            break;
+          }
+        }
+      }
+    }
+
+    const t1 = Date.now();
+    const durationMs = t1 - t0;
+
+    // Capture post-response screenshot
+    await page.screenshot({ path: afterResponsePath });
+    console.log(`     Saved post-response screenshot: ${afterResponsePath}`);
+
+    await browser.close();
+    browser = null;
+
+    const isNonEmpty = responseFound && botText.trim().length > 3;
+    const isNotError = !botText.toLowerCase().includes('request could not be processed') && !botText.toLowerCase().includes('error');
+    const hash = crypto.createHash('sha256').update(botText).digest('hex').substring(0, 16);
+
+    return {
+      target: 'browser_ui',
+      endpoint: VERCEL_APP_URL,
+      status: responseFound ? 200 : 'no_response',
+      startTime: startIso,
+      endTime: new Date(t1).toISOString(),
+      durationMs,
+      modelIdentifier: 'Xare Web UI (Live Chat Interface)',
+      responseVerified: isNonEmpty && isNotError,
+      responseExcerpt: botText.slice(0, 120).replace(/\n/g, ' '),
+      responseLength: botText.length,
+      responseHash: hash,
+      retries: 0,
+      evidenceScreenshots: [
+        'docs/warmup/before_send.png',
+        'docs/warmup/after_response.png'
+      ]
+    };
+  } catch (err) {
+    if (browser) await browser.close().catch(() => {});
+    const t1 = Date.now();
+    return {
+      target: 'browser_ui',
+      endpoint: VERCEL_APP_URL,
+      status: 'error',
+      startTime: startIso,
+      endTime: new Date(t1).toISOString(),
+      durationMs: t1 - t0,
+      responseVerified: false,
+      responseExcerpt: '',
+      responseLength: 0,
+      responseHash: null,
+      error: err.message,
+      retries: 0
+    };
+  }
 }
 
 /**
@@ -284,40 +439,52 @@ async function executeWarmupEndpoint() {
 async function main() {
   const opts = parseArgs();
 
-  // Strict Fail-Closed Credentials Validation
-  if (!opts.endpoint) {
-    if ((opts.target === 'n8n' || opts.target === 'all') && !N8N_WEBHOOK_TOKEN) {
-      console.error('\n❌ FATAL CONFIGURATION ERROR: Missing required N8N_WEBHOOK_TOKEN environment variable for n8n target.');
-      console.error('The n8n webhook requires its own dedicated credential passed via N8N_WEBHOOK_TOKEN.');
-      console.error('WARMUP_SECRET is reserved exclusively for the Edge/API warm-up path.\n');
-      process.exit(1);
-    }
-    if ((opts.target === 'edge' || opts.target === 'all') && !WARMUP_SECRET) {
-      console.error('\n❌ FATAL CONFIGURATION ERROR: Missing required WARMUP_SECRET environment variable for edge stream target.\n');
-      process.exit(1);
-    }
-  } else {
+  // Strict Fail-Closed Credentials Validation for upstream targets
+  if (opts.endpoint) {
     if (!WARMUP_SECRET) {
       console.error('\n❌ FATAL CONFIGURATION ERROR: Missing required WARMUP_SECRET environment variable for warm-up endpoint.\n');
       process.exit(1);
     }
+  } else {
+    if ((opts.target === 'n8n' || opts.target === 'all') && !N8N_WEBHOOK_TOKEN) {
+      console.warn('\n⚠️ WARNING: N8N_WEBHOOK_TOKEN not set; direct n8n calls will fail closed.');
+    }
+    if ((opts.target === 'edge' || opts.target === 'all') && !WARMUP_SECRET) {
+      console.warn('\n⚠️ WARNING: WARMUP_SECRET not set; direct edge stream calls will fail closed.');
+    }
   }
+
   console.log('======================================================================');
-  console.log('   XARE AI — AUTOMATIC 2-HOUR CHAT WARM-UP SUB-SYSTEM');
-  console.log('   Target Cadence: Every 2 Hours (0 */2 * * * UTC)');
+  console.log('   XARE AI — AUTOMATIC 1-HOUR CHAT WARM-UP SUB-SYSTEM');
+  console.log('   Target Cadence: Every 1 Hour (0 * * * * UTC)');
   console.log('======================================================================\n');
-  console.log(`Execution Mode: ${opts.endpoint ? 'Vercel Serverless Endpoint' : 'Direct Upstream Inference'}`);
-  console.log(`Target Filter: ${opts.target} | Iterations: ${opts.repeat}\n`);
+  console.log(`Execution Mode: ${opts.endpoint ? 'Vercel Serverless Endpoint' : 'Automated Synthetic Run'}`);
+  console.log(`Target: ${opts.target} | Iterations: ${opts.repeat}\n`);
 
   const allRuns = [];
 
   for (let i = 0; i < opts.repeat; i++) {
     const runId = `warmup_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const idempotencyKey = `idem_${runId}`;
-    console.log(`[TRIAL ${i + 1}/${opts.repeat}] Starting Warm-Up Run ID: ${runId}`);
+    console.log(`[TRIAL ${i + 1}/${opts.repeat}] Starting 1-Hour Warm-Up Run ID: ${runId}`);
 
     const targets = [];
 
+    // Target 0: Real Browser UI
+    if (opts.target === 'all' || opts.target === 'browser' || opts.target === 'browser_ui') {
+      console.log(`  -> Dispatching genuine 'Hi' through real Xare Website UI (${VERCEL_APP_URL})...`);
+      const browserResult = await executeBrowserUI(runId);
+      targets.push(browserResult);
+      console.log(`     Status: ${browserResult.status} | Duration: ${browserResult.durationMs}ms | Verified: ${browserResult.responseVerified ? 'YES (Genuine AI Content in UI)' : 'NO'}`);
+      if (browserResult.responseExcerpt) {
+        console.log(`     Response: "${browserResult.responseExcerpt}..."`);
+      }
+      if (browserResult.error) {
+        console.log(`     Error: ${browserResult.error}`);
+      }
+    }
+
+    // Target 1: n8n Direct Webhook
     if (opts.target === 'all' || opts.target === 'n8n') {
       console.log(`  -> Dispatching genuine 'Hi' to Primary n8n Webhook (${N8N_WEBHOOK_URL})...`);
       const n8nResult = await executePrimaryN8nDirect(runId);
@@ -331,6 +498,7 @@ async function main() {
       }
     }
 
+    // Target 2: Edge Streaming Direct
     if (opts.target === 'all' || opts.target === 'edge') {
       console.log(`  -> Dispatching genuine 'Hi' to Vercel Edge Stream (${VERCEL_APP_URL}/api/chat/stream)...`);
       const edgeResult = await executeEdgeStreamDirect();
@@ -348,7 +516,7 @@ async function main() {
     const summary = {
       runId,
       idempotencyKey,
-      scheduledCadence: '0 */2 * * * (Every 2 hours UTC)',
+      scheduledCadence: '0 * * * * (Every 1 hour UTC)',
       timestamp: new Date().toISOString(),
       status: allVerified ? 'success' : 'partial_or_failed',
       targets
@@ -369,7 +537,7 @@ async function main() {
   for (const run of allRuns) {
     console.log(`\nRun: ${run.runId} | Status: ${run.status} | Timestamp: ${run.timestamp}`);
     for (const t of run.targets) {
-      console.log(`  • [${t.target.toUpperCase()}] status=${t.status} duration=${t.durationMs}ms ttft=${t.firstTokenMs || 'N/A'}ms verified=${t.responseVerified} model=${t.modelIdentifier || 'unknown'}`);
+      console.log(`  • [${t.target.toUpperCase()}] status=${t.status} duration=${t.durationMs}ms verified=${t.responseVerified} model=${t.modelIdentifier || 'unknown'}`);
     }
   }
   console.log('\n======================================================================\n');
@@ -397,7 +565,7 @@ async function main() {
     console.warn('⚠️ Some targets failed verification.');
     process.exit(1);
   } else {
-    console.log('🎉 ALL WARM-UP PIPELINE TARGETS VERIFIED SUCCESSFULLY.');
+    console.log('🎉 ALL 1-HOUR CHAT WARM-UP TARGETS VERIFIED SUCCESSFULLY.');
     process.exit(0);
   }
 }

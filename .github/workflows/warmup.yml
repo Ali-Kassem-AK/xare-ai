@@ -1,19 +1,20 @@
-name: Xare AI 2-Hour Chat Warm-Up Subsystem
+name: Xare AI 1-Hour Chat Warm-Up Subsystem
 
 on:
   schedule:
-    # Runs every 2 hours continuously: 00:00, 02:00, 04:00, 06:00, 08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00 UTC
-    - cron: '0 */2 * * *'
+    # Runs every 1 hour continuously: 00:00, 01:00, 02:00, 03:00, ..., 23:00 UTC
+    - cron: '0 * * * *'
   workflow_dispatch:
     inputs:
       target:
-        description: 'Target inference pipeline to warm'
+        description: 'Target warm-up mechanism'
         required: true
-        default: 'n8n'
+        default: 'browser'
         type: choice
         options:
-          - n8n
+          - browser
           - all
+          - n8n
           - edge
       repeat:
         description: 'Number of consecutive warm-up iterations (for benchmarking)'
@@ -29,7 +30,7 @@ jobs:
   execute-warmup:
     name: Run Synthetic Chat Warm-Up & Verify Inference
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
 
     steps:
       - name: Checkout Code
@@ -39,16 +40,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
-      - name: Validate Fail-Closed Secret Configuration
+      - name: Install Project Dependencies
+        run: npm ci || npm install
+
+      - name: Install Playwright Chromium & System Dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate Upstream Secret Configuration
         run: |
-          if [ -z "${{ secrets.WARMUP_SECRET }}" ]; then
-            echo "::error::Required secret WARMUP_SECRET is not configured in GitHub repository secrets. Halting execution to fail closed."
-            exit 1
+          TARGET="${{ inputs.target || 'browser' }}"
+          if [ "$TARGET" = "n8n" ] || [ "$TARGET" = "all" ]; then
+            if [ -z "${{ secrets.N8N_WEBHOOK_TOKEN }}" ]; then
+              echo "::warning::N8N_WEBHOOK_TOKEN is not configured; direct n8n webhook calls will fail closed."
+            fi
           fi
-          if [ -z "${{ secrets.N8N_WEBHOOK_TOKEN }}" ]; then
-            echo "::error::Required secret N8N_WEBHOOK_TOKEN is not configured in GitHub repository secrets. Halting execution to fail closed."
-            exit 1
+          if [ "$TARGET" = "edge" ] || [ "$TARGET" = "all" ]; then
+            if [ -z "${{ secrets.WARMUP_SECRET }}" ]; then
+              echo "::warning::WARMUP_SECRET is not configured; direct edge calls will fail closed."
+            fi
           fi
 
       - name: Execute Synthetic User Turn ('Hi') & Record Proof
@@ -58,13 +69,13 @@ jobs:
           VERCEL_APP_URL: ${{ vars.VERCEL_APP_URL || 'https://xare-ai.vercel.app' }}
           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika' }}
         run: |
-          node scripts/warmup_runner.cjs --target=${{ inputs.target || 'n8n' }} --repeat=${{ inputs.repeat || '1' }} --report
+          node scripts/warmup_runner.cjs --target=${{ inputs.target || 'browser' }} --repeat=${{ inputs.repeat || '1' }} --report
 
       - name: Upload Telemetry & Evidence Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: warmup-telemetry-evidence-${{ github.run_id }}
-          path: docs/warmup/evidence.json
+          path: docs/warmup/
           if-no-files-found: ignore
           retention-days: 90

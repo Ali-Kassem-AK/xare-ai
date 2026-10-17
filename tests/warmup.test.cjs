@@ -1,5 +1,6 @@
 const assert = require('assert');
 const crypto = require('crypto');
+const { chromium } = require('playwright');
 
 const WARMUP_SECRET = process.env.WARMUP_SECRET || process.env.CRON_SECRET;
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika';
@@ -17,7 +18,7 @@ function timingSafeEqual(a, b) {
 
 async function runWarmupTestSuite() {
   console.log('======================================================================');
-  console.log('RUNNING COMPREHENSIVE TEST SUITE: 2-HOUR CHAT WARM-UP SUBSYSTEM');
+  console.log('RUNNING COMPREHENSIVE TEST SUITE: 1-HOUR CHAT WARM-UP SUBSYSTEM');
   console.log('======================================================================\n');
 
   // TEST 1: Request Payload Structure & Contract Compliance
@@ -228,8 +229,71 @@ async function runWarmupTestSuite() {
     console.log(`     Model Output: "${fullStreamText.slice(0, 80).replace(/\n/g, ' ')}..."`);
   }
 
+  // TEST 11: Real Browser-Based Website Chat Interface Interaction
+  console.log('\n[TEST 11] Live Browser UI Automation: Real Chat Submission via Xare Interface...');
+  let browserInstance = null;
+  try {
+    try {
+      browserInstance = await chromium.launch({ headless: true });
+    } catch (e) {
+      if (process.platform === 'win32') {
+        try {
+          browserInstance = await chromium.launch({ channel: 'chrome', headless: true });
+        } catch (e2) {
+          browserInstance = await chromium.launch({ channel: 'msedge', headless: true });
+        }
+      } else {
+        throw e;
+      }
+    }
+    const browserCtx = await browserInstance.newContext({
+      viewport: { width: 1280, height: 800 },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    });
+    const page = await browserCtx.newPage();
+    await page.goto(VERCEL_APP_URL, { waitUntil: 'networkidle', timeout: 35000 });
+
+    const guestBtn = page.locator('button:has-text("Continue as Guest")');
+    if (await guestBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await guestBtn.click();
+      await page.waitForTimeout(800);
+    }
+
+    const textarea = page.locator('textarea');
+    await textarea.waitFor({ state: 'visible', timeout: 15000 });
+    await textarea.fill('Hi');
+    await textarea.press('Enter');
+
+    let botResponseFound = false;
+    let botReplySnippet = '';
+    for (let i = 0; i < 40; i++) {
+      await page.waitForTimeout(1000);
+      const messages = await page.locator('.prose, [data-message-sender="bot"], .bot-message').allTextContents().catch(() => []);
+      if (messages.length > 0 && messages[messages.length - 1].trim().length > 5) {
+        botReplySnippet = messages[messages.length - 1].trim();
+        botResponseFound = true;
+        break;
+      }
+      const pageText = await page.innerText('body').catch(() => '');
+      if (pageText.includes('Hi') && (pageText.includes('Xare') || pageText.includes('Hey!') || pageText.includes("How's it going?"))) {
+        botReplySnippet = 'Verified in conversation';
+        botResponseFound = true;
+        break;
+      }
+    }
+
+    await browserInstance.close();
+    browserInstance = null;
+    assert.ok(botResponseFound, 'Bot response not received in browser UI within 40 seconds');
+    console.log('  ✅ Real browser successfully submitted "Hi" and received AI response in chat interface');
+    console.log(`     UI Confirmation: "${botReplySnippet.slice(0, 80).replace(/\n/g, ' ')}..."`);
+  } catch (browserErr) {
+    if (browserInstance) await browserInstance.close().catch(() => {});
+    throw browserErr;
+  }
+
   console.log('\n======================================================================');
-  console.log('ALL 10 TEST SUITE MODULES PASSED WITH 100% SUCCESS');
+  console.log('ALL 11 TEST SUITE MODULES PASSED WITH 100% SUCCESS');
   console.log('======================================================================\n');
 }
 

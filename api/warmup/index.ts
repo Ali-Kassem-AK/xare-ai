@@ -369,7 +369,7 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({
       service: 'Xare AI Chat Warm-Up Subsystem',
       status: 'online',
-      cadence: 'Every 2 hours (0 */2 * * * UTC)',
+      cadence: 'Every 1 hour (0 * * * * UTC)',
       environment: process.env.VERCEL_ENV || 'production',
       lastExecutionTime: lastExecutionTime ? new Date(lastExecutionTime).toISOString() : null,
       cooldownRemainingSeconds: Math.max(0, Math.ceil((EXECUTION_COOLDOWN_MS - (Date.now() - lastExecutionTime)) / 1000)),
@@ -446,7 +446,7 @@ export default async function handler(req: Request) {
     const summary: WarmupRunSummary = {
       runId,
       idempotencyKey,
-      scheduledCadence: '0 */2 * * * (Every 2 hours UTC)',
+      scheduledCadence: '0 * * * * (Every 1 hour UTC)',
       timestamp: new Date(t_start).toISOString(),
       status: overallStatus,
       durationMs: t_end - t_start,

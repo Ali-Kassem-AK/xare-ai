@@ -69,7 +69,7 @@
 13. [Environment & Configuration](#13-environment--configuration)
 14. [n8n Workflow Setup & Template Notes](#14-n8n-workflow-setup--template-notes)
 15. [Testing & Verification](#15-testing--verification)
-16. [Automated 2-Hour Chat Warm-Up Subsystem](#16-automated-2-hour-chat-warm-up-subsystem)
+16. [Automated 1-Hour Chat Warm-Up Subsystem](#16-automated-1-hour-chat-warm-up-subsystem)
 17. [Engineering Highlights](#17-engineering-highlights)
 18. [Security & Deployment Considerations](#18-security--deployment-considerations)
 19. [Roadmap & Future Improvements](#19-roadmap--future-improvements)
@@ -668,17 +668,18 @@ node scripts/verify_live_deploy.cjs
 
 ---
 
-## 16. Automated 2-Hour Chat Warm-Up Subsystem
+## 16. Automated 1-Hour Chat Warm-Up Subsystem
 
-To eliminate cold-start freezing and request timeouts when the application has been idle (such as overnight or during periods without real users), Xare AI implements a verified, automated **Two-Hour Chat Warm-Up Subsystem**.
+To eliminate cold-start freezing and request timeouts when the application has been idle (such as overnight or during periods without real users), Xare AI implements a verified, automated **One-Hour Chat Warm-Up Subsystem**.
 
 ### Architecture & Pipeline Overview
-- **Recurring Cloud Cadence**: Scheduled every 2 hours continuously (`0 */2 * * * UTC`) via GitHub Actions (`.github/workflows/warmup.yml`) and supported by Vercel Cron (`vercel.json`). Operates completely in the cloud, independent of user browsers or open tabs.
-- **Genuine Synthetic User Turn**: Dispatches the exact synthetic message `Hi` through the real production chat submission pipeline using isolated synthetic identity `userId: 'xare-warmup-synthetic-agent'`.
+- **Recurring Cloud Cadence**: Scheduled every 1 hour continuously (`0 * * * * UTC`) via GitHub Actions (`.github/workflows/warmup.yml`). Operates completely in the cloud, running resilient headless browser automation.
+- **Genuine Browser UI Interaction**: Dispatches the exact synthetic message `Hi` through the real user-facing Xare chat interface using browser automation (Playwright), entering guest mode, typing into the input textarea, submitting via Enter, and capturing before/after screenshots as durable proof.
 - **Target Inferences Warmed**:
-  1. **Primary Production Pipeline (`aliiis-24-7-n8n.hf.space`)**: Keeps the Hugging Face Spaces container awake, preventing container sleep and reducing cold starts from 35–75s+ down to ~5s.
-  2. **Vercel Edge Streaming Pipeline (`/api/chat/stream`)**: Warms Edge serverless instances and Google Generative AI streaming connections (TTFT ~800–1200ms).
-- **Inference Verification**: Verifies genuine non-empty assistant content (rejects empty/whitespace, raw HTTP 200 strings, and error messages). Records timing, SHA-256 content hashes, and writes durable evidence to [`docs/warmup/evidence.json`](./docs/warmup/evidence.json).
+  1. **Live Web Chat Interface (`https://xare-ai.vercel.app/`)**: Full browser-driven user interaction traversing client-side React state, WebSocket/SSE streaming, and rendering pipelines.
+  2. **Primary Production Pipeline (`aliiis-24-7-n8n.hf.space`)**: Keeps the Hugging Face Spaces container awake, preventing container sleep and reducing cold starts from 35–75s+ down to ~5s.
+  3. **Vercel Edge Streaming Pipeline (`/api/chat/stream`)**: Warms Edge serverless instances and Google Generative AI streaming connections (TTFT ~800–1200ms).
+- **Inference Verification**: Verifies genuine non-empty assistant content (rejects empty/whitespace, raw HTTP 200 strings, and error messages). Records timing, SHA-256 content hashes, screenshots, and writes durable evidence to [`docs/warmup/evidence.json`](./docs/warmup/evidence.json).
 - **Concurrency & Idempotency**: 60-second in-memory execution cooldown prevents duplicate runs and protects upstream quotas.
 
 ### Warm-Up Verification Commands
