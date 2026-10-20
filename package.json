@@ -9,8 +9,7 @@
     "preview": "vite preview",
     "test": "node tests/warmup.test.cjs",
     "test:warmup": "node tests/warmup.test.cjs",
-    "warmup": "node scripts/warmup_runner.cjs --report",
-    "warmup:inner": "node scripts/inner_warmup_timer.cjs"
+    "warmup": "node scripts/warmup_runner.cjs --report"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1128.0",
