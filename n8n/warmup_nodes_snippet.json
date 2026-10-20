@@ -1,0 +1,68 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "warmup-schedule-trigger-1",
+      "name": "Hourly Warmup Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -5520,
+        -3450
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2-guALIharika",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-chatbot-token",
+              "value": "ali1234"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"message\": \"its a test to check that you are alive, so only reply with \\\"1\\\"\",\n  \"chatInput\": \"its a test to check that you are alive, so only reply with \\\"1\\\"\",\n  \"action\": \"chat\",\n  \"sessionId\": \"n8n_self_warmup\",\n  \"userId\": \"n8n-internal-cron\"\n}",
+        "options": {}
+      },
+      "id": "warmup-http-request-1",
+      "name": "Auto Warmup Webhook Ping",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -5240,
+        -3450
+      ]
+    }
+  ],
+  "connections": {
+    "Hourly Warmup Trigger": {
+      "main": [
+        [
+          {
+            "node": "Auto Warmup Webhook Ping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
