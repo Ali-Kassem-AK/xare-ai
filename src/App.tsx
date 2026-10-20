@@ -19,6 +19,7 @@ import {
   getFirestore, initializeFirestore, collection, doc, setDoc, getDoc, onSnapshot, increment, deleteDoc 
 } from 'firebase/firestore';
 import { uploadFileDirectly, deleteTemporaryFile, UploadResult, transportLedger } from './utils/storage';
+import { startInnerWarmupTimer } from './services/warmup/innerTimer';
 
 // ==========================================
 // --- TOKEN LIMIT & REDIRECTION CONFIG
@@ -4758,6 +4759,16 @@ export const ChatMessageItem = React.memo(({
 
 export function App() {
   const { isDarkMode, toggleDarkMode } = useTheme();
+
+  // ==========================================
+  // --- INNER 1-HOUR AUTO CHAT WARM-UP TIMER
+  // ==========================================
+  useEffect(() => {
+    const stopWarmupTimer = startInnerWarmupTimer();
+    return () => {
+      stopWarmupTimer();
+    };
+  }, []);
 
   // ==========================================
   // --- 1. STATE MANAGEMENT
