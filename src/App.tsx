@@ -204,7 +204,7 @@ export const GLOW_ANIMATION_CONFIG = {
  * - [toolName].thinking / analyzingPossibilities / readingSources / processingAudio: Durations for subsequent stages.
  */
 export const TOOL_PHASE_DURATIONS = {
-  sendingDurationMs: 3000,         // Time for the initial 'Sending' animation
+  sendingDurationMs: 2800,         // Time for the initial 'Sending' animation
 
   think: {
     deconstructing: 4500,          // 'Thinking Deeply' -> 'Deconstructing Complexities'
