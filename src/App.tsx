@@ -491,6 +491,7 @@ export const saveChatsToLocalStorage = (userId: string | null | undefined, chats
           image: m.image || null,
           audio: m.audio || null,
           document: m.document || null,
+          fileName: m.fileName || null,
           modelEngine: m.modelEngine || null
         }))
       }));
@@ -4471,7 +4472,15 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
 // --- MEDIA RENDERERS (INTEGRATED WITH IndexedDB)
 // ==========================================
 
-export const LocalImageRenderer = ({ src, isDarkMode }: { src: string; isDarkMode: boolean }) => {
+export const LocalImageRenderer = ({ 
+  src, 
+  fileName, 
+  isDarkMode 
+}: { 
+  src: string; 
+  fileName?: string | null; 
+  isDarkMode: boolean; 
+}) => {
   const [localSrc, setLocalSrc] = useState<string | null>(null);
   
   useEffect(() => {
@@ -4494,31 +4503,114 @@ export const LocalImageRenderer = ({ src, isDarkMode }: { src: string; isDarkMod
 
   if (localSrc === null) return <div className={`w-full max-w-md md:max-w-[500px] h-64 animate-pulse rounded-2xl mb-4 ${isDarkMode ? 'bg-slate-800/50' : 'bg-slate-200/50'}`}></div>;
   if (!localSrc) return null;
-  return <ImageWithActions src={localSrc} isDarkMode={isDarkMode} />;
+
+  return (
+    <div className="flex flex-col gap-1.5 mb-3">
+      {fileName && typeof fileName === 'string' && fileName.trim() && (
+        <div className={`flex items-center gap-1.5 px-1 text-xs font-medium truncate max-w-full select-all ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+          <ImageIcon className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
+          <span className="truncate" title={fileName}>{fileName}</span>
+        </div>
+      )}
+      <ImageWithActions src={localSrc} isDarkMode={isDarkMode} />
+    </div>
+  );
 };
 
-export const LocalDocumentRenderer = ({ src, isDarkMode }) => {
-  const [localSrc, setLocalSrc] = useState(null);
+export const LocalDocumentRenderer = ({ 
+  src, 
+  fileName, 
+  isDarkMode 
+}: { 
+  src: string; 
+  fileName?: string | null; 
+  isDarkMode: boolean; 
+}) => {
+  const [localSrc, setLocalSrc] = useState<string | null>(null);
   
   useEffect(() => {
-    if (src?.startsWith('localdb_')) {
-      getFromLocalDB(src).then(data => setLocalSrc(data || ''));
+    if (!src) {
+      setLocalSrc(null);
+      return;
+    }
+    if (src.startsWith('localdb_')) {
+      getFromLocalDB(src).then((data: any) => setLocalSrc(data || '')).catch(() => setLocalSrc(''));
     } else {
       setLocalSrc(src);
     }
   }, [src]);
 
-  if (localSrc === null) return <div className={`w-full h-16 animate-pulse rounded-xl mb-3 ${isDarkMode ? 'bg-slate-800/50' : 'bg-slate-200/50'}`}></div>;
-  if (!localSrc) return null;
+  // Determine the display file name with robust fallback mechanisms
+  const displayName = useMemo(() => {
+    if (fileName && typeof fileName === 'string' && fileName.trim()) {
+      return fileName.trim();
+    }
+    if (!src || typeof src !== 'string') return 'Document';
+    
+    // If src is a plain filename rather than a full URL/data/blob
+    if (!src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:') && !src.startsWith('blob:') && !src.startsWith('localdb_')) {
+      return src;
+    }
+
+    // If src is a URL, extract the filename from the pathname
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      try {
+        const url = new URL(src);
+        const nameFromPath = url.pathname.split('/').filter(Boolean).pop();
+        if (nameFromPath && nameFromPath.length > 0 && !nameFromPath.startsWith('req_')) {
+          return decodeURIComponent(nameFromPath);
+        }
+      } catch (e) {}
+    }
+
+    return 'PDF Document';
+  }, [fileName, src]);
+
+  // Check if we have a valid downloadable URL
+  const isDownloadable = Boolean(
+    localSrc && 
+    (localSrc.startsWith('http://') || 
+     localSrc.startsWith('https://') || 
+     localSrc.startsWith('blob:') || 
+     localSrc.startsWith('data:'))
+  );
+
+  const isPdf = displayName.toLowerCase().endsWith('.pdf');
+  const isImageFile = /\.(png|jpe?g|webp|gif|svg)$/i.test(displayName);
+
+  if (localSrc === null && src?.startsWith('localdb_')) {
+    return <div className={`w-full h-16 animate-pulse rounded-xl mb-3 ${isDarkMode ? 'bg-slate-800/50' : 'bg-slate-200/50'}`}></div>;
+  }
+  if (!src) return null;
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-xl mb-3 border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-black/5 border-black/5'}`}>
-      <div className={`w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-        <FileText className="w-5 h-5" />
+    <div className={`flex items-center gap-3 p-3 rounded-xl mb-3 border max-w-full overflow-hidden transition-all ${isDarkMode ? 'bg-white/5 border-white/10 hover:border-white/15' : 'bg-black/5 border-black/10 hover:border-black/15'}`}>
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+        isPdf 
+          ? (isDarkMode ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-50 text-rose-600')
+          : isImageFile
+            ? (isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
+            : (isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600')
+      }`}>
+        {isImageFile ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
       </div>
-      <div className="flex-1 overflow-hidden">
-        <p className="text-sm font-medium truncate">PDF Document</p>
-        <a href={localSrc} download="document.pdf" className={`text-[11px] font-medium hover:underline ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}>Click to download</a>
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <p className="text-sm font-medium truncate select-all" title={displayName}>
+          {displayName}
+        </p>
+        {isDownloadable ? (
+          <a 
+            href={localSrc!} 
+            download={displayName} 
+            className={`text-[11px] font-medium hover:underline inline-block mt-0.5 ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+          >
+            Click to download
+          </a>
+        ) : (
+          <span className={`text-[11px] font-medium opacity-60 inline-block mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            Document attached
+          </span>
+        )}
       </div>
     </div>
   );
@@ -4681,9 +4773,9 @@ export const ChatMessageItem = React.memo(({
             : (isDarkMode ? 'text-slate-100' : 'text-slate-900') + ' w-full py-1 px-0 overflow-hidden'
           } ${isStreaming ? (isDarkMode ? 'soft-stream-text' : '') : ''} transition-all duration-300`}
         >
-          {msg.image && <LocalImageRenderer src={msg.image} isDarkMode={isDarkMode} />}
+          {msg.image && <LocalImageRenderer src={msg.image} fileName={msg.fileName} isDarkMode={isDarkMode} />}
 
-          {msg.document && <LocalDocumentRenderer src={msg.document} isDarkMode={isDarkMode} />}
+          {msg.document && <LocalDocumentRenderer src={msg.document} fileName={msg.fileName} isDarkMode={isDarkMode} />}
 
           {msg.sender === 'user' && isEditing ? (
             <div className="space-y-2.5 min-w-[240px] sm:min-w-[320px]">
@@ -4751,6 +4843,7 @@ export const ChatMessageItem = React.memo(({
     prevProps.msg.toolLabel === nextProps.msg.toolLabel &&
     prevProps.msg.image === nextProps.msg.image &&
     prevProps.msg.document === nextProps.msg.document &&
+    prevProps.msg.fileName === nextProps.msg.fileName &&
     prevProps.msg.audio === nextProps.msg.audio &&
     prevProps.msg.activeVersionIndex === nextProps.msg.activeVersionIndex &&
     prevProps.msg.versions?.length === nextProps.msg.versions?.length &&
@@ -5575,7 +5668,7 @@ export function App() {
     }
     if (!userMsg) return;
 
-    sendMessageToBackend(userMsg.text, userMsg.image || userMsg.document || userMsg.audio || null, userMsg.image ? 'image' : (userMsg.document ? 'document' : (userMsg.audio ? 'audio' : null)), '', null, null, botMsgId, false);
+    sendMessageToBackend(userMsg.text, userMsg.image || userMsg.document || userMsg.audio || null, userMsg.image ? 'image' : (userMsg.document ? 'document' : (userMsg.audio ? 'audio' : null)), '', null, null, botMsgId, false, null, null, null, userMsg.fileName || null);
   }, [chatHistory, currentChatId]);
 
   const handleEditUserPrompt = useCallback((userMsgId: string, newPromptText: string) => {
@@ -5613,7 +5706,11 @@ export function App() {
       null, 
       null, 
       null, 
-      true // isEditMode = true (prevents duplicate user message bubble)
+      true, // isEditMode = true (prevents duplicate user message bubble)
+      null,
+      null,
+      null,
+      updatedMessages[userIdx].fileName || null
     );
   }, [chatHistory, currentChatId, currentUser]);
 
@@ -6298,7 +6395,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     isEditMode = false,
     attachmentFile: File | null = null,
     preUploadPromise: Promise<UploadResult> | null = null,
-    preUploadResult: UploadResult | null = null
+    preUploadResult: UploadResult | null = null,
+    attachmentFileName: string | null = null
   ) => {
     if (!currentUser) return;
     setScrolledUpLock(false);
@@ -6337,11 +6435,12 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     let localImage: string | null = null;
     let localAudio: string | null = null;
     let localDocument: string | null = null;
+    const resolvedFileName = attachmentFileName || (attachmentFile as any)?.name || uploadedFileName || null;
 
     if (attachmentType === 'image') {
       localImage = attachmentData || (attachmentFile ? URL.createObjectURL(attachmentFile) : null);
     } else if (attachmentType === 'document') {
-      localDocument = (attachmentFile as any)?.name || 'Document';
+      localDocument = attachmentData || (attachmentFile ? URL.createObjectURL(attachmentFile) : (resolvedFileName || 'Document'));
     } else if (attachmentType === 'audio') {
       localAudio = attachmentData || (attachmentFile ? URL.createObjectURL(attachmentFile) : null);
     }
@@ -6354,6 +6453,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       audio: localAudio || null,
       image: localImage || null,
       document: localDocument || null,
+      fileName: resolvedFileName || null,
       sender: 'user',
       status: 'sent',
       timestamp: new Date()
@@ -6549,6 +6649,19 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         const updated = prev.map(c => c.id === targetChatId ? {
           ...c,
           messages: (c.messages || []).map(m => m.id === messageId ? { ...m, transportId: uploadedFileId } : m)
+        } : c);
+        saveChatsToLocalStorage(currentUser?.id || 'guest-user', updated);
+        return updated;
+      });
+    }
+
+    if (attachmentType === 'document' && attachmentData) {
+      const localId = 'localdb_' + generateUniqueId();
+      await saveToLocalDB(localId, attachmentData);
+      setChatHistory(prev => {
+        const updated = prev.map(c => c.id === targetChatId ? {
+          ...c,
+          messages: (c.messages || []).map(m => m.id === messageId ? { ...m, document: localId, fileName: resolvedFileName } : m)
         } : c);
         saveChatsToLocalStorage(currentUser?.id || 'guest-user', updated);
         return updated;
@@ -7481,7 +7594,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         false, 
         att.file,
         att.uploadPromise,
-        att.uploadResult
+        att.uploadResult,
+        att.name || att.file?.name || null
       );
     } else {
       sendMessageToBackend(baseText, null, null, hiddenPrompt, toolAction, toolLabel);
