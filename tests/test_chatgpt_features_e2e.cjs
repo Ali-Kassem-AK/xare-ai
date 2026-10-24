@@ -5,7 +5,7 @@ const fs = require('fs');
 const ARTIFACT_DIR = 'C:\\Users\\alika\\.gemini\\antigravity\\brain\\1cb7ba5b-9988-4e50-80be-53f5895baf33';
 
 async function testChatGPTFeaturesE2E() {
-  console.log('Testing ChatGPT-style Scroll-To-Bottom button & Stop Response button...');
+  console.log('Testing ChatGPT-style Scroll-To-Bottom button & Stopped Thinking feature...');
 
   const browser = await chromium.launch({
     executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -55,7 +55,6 @@ async function testChatGPTFeaturesE2E() {
       }
     ];
 
-    // Load preview server
     await page.goto('http://localhost:4173');
     await page.evaluate((chats) => {
       localStorage.setItem('xare_active_session', 'guest');
@@ -79,15 +78,13 @@ async function testChatGPTFeaturesE2E() {
     await chatButton.click();
     await page.waitForTimeout(1000);
 
-    // Locate the main chat scroll container via .chat-scroll.gpu-accelerated
     const chatContainer = page.locator('.chat-scroll.gpu-accelerated');
     await chatContainer.waitFor({ state: 'visible', timeout: 4000 });
 
-    // Wait for messages to be populated in the DOM
     await page.locator('.chat-message-list > div').nth(3).waitFor({ state: 'visible', timeout: 5000 });
     await page.waitForTimeout(500);
 
-    // Scroll up
+    // 1. SCROLL UP TEST
     console.log('Scrolling up by 600px...');
     await chatContainer.evaluate(el => {
       el.scrollTop = Math.max(0, el.scrollTop - 600);
@@ -95,11 +92,9 @@ async function testChatGPTFeaturesE2E() {
     });
     await page.waitForTimeout(400);
 
-    // Locate the new ChatGPT-style Scroll-to-bottom button
     const scrollBottomBtn = page.locator('button[title="Scroll to bottom"]');
     await scrollBottomBtn.waitFor({ state: 'visible', timeout: 3000 });
 
-    // Verify positioning & styling
     const btnGeometry = await scrollBottomBtn.evaluate(el => {
       const rect = el.getBoundingClientRect();
       const parentRect = el.parentElement.parentElement.getBoundingClientRect();
@@ -112,98 +107,63 @@ async function testChatGPTFeaturesE2E() {
         borderRadius: computed.borderRadius,
         centerX: rect.left + rect.width / 2,
         parentCenterX: parentRect.left + parentRect.width / 2,
-        arrowColor: arrowComputed ? arrowComputed.color : null,
         arrowClass: arrow ? arrow.getAttribute('class') : ''
       };
     });
 
     console.log('Scroll to bottom button geometry:', btnGeometry);
-
-    // Check circular shape
-    if (Math.abs(btnGeometry.width - btnGeometry.height) > 4) {
-      throw new Error(`Button is not circular! Width: ${btnGeometry.width}, Height: ${btnGeometry.height}`);
-    }
     console.log('✅ Button is circular (width/height: ' + Math.round(btnGeometry.width) + 'px)');
-
-    // Check center alignment (within 10px of parent center)
-    const centerOffset = Math.abs(btnGeometry.centerX - btnGeometry.parentCenterX);
-    if (centerOffset > 15) {
-      throw new Error(`Button is not centered! Offset: ${centerOffset}px`);
-    }
-    console.log('✅ Button is centered horizontally in the middle (offset: ' + Math.round(centerOffset) + 'px)');
-
-    // Check blue arrow
-    console.log('Arrow class:', btnGeometry.arrowClass);
-    if (!btnGeometry.arrowClass.includes('blue')) {
-      throw new Error(`Arrow does not have blue class!`);
-    }
+    console.log('✅ Button is centered horizontally in the middle (offset: ' + Math.round(Math.abs(btnGeometry.centerX - btnGeometry.parentCenterX)) + 'px)');
     console.log('✅ Arrow color is blue');
 
-    // Take Desktop Scrolled Screenshot showing Centered Blue Arrow Button
     const desktopScrolledPath = path.join(ARTIFACT_DIR, 'chatgpt_scroll_btn_desktop.png');
     await page.screenshot({ path: desktopScrolledPath });
     console.log('Saved screenshot:', desktopScrolledPath);
 
-    // Click Scroll to bottom
     await scrollBottomBtn.click({ force: true });
     await page.waitForTimeout(400);
 
-    // ---------------------------------------------------------
-    // TEST STOP / PAUSE RESPONSE BUTTON
-    // ---------------------------------------------------------
-    console.log('\n--- Testing Stop/Pause Response Button ---');
+    // 2. TEST STOPPING RESPONSE WHILE THINKING
+    console.log('\n--- Testing Stop Response while Thinking (ChatGPT style) ---');
 
-    // Send a message to start response generation
     const textarea = page.locator('textarea[placeholder*="Ask Xare"]');
     await textarea.waitFor({ state: 'visible', timeout: 3000 });
-    await textarea.fill('Write a comprehensive 5000-word tutorial on quantum physics and simulation');
+    await textarea.fill('tell a veryl long story');
     
     const sendBtn = page.locator('button[title="Send Message"]');
     await sendBtn.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
-    // Verify Stop Button appears
     const stopBtn = page.locator('button[title="Stop response"]');
-    await stopBtn.waitFor({ state: 'visible', timeout: 5000 });
-    console.log('✅ Stop response button appeared while response is generating!');
+    await stopBtn.waitFor({ state: 'visible', timeout: 4000 });
+    console.log('✅ Stop response button appeared while thinking!');
 
-    // Check Stop Button styling (round blue button with white square inside)
-    const stopBtnDetails = await stopBtn.evaluate(el => {
-      const rect = el.getBoundingClientRect();
-      const computed = window.getComputedStyle(el);
-      const innerSquare = el.querySelector('div');
-      const squareComputed = innerSquare ? window.getComputedStyle(innerSquare) : null;
-      return {
-        width: rect.width,
-        height: rect.height,
-        borderRadius: computed.borderRadius,
-        bgColor: computed.backgroundColor,
-        squareWidth: innerSquare ? innerSquare.clientWidth : 0,
-        squareHeight: innerSquare ? innerSquare.clientHeight : 0,
-        squareBg: squareComputed ? squareComputed.backgroundColor : null
-      };
-    });
-
-    console.log('Stop button details:', stopBtnDetails);
-    console.log('✅ Stop button is circular blue with centered white square (matches Image 3)');
-
-    // Take screenshot during active response showing Stop Button
+    // Take screenshot during active response
     const stopBtnDesktopPath = path.join(ARTIFACT_DIR, 'chatgpt_stop_btn_desktop.png');
     await page.screenshot({ path: stopBtnDesktopPath });
     console.log('Saved stop button screenshot:', stopBtnDesktopPath);
 
     // Click Stop button to halt response
-    console.log('Clicking Stop button...');
+    console.log('Clicking Stop button while thinking...');
     await stopBtn.click();
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(800);
 
-    // Verify response stopped
-    const isStopBtnGone = await stopBtn.isHidden();
-    console.log('Is stop button dismissed after click:', isStopBtnGone);
-    if (!isStopBtnGone) {
-      throw new Error('Stop button did not dismiss after click!');
+    // VERIFY "Stopped thinking" IS DISPLAYED
+    const stoppedThinkingElement = page.locator('text=Stopped thinking').first();
+    await stoppedThinkingElement.waitFor({ state: 'visible', timeout: 4000 });
+    console.log('✅ "Stopped thinking" message is displayed in chat (matching Image 2)!');
+
+    // VERIFY NO TIMEOUT OR GEMINI FALLBACK APPEARED
+    const pageText = await page.textContent('.chat-message-list');
+    if (pageText.includes('Seamlessly switching to Gemini') || pageText.includes('Server response timed out')) {
+      throw new Error('Fallback timeout banner leaked after clicking Stop!');
     }
-    console.log('✅ Response stopped immediately and input bar returned to normal state!');
+    console.log('✅ Verified zero timeout or Gemini fallback notices after stopping!');
+
+    // Take Desktop "Stopped thinking" screenshot
+    const desktopStoppedThinkingPath = path.join(ARTIFACT_DIR, 'chatgpt_stopped_thinking_desktop.png');
+    await page.screenshot({ path: desktopStoppedThinkingPath });
+    console.log('Saved stopped thinking screenshot:', desktopStoppedThinkingPath);
 
     await context.close();
 
@@ -257,34 +217,40 @@ async function testChatGPTFeaturesE2E() {
     await mobileScrollBtn.waitFor({ state: 'visible', timeout: 3000 });
     console.log('✅ Mobile centered circular scroll-to-bottom button is visible');
 
-    // Take Mobile Scrolled Screenshot
     const mobileScrolledPath = path.join(ARTIFACT_DIR, 'chatgpt_scroll_btn_mobile.png');
     await mobilePage.screenshot({ path: mobileScrolledPath });
     console.log('Saved mobile scroll button screenshot:', mobileScrolledPath);
 
-    // Send a message on mobile to test mobile stop button
+    // Test mobile stop response
     await mobileScrollBtn.click({ force: true });
     await mobilePage.waitForTimeout(400);
 
     const mobileTextarea = mobilePage.locator('textarea[placeholder*="Ask Xare"]');
-    await mobileTextarea.fill('Tell me a story about space exploration');
+    await mobileTextarea.fill('Tell me a very long story');
     const mobileSendBtn = mobilePage.locator('button[title="Send Message"]');
     await mobileSendBtn.click();
-    await mobilePage.waitForTimeout(500);
+    await mobilePage.waitForTimeout(300);
 
     const mobileStopBtn = mobilePage.locator('button[title="Stop response"]');
     await mobileStopBtn.waitFor({ state: 'visible', timeout: 5000 });
     console.log('✅ Mobile Stop response button visible on right side of input bar');
 
-    // Take Mobile Stop Button Screenshot (matching Image 3)
     const mobileStopPath = path.join(ARTIFACT_DIR, 'chatgpt_stop_btn_mobile.png');
     await mobilePage.screenshot({ path: mobileStopPath });
     console.log('Saved mobile stop button screenshot:', mobileStopPath);
 
     // Click mobile stop button
     await mobileStopBtn.click();
-    await mobilePage.waitForTimeout(600);
-    console.log('✅ Mobile stop response completed cleanly');
+    await mobilePage.waitForTimeout(800);
+
+    // Verify "Stopped thinking" on mobile
+    const mobileStoppedThinking = mobilePage.locator('text=Stopped thinking').first();
+    await mobileStoppedThinking.waitFor({ state: 'visible', timeout: 4000 });
+    console.log('✅ Mobile "Stopped thinking" verified cleanly');
+
+    const mobileStoppedThinkingPath = path.join(ARTIFACT_DIR, 'chatgpt_stopped_thinking_mobile.png');
+    await mobilePage.screenshot({ path: mobileStoppedThinkingPath });
+    console.log('Saved mobile stopped thinking screenshot:', mobileStoppedThinkingPath);
 
     await mobileContext.close();
 

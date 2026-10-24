@@ -4856,21 +4856,27 @@ export const ChatMessageItem = React.memo(({
             </div>
           ) : (
             !(msg.audio && textToRender === "🎤 Voice Message") && (
-              <div 
-                dir="auto" 
-                className={`font-normal w-full chat-content-text min-w-0 break-words [overflow-wrap:anywhere] text-start ${
-                  msg.sender === 'user' ? 'max-h-[360px] sm:max-h-[460px] md:max-h-[500px] overflow-y-auto chat-scroll pr-1' : ''
-                } ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} 
-                style={{ wordBreak: 'break-word' }}
-              >
-                {formatMessageText(textToRender, isDarkMode, isStreaming, msg.sender === 'user')}
-              </div>
+              (textToRender === 'Stopped thinking' || msg.isStoppedThinking) ? (
+                <div className="py-1 select-none text-slate-400 dark:text-slate-400 text-[14.5px] font-normal leading-relaxed">
+                  Stopped thinking
+                </div>
+              ) : (
+                <div 
+                  dir="auto" 
+                  className={`font-normal w-full chat-content-text min-w-0 break-words [overflow-wrap:anywhere] text-start ${
+                    msg.sender === 'user' ? 'max-h-[360px] sm:max-h-[460px] md:max-h-[500px] overflow-y-auto chat-scroll pr-1' : ''
+                  } ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} 
+                  style={{ wordBreak: 'break-word' }}
+                >
+                  {formatMessageText(textToRender, isDarkMode, isStreaming, msg.sender === 'user')}
+                </div>
+              )
             )
           )}
 
 
 
-          {msg.sender === 'bot' && textToRender && !isStreaming && !(msg.audio && textToRender === "🎤 Voice Message") && (
+          {msg.sender === 'bot' && textToRender && !isStreaming && !(msg.audio && textToRender === "🎤 Voice Message") && !(textToRender === 'Stopped thinking' || msg.isStoppedThinking) && (
             <MessageActions 
               text={textToRender} 
               isDarkMode={isDarkMode} 
@@ -6342,7 +6348,7 @@ export function App() {
     const activeMsgId = streamingMessageId;
     if (activeMsgId) {
       const vaultData = STREAMING_TEXT_VAULT.get(activeMsgId);
-      const partialText = vaultData?.partialText || "";
+      const partialText = (vaultData?.partialText || "").trim();
 
       setChatHistory(prev => prev.map(c => {
         if (!c.messages) return c;
@@ -6353,11 +6359,12 @@ export function App() {
           messages: c.messages
             .map((m: any) => {
               if (m.id === activeMsgId) {
-                return partialText.trim() ? { ...m, text: partialText } : null;
+                return partialText
+                  ? { ...m, text: partialText }
+                  : { ...m, text: 'Stopped thinking', isStoppedThinking: true };
               }
               return m;
-            })
-            .filter(Boolean),
+            }),
           updatedAt: new Date()
         };
       }));
@@ -6366,6 +6373,25 @@ export function App() {
       ACTIVELY_STREAMING_IDS.delete(activeMsgId);
       setStreamingMessageId(null);
       notifyStreamingSubscribers();
+    } else if (currentChatId) {
+      // Stopped while "thinking" / generating before any text was produced (matching Image 2)
+      const stoppedMsg = {
+        id: generateUniqueId(),
+        text: 'Stopped thinking',
+        isStoppedThinking: true,
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setChatHistory(prev => prev.map(c => {
+        if (c.id === currentChatId) {
+          return {
+            ...c,
+            messages: [...(c.messages || []), stoppedMsg],
+            updatedAt: new Date()
+          };
+        }
+        return c;
+      }));
     }
 
     setIsLoading(false);
@@ -6373,7 +6399,7 @@ export function App() {
     setLoadingType(null);
     setIsGeneratingImage(false);
     PENDING_CONTINUATIONS.clear();
-  }, [streamingMessageId]);
+  }, [streamingMessageId, currentChatId]);
 
   const streamGeminiWithCodeContinuation = useCallback(async (
     promptText: string,
@@ -6981,7 +7007,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
       // Centralized response completion with strict error classification
       const completeBotResponse = async (responseData: any, errorInfo?: ClassifiedError | boolean) => {
-        if (isResolved) return;
+        if (isResolved || isUserStoppedRef.current) return;
         isResolved = true;
         unsubscribeTask();
         if (fallbackTimeout) clearTimeout(fallbackTimeout);
@@ -6995,6 +7021,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         let rawBotText = "";
         
         const triggerAutoGeminiFallback = async (noticeText: string) => {
+          if (isUserStoppedRef.current) return;
           const noticeMsg = { id: generateUniqueId(), text: noticeText, sender: 'bot', timestamp: new Date() };
           setChatHistory(prev => prev.map(c => c.id === targetChatId ? { ...c, messages: [...c.messages, noticeMsg], updatedAt: new Date() } : c));
           
@@ -7464,6 +7491,10 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         }
       } catch (err: any) {
         clearTimeout(fetchTimeout);
+        if (isUserStoppedRef.current) {
+          console.log('[USER_STOPPED_RESPONSE] User intentionally stopped response - suppressing fetch failure.');
+          return;
+        }
         const durationMs = Date.now() - requestStartTime;
         const isAbort = err?.name === 'AbortError' || controller.signal.aborted;
         const classified = isAbort
