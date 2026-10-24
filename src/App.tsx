@@ -1281,7 +1281,7 @@ export const isVisualizationPrompt = (text: string): boolean => {
  * Enhanced Code Block component with interactive Live Preview sandbox (HTML, SVG, Canvas, JS visualizers),
  * code/preview tab toggles, reload, full-tab popout, line numbers, syntax highlighting, and copy feedback.
  */
-export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { code: string; lang: string; isDarkMode: boolean; isStreaming?: boolean }) => {
+export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming, isUserMessage }: { code: string; lang: string; isDarkMode: boolean; isStreaming?: boolean; isUserMessage?: boolean }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1324,6 +1324,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
   const cleanLang = useMemo(() => (lang || '').toLowerCase().trim(), [lang]);
 
   const isRunnable = useMemo(() => {
+    if (isUserMessage) return false;
     if (cleanLang === 'html' || cleanLang === 'htm' || cleanLang === 'svg' || cleanLang === 'xml') return true;
     const trimmed = (code || '').trim().toLowerCase();
     return (
@@ -1570,7 +1571,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
   const iframeHeightClass = isExpandedHeight ? 'h-[550px] sm:h-[650px]' : 'h-[400px] sm:h-[480px]';
 
   return (
-    <div className={`my-4 rounded-2xl overflow-hidden border shadow-lg transition-all ${isDarkMode ? 'border-slate-800/90 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'}`}>
+    <div className={`my-3 sm:my-4 rounded-2xl overflow-hidden border shadow-lg transition-all max-w-full min-w-0 ${isDarkMode ? 'border-slate-800/90 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'}`}>
       {/* Header Bar */}
       <div className={`flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b select-none ${isDarkMode ? 'bg-[#080c16]/95 border-slate-800/80 text-slate-300' : 'bg-slate-100/95 border-slate-200 text-slate-700'}`}>
         <div className="flex items-center gap-2 sm:gap-3">
@@ -1747,16 +1748,16 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
           />
         </div>
       ) : (
-        <div className="overflow-x-auto p-4 chat-scroll flex items-start">
+        <div className="overflow-x-auto p-3 sm:p-4 chat-scroll flex items-start max-w-full">
           {/* Line Numbers Column */}
-          <div className={`select-none font-mono text-[12.5px] text-right pr-3.5 mr-3.5 border-r leading-relaxed ${isDarkMode ? 'text-slate-600 border-slate-800/80' : 'text-slate-400 border-slate-200'}`}>
+          <div className={`select-none font-mono text-[12px] sm:text-[12.5px] text-right pr-2.5 sm:pr-3.5 mr-2.5 sm:mr-3.5 border-r leading-relaxed flex-shrink-0 ${isDarkMode ? 'text-slate-600 border-slate-800/80' : 'text-slate-400 border-slate-200'}`}>
             {lines.map((_, idx) => (
               <div key={idx}>{idx + 1}</div>
             ))}
           </div>
 
           {/* Code Content */}
-          <pre className="flex-1 font-mono text-[13.5px] leading-relaxed whitespace-pre overflow-x-auto">
+          <pre className={`flex-1 font-mono text-[12.5px] sm:text-[13.5px] leading-relaxed max-w-full overflow-x-auto ${isUserMessage ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'}`}>
             <code 
               className={isDarkMode ? 'text-slate-200' : 'text-slate-800'}
               dangerouslySetInnerHTML={{ __html: highlightedCode }}
@@ -2105,7 +2106,7 @@ const renderInline = (text: any, isDarkMode: boolean) => {
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       const innerCode = part.slice(1, -1);
       return (
-        <code key={i} className={`px-2 py-0.5 mx-0.5 rounded-md text-[0.95em] font-mono border whitespace-nowrap inline-block max-w-full overflow-x-auto align-middle transition-colors ${
+        <code key={i} className={`px-2 py-0.5 mx-0.5 rounded-md text-[0.95em] font-mono border break-all whitespace-pre-wrap inline-block max-w-full align-middle transition-colors ${
           isDarkMode ? 'bg-slate-800/90 text-cyan-200 border-slate-700/80' : 'bg-slate-200/90 text-blue-900 border-slate-300/80'
         }`}>
           {innerCode}
@@ -2306,7 +2307,7 @@ export const TypingCursor = ({ isDarkMode }: { isDarkMode?: boolean }) => null;
 /**
  * Main Message Formatter with Token-by-Token Streaming Support
  */
-const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean = false) => {
+const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean = false, isUserMessage: boolean = false) => {
   if (!text && !isStreaming) return null;
   if (!text && isStreaming) {
     return (
@@ -2335,7 +2336,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
   let formatText = processedText.replace(/`{4,}/g, '```');
 
   // Auto-recovery: If text has inline `python` / `js` tag followed by code lines OR raw code without triple backticks:
-  if (!formatText.includes('```')) {
+  if (!formatText.includes('```') && !isUserMessage) {
     const inlineLangMatch = formatText.match(/`([a-zA-Z0-9_\-\+\#]+)`\s*\n+([\s\S]+)/);
     if (inlineLangMatch) {
       const detectedLang = inlineLangMatch[1];
@@ -2405,7 +2406,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         code = raw;
       }
 
-      return <CodeBlock key={bIdx} code={code.trimEnd()} lang={lang} isDarkMode={isDarkMode} isStreaming={isStreaming} />;
+      return <CodeBlock key={bIdx} code={code.trimEnd()} lang={lang} isDarkMode={isDarkMode} isStreaming={isStreaming} isUserMessage={isUserMessage} />;
     }
 
     // Display Math ($$...$$, \[...\], \begin{...}...\end{...})
@@ -3298,7 +3299,7 @@ export const GoogleStyles = () => (
     .chat-scroll {
       touch-action: auto; /* Re-enable scrolling specifically inside chat areas */
     }
-    .chat-scroll::-webkit-scrollbar { width: 6px; }
+    .chat-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
     .chat-scroll::-webkit-scrollbar-track { background: transparent; }
     .chat-scroll::-webkit-scrollbar-thumb {
       background-color: rgba(156, 163, 175, 0.3);
@@ -4763,14 +4764,14 @@ export const ChatMessageItem = React.memo(({
 
   return (
     <div
-      className={`flex gap-4 items-start chat-message-card group ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+      className={`flex gap-4 items-start chat-message-card group w-full min-w-0 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
     >
-      <div className={`flex flex-col ${msg.sender === 'user' ? 'items-end max-w-[85%] md:max-w-[75%]' : 'items-start w-full'}`}>
+      <div className={`flex flex-col min-w-0 ${msg.sender === 'user' ? 'items-end w-fit max-w-[88%] sm:max-w-[80%] md:max-w-[75%]' : 'items-start w-full'}`}>
         <div
           className={`${
             msg.sender === 'user'
-            ? (isDarkMode ? 'bg-[#090e1a] text-slate-100 border border-slate-800/80 shadow-sm' : 'bg-[#f0f4f9] text-slate-900 shadow-sm') + ' rounded-[24px] px-5 py-3'
-            : (isDarkMode ? 'text-slate-100' : 'text-slate-900') + ' w-full py-1 px-0 overflow-hidden'
+            ? (isDarkMode ? 'bg-[#090e1a] text-slate-100 border border-slate-800/80 shadow-sm' : 'bg-[#f0f4f9] text-slate-900 shadow-sm') + ' rounded-[24px] px-4 sm:px-5 py-3 max-w-full overflow-hidden break-words'
+            : (isDarkMode ? 'text-slate-100' : 'text-slate-900') + ' w-full py-1 px-0 overflow-hidden break-words'
           } ${isStreaming ? (isDarkMode ? 'soft-stream-text' : '') : ''} transition-all duration-300`}
         >
           {msg.image && <LocalImageRenderer src={msg.image} fileName={msg.fileName} isDarkMode={isDarkMode} />}
@@ -4778,7 +4779,7 @@ export const ChatMessageItem = React.memo(({
           {msg.document && <LocalDocumentRenderer src={msg.document} fileName={msg.fileName} isDarkMode={isDarkMode} />}
 
           {msg.sender === 'user' && isEditing ? (
-            <div className="space-y-2.5 min-w-[240px] sm:min-w-[320px]">
+            <div className="space-y-2.5 min-w-[240px] sm:min-w-[320px] max-w-full">
               <textarea
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
@@ -4802,8 +4803,14 @@ export const ChatMessageItem = React.memo(({
             </div>
           ) : (
             !(msg.audio && textToRender === "🎤 Voice Message") && (
-              <div dir="auto" className={`font-normal w-full chat-content-text ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} style={{ wordBreak: 'break-word' }}>
-                {formatMessageText(textToRender, isDarkMode, isStreaming)}
+              <div 
+                dir="auto" 
+                className={`font-normal w-full chat-content-text min-w-0 break-words [overflow-wrap:anywhere] ${
+                  msg.sender === 'user' ? 'max-h-[360px] sm:max-h-[460px] md:max-h-[500px] overflow-y-auto chat-scroll pr-1' : ''
+                } ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} 
+                style={{ wordBreak: 'break-word' }}
+              >
+                {formatMessageText(textToRender, isDarkMode, isStreaming, msg.sender === 'user')}
               </div>
             )
           )}
