@@ -6431,6 +6431,25 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     const isCloudUser = Boolean(currentUser && currentUser.id !== 'guest-user' && currentUser.id !== 'preview-user');
     const chatRef = isCloudUser ? doc(db, 'users', currentUser.id, 'chats', targetChatId) : null;
 
+    let uploadedFileUrl: string | null = null;
+    let uploadedMimeType: string | null = null;
+    let uploadedFileName: string | null = null;
+    let uploadedFileSize: number | null = null;
+    let uploadedFileId: string | null = null;
+    let uploadedStorageProvider: string | null = null;
+    let uploadedDeleteUrl: string | null = null;
+
+    if (preUploadResult) {
+      // 🚀 Instant pre-upload was already completed in the background before clicking send!
+      uploadedFileUrl = preUploadResult.fileUrl;
+      uploadedMimeType = preUploadResult.mimeType;
+      uploadedFileName = preUploadResult.fileName;
+      uploadedFileSize = preUploadResult.fileSize;
+      uploadedFileId = preUploadResult.fileId;
+      uploadedStorageProvider = preUploadResult.storageProvider || 'zero-cost-transport';
+      uploadedDeleteUrl = (preUploadResult as any).deleteUrl || null;
+    }
+
     // Initial local handles for UI rendering
     let localImage: string | null = null;
     let localAudio: string | null = null;
@@ -6533,24 +6552,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       persistUserMessageToFirestore(targetChatId, newUserMsg, updatedTitle);
     }
 
-    let uploadedFileUrl: string | null = null;
-    let uploadedMimeType: string | null = null;
-    let uploadedFileName: string | null = null;
-    let uploadedFileSize: number | null = null;
-    let uploadedFileId: string | null = null;
-    let uploadedStorageProvider: string | null = null;
-    let uploadedDeleteUrl: string | null = null;
-
-    if (preUploadResult) {
-      // 🚀 Instant pre-upload was already completed in the background before clicking send!
-      uploadedFileUrl = preUploadResult.fileUrl;
-      uploadedMimeType = preUploadResult.mimeType;
-      uploadedFileName = preUploadResult.fileName;
-      uploadedFileSize = preUploadResult.fileSize;
-      uploadedFileId = preUploadResult.fileId;
-      uploadedStorageProvider = preUploadResult.storageProvider || 'zero-cost-transport';
-      uploadedDeleteUrl = (preUploadResult as any).deleteUrl || null;
-    } else if (preUploadPromise) {
+    if (preUploadPromise) {
       // ⏳ Background ephemeral transport is currently in flight: await the existing promise!
       try {
         setUploadingFileName(attachmentFile?.name || 'File');
