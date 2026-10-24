@@ -1772,59 +1772,63 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming }: { 
           aria-modal="true"
         >
           <div className={`w-full h-full mx-auto rounded-none sm:rounded-2xl overflow-hidden border-0 sm:border shadow-2xl flex flex-col ${isDarkMode ? 'border-slate-800 bg-[#060911]' : 'border-slate-300 bg-white text-slate-900'}`}>
-            {/* Modal Header */}
-            <div className={`h-11 flex-shrink-0 flex items-center justify-between px-3 sm:px-4 border-b select-none ${isDarkMode ? 'bg-[#080c16] border-slate-800 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-800'}`}>
-              <div className="flex items-center gap-2.5">
-                <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider ${isDarkMode ? 'bg-cyan-950/70 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+                        {/* Modal Header */}
+            <div className={`h-11 sm:h-12 flex-shrink-0 flex items-center justify-between px-2 sm:px-4 border-b select-none gap-2 ${isDarkMode ? 'bg-[#080c16] border-slate-800 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-800'}`}>
+              <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 overflow-hidden mr-1">
+                <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider flex-shrink-0 ${isDarkMode ? 'bg-cyan-950/70 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
                   {lang || 'html'}
                 </span>
-                <span className="text-xs sm:text-sm font-semibold truncate">Interactive Visualizer Sandbox</span>
+                <span className="text-xs sm:text-sm font-semibold truncate">
+                  <span className="hidden sm:inline">Interactive Visualizer Sandbox</span>
+                  <span className="sm:hidden">Visualizer</span>
+                </span>
               </div>
 
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
                 {/* View Mode Switcher in Fullscreen */}
                 <button
                   type="button"
                   onClick={handleToggleViewMode}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                     activeLayoutMode === 'scroll'
                       ? (isDarkMode ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200')
                       : (isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/50' : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700')
                   }`}
                   title={activeLayoutMode === 'scroll' ? "Full Page layout active (click to switch to Fit Screen)" : "Fit Screen layout active (click to switch to Full Page)"}
                 >
-                  {activeLayoutMode === 'scroll' ? <FileText className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize2 className="w-3.5 h-3.5 text-slate-400" />}
-                  <span>{activeLayoutMode === 'scroll' ? "Full Page" : "Fit Screen"}</span>
+                  {activeLayoutMode === 'scroll' ? <FileText className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" /> : <Maximize2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />}
+                  <span className="hidden md:inline whitespace-nowrap">{activeLayoutMode === 'scroll' ? "Full Page" : "Fit Screen"}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/50' : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'}`}
+                  className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/50' : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'}`}
                   title="Reload sandbox"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Reset</span>
+                  <RotateCcw className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="hidden md:inline whitespace-nowrap">Reset</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleOpenNewTab}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/50' : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'}`}
+                  className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/50' : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'}`}
                   title="Open in new browser tab"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Pop Out</span>
+                  <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="hidden md:inline whitespace-nowrap">Pop Out</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsFullscreen(false)}
-                  className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${isDarkMode ? 'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'}`}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all active:scale-95 ml-0.5 sm:ml-1 ${isDarkMode ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40' : 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm'}`}
                   title="Close Fullscreen (Esc)"
+                  aria-label="Close Fullscreen"
                 >
-                  <Minimize2 className="w-3.5 h-3.5" />
-                  <span>Close</span>
+                  <X className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="hidden sm:inline">Close</span>
                 </button>
               </div>
             </div>
