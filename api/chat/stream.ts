@@ -57,29 +57,18 @@ interface ModelNode {
   cooldownUntil: number;
 }
 
-// PRIMARY TIER: Google Gemini Pipeline (User Requested Models + Official Free-Tier Fallbacks)
+// PRIMARY TIER: Google Gemini Pipeline (User Requested Models)
 const GEMINI_PIPELINE: ModelNode[] = [
   { provider: 'gemini', name: 'gemini-3.1-flash-lite', displayName: 'Gemini 3.1 Flash Lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
   { provider: 'gemini', name: 'gemini-3.5-flash-lite', displayName: 'Gemini 3.5 Flash Lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
   { provider: 'gemini', name: 'gemma-4-31b', displayName: 'Gemma 4 31B', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'gemini', name: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'gemini', name: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'gemini', name: 'gemini-2.0-flash-lite', displayName: 'Gemini 2.0 Flash Lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'gemini', name: 'gemini-1.5-flash', displayName: 'Gemini 1.5 Flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'gemini', name: 'gemini-1.5-flash-8b', displayName: 'Gemini 1.5 Flash-8B', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'gemini', name: 'gemma-2-27b-it', displayName: 'Gemma 2 27B IT', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'gemini', name: 'gemma-2-9b-it', displayName: 'Gemma 2 9B IT', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
 ];
 
-// SECONDARY TIER: Groq Fallback Pipeline (User Requested Models + Official Free-Tier Fallbacks)
+// SECONDARY TIER: Groq Fallback Pipeline (User Requested Models)
 const GROQ_PIPELINE: ModelNode[] = [
   { provider: 'groq', name: 'qwen/qwen3.8-27b', displayName: 'Qwen 3.8 27B', inFlight: 0, cooldownUntil: 0 },
   { provider: 'groq', name: 'openai/gpt-oss-120b', displayName: 'GPT-OSS 120B', inFlight: 0, cooldownUntil: 0 },
   { provider: 'groq', name: 'openai/gpt-oss-20b', displayName: 'GPT-OSS 20B', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'groq', name: 'llama-3.3-70b-versatile', displayName: 'Llama 3.3 70B Versatile', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'groq', name: 'llama-3.1-8b-instant', displayName: 'Llama 3.1 8B Instant', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'groq', name: 'mixtral-8x7b-32768', displayName: 'Mixtral 8x7B', inFlight: 0, cooldownUntil: 0 },
-  { provider: 'groq', name: 'gemma2-9b-it', displayName: 'Gemma 2 9B', inFlight: 0, cooldownUntil: 0 },
 ];
 
 export const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write "علي كاسم").

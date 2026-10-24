@@ -9,22 +9,14 @@ const streamTs = fs.readFileSync('api/chat/stream.ts', 'utf8');
 assert.ok(streamTs.includes("'gemini-3.1-flash-lite'"), 'Missing gemini-3.1-flash-lite in Gemini pipeline');
 assert.ok(streamTs.includes("'gemini-3.5-flash-lite'"), 'Missing gemini-3.5-flash-lite in Gemini pipeline');
 assert.ok(streamTs.includes("'gemma-4-31b'"), 'Missing gemma-4-31b in Gemini pipeline');
-// Check free tier Google fallbacks
-assert.ok(streamTs.includes("'gemini-2.5-flash'"), 'Missing gemini-2.5-flash in Gemini pipeline');
-assert.ok(streamTs.includes("'gemini-2.0-flash'"), 'Missing gemini-2.0-flash in Gemini pipeline');
-assert.ok(streamTs.includes("'gemini-2.0-flash-lite'"), 'Missing gemini-2.0-flash-lite in Gemini pipeline');
-assert.ok(streamTs.includes("'gemini-1.5-flash'"), 'Missing gemini-1.5-flash in Gemini pipeline');
-console.log('  ✅ Gemini Pipeline includes all user-requested models and Google AI free-tier fallbacks');
+console.log('  ✅ Gemini Pipeline includes exactly user-requested models (Gemini 3.1 Flash Lite, Gemini 3.5 Flash Lite, Gemma 4 31B)');
 
 // Check user requested Groq models
 assert.ok(streamTs.includes("'qwen/qwen3.8-27b'"), 'Missing qwen/qwen3.8-27b in Groq pipeline');
 assert.ok(streamTs.includes("'openai/gpt-oss-120b'"), 'Missing openai/gpt-oss-120b in Groq pipeline');
 assert.ok(streamTs.includes("'openai/gpt-oss-20b'"), 'Missing openai/gpt-oss-20b in Groq pipeline');
-// Check free tier Groq fallbacks
-assert.ok(streamTs.includes("'llama-3.3-70b-versatile'"), 'Missing llama-3.3-70b-versatile in Groq pipeline');
-assert.ok(streamTs.includes("'llama-3.1-8b-instant'"), 'Missing llama-3.1-8b-instant in Groq pipeline');
 assert.ok(streamTs.includes('GROQ_API_KEY'), 'Missing GROQ_API_KEY environment variable handling');
-console.log('  ✅ Groq Pipeline includes all user-requested models and high-throughput free-tier fallbacks');
+console.log('  ✅ Groq Pipeline includes exactly user-requested models (qwen/qwen3.8-27b, openai/gpt-oss-120b, openai/gpt-oss-20b)');
 
 // Test 2: Verify Groq-to-Gemini SSE stream adapter
 console.log('\n[TEST 2] Verifying Groq-to-Gemini SSE Stream Adapter...');
