@@ -5211,6 +5211,10 @@ export function App() {
   const recordingStartTimeRef = useRef<number>(0);
   const recordingDurationRef = useRef<number>(0);
   const waveformContainerRef = useRef<HTMLDivElement | null>(null);
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
+  const activeFallbackTimeoutRef = useRef<any>(null);
+  const activeFirestoreUnsubRef = useRef<(() => void) | null>(null);
+  const isUserStoppedRef = useRef(false);
 
   // ==========================================
   // --- 2. CONSTANTS & CONFIGURATION
@@ -6308,9 +6312,73 @@ export function App() {
       }
   };
 
+  const handleStopResponse = useCallback(() => {
+    isUserStoppedRef.current = true;
+
+    if (activeAbortControllerRef.current) {
+      try {
+        activeAbortControllerRef.current.abort();
+      } catch (e) {}
+      activeAbortControllerRef.current = null;
+    }
+
+    if (activeFallbackTimeoutRef.current) {
+      clearTimeout(activeFallbackTimeoutRef.current);
+      activeFallbackTimeoutRef.current = null;
+    }
+
+    if (activeFirestoreUnsubRef.current) {
+      try {
+        activeFirestoreUnsubRef.current();
+      } catch (e) {}
+      activeFirestoreUnsubRef.current = null;
+    }
+
+    if (streamingAnimFrameRef.current) {
+      cancelAnimationFrame(streamingAnimFrameRef.current);
+      streamingAnimFrameRef.current = null;
+    }
+
+    const activeMsgId = streamingMessageId;
+    if (activeMsgId) {
+      const vaultData = STREAMING_TEXT_VAULT.get(activeMsgId);
+      const partialText = vaultData?.partialText || "";
+
+      setChatHistory(prev => prev.map(c => {
+        if (!c.messages) return c;
+        const exists = c.messages.some((m: any) => m.id === activeMsgId);
+        if (!exists) return c;
+        return {
+          ...c,
+          messages: c.messages
+            .map((m: any) => {
+              if (m.id === activeMsgId) {
+                return partialText.trim() ? { ...m, text: partialText } : null;
+              }
+              return m;
+            })
+            .filter(Boolean),
+          updatedAt: new Date()
+        };
+      }));
+
+      STREAMING_TEXT_VAULT.delete(activeMsgId);
+      ACTIVELY_STREAMING_IDS.delete(activeMsgId);
+      setStreamingMessageId(null);
+      notifyStreamingSubscribers();
+    }
+
+    setIsLoading(false);
+    setActiveLoadingChatId(null);
+    setLoadingType(null);
+    setIsGeneratingImage(false);
+    PENDING_CONTINUATIONS.clear();
+  }, [streamingMessageId]);
+
   const streamGeminiWithCodeContinuation = useCallback(async (
     promptText: string,
-    msgId: string
+    msgId: string,
+    signal?: AbortSignal
   ): Promise<string> => {
     let finalAnswer = await callGeminiAPIStream(promptText, (accumulated) => {
       STREAMING_TEXT_VAULT.set(msgId, { fullText: accumulated, partialText: accumulated });
@@ -6318,7 +6386,7 @@ export function App() {
       if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
       }
-    });
+    }, DEFAULT_SYSTEM_INSTRUCTION, signal);
 
     let geminiContinuations = 0;
     const MAX_CONTINUATIONS = 3;
@@ -6350,7 +6418,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
           }
-        });
+        }, DEFAULT_SYSTEM_INSTRUCTION, signal);
 
         if (!chunkAcc || !chunkAcc.trim()) break;
         finalAnswer = cleanAndMergeContinuation(finalAnswer, chunkAcc);
@@ -6457,6 +6525,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
   ) => {
     if (!currentUser) return;
     setScrolledUpLock(false);
+    isUserStoppedRef.current = false;
 
     let finalAction = toolAction || "chat";
     let finalMessageText = hiddenPrefix 
@@ -6791,8 +6860,10 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       setIsLoading(false);
       setActiveLoadingChatId(null);
 
+      const geminiController = new AbortController();
+      activeAbortControllerRef.current = geminiController;
       try {
-        const finalAnswer = await streamGeminiWithCodeContinuation(finalMessageText, newGeminiMsg.id);
+        const finalAnswer = await streamGeminiWithCodeContinuation(finalMessageText, newGeminiMsg.id, geminiController.signal);
 
         STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: finalAnswer });
         setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
@@ -7209,9 +7280,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
              completeBotResponse(timeoutErr.message, timeoutErr);
          }
       }, N8N_REQUEST_TIMEOUT_MS + 5000);
+      activeFallbackTimeoutRef.current = fallbackTimeout;
 
       if (taskDocRef) {
         unsubscribeTask = onSnapshot(taskDocRef, (snapshot) => {
+          activeFirestoreUnsubRef.current = unsubscribeTask;
           if (isResolved) return; 
           if (snapshot.exists()) {
             const taskData = snapshot.data();
@@ -7225,6 +7298,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       }
 
       const controller = new AbortController();
+      activeAbortControllerRef.current = controller;
       const fetchTimeout = setTimeout(() => {
         controller.abort();
       }, N8N_REQUEST_TIMEOUT_MS);
@@ -7415,6 +7489,14 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
     } catch (error: any) {
       console.error("[ERROR]:", error);
+      if ((error as any)?.name === 'AbortError' || isUserStoppedRef.current) {
+        console.log('[USER_STOPPED_RESPONSE] Request was intentionally halted by user.');
+        setIsLoading(false);
+        setActiveLoadingChatId(null);
+        setLoadingType(null);
+        setIsGeneratingImage(false);
+        return;
+      }
       const classified = classifyRequestError(error);
       if (classified.isQuota) {
         const noticeMsg = { id: generateUniqueId(), text: TOKEN_LIMIT_REDIRECTION_MSG, sender: 'bot', timestamp: new Date() };
@@ -8491,6 +8573,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           </div>
 
           <div className={`flex-none relative w-full p-2 sm:p-4 z-20 pb-3 sm:pb-5 chat-bottom-bar ${isDarkMode ? 'bg-[#030407]' : 'bg-[#f8fafc]'}`}>
+            {/* ChatGPT-style Centered Circular Scroll-To-Bottom Button */}
             {isUserScrolledUp && (
               <div className="max-w-5xl mx-auto relative h-0 pointer-events-none">
                 <button
@@ -8499,15 +8582,15 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                     setScrolledUpLock(false);
                     scrollToBottom(true);
                   }}
-                  className={`pointer-events-auto absolute -top-12 sm:-top-14 right-3 sm:right-6 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-lg border text-xs font-semibold transition-all duration-200 hover:scale-105 active:scale-95 animate-fade-in ${
+                  className={`pointer-events-auto absolute -top-11 sm:-top-13 left-1/2 -translate-x-1/2 z-30 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shadow-lg border transition-all duration-200 hover:scale-110 active:scale-95 animate-fade-in ${
                     isDarkMode 
-                      ? 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border-slate-700/80 backdrop-blur-md' 
-                      : 'bg-white/95 hover:bg-slate-50 text-slate-700 border-slate-200/90 backdrop-blur-md'
+                      ? 'bg-[#18181b]/95 hover:bg-[#27272a] text-blue-400 border-slate-700/80 backdrop-blur-md' 
+                      : 'bg-white/95 hover:bg-slate-50 text-blue-500 border-slate-300/90 backdrop-blur-md shadow-md'
                   }`}
                   title="Scroll to bottom"
+                  aria-label="Scroll to bottom"
                 >
-                  <ArrowDown className="w-3.5 h-3.5 text-blue-500" />
-                  <span className="hidden xs:inline sm:inline">Scroll to bottom</span>
+                  <ArrowDown className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-blue-500 dark:text-blue-400 stroke-[2.5]" />
                 </button>
               </div>
             )}
@@ -8891,10 +8974,21 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                       </button>
                     )}
 
-                    {inputValue.trim() || pendingAttachment ? (
+                    {/* STOP / PAUSE RESPONSE BUTTON (ChatGPT-style Stop Button) */}
+                    {(isLoading || streamingMessageId || isGeneratingImage) ? (
+                      <button
+                        type="button"
+                        onClick={handleStopResponse}
+                        title="Stop response"
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-950/50 active:scale-95 transition-all flex-shrink-0 cursor-pointer animate-fade-in"
+                        aria-label="Stop response"
+                      >
+                        <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 bg-white rounded-[2.5px]" />
+                      </button>
+                    ) : (inputValue.trim() || pendingAttachment) ? (
                       <button
                         type="submit"
-                        disabled={isLoading || Boolean(pendingAttachment?.isUploading)}
+                        disabled={Boolean(pendingAttachment?.isUploading)}
                         title={pendingAttachment?.isUploading ? "Uploading file..." : "Send Message"}
                         className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
                           pendingAttachment?.isUploading
