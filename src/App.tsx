@@ -1039,10 +1039,15 @@ const callGeminiAPIStream = async (
   prompt: string,
   onChunk: (accumulatedText: string, chunk: string) => void,
   systemInstruction = DEFAULT_SYSTEM_INSTRUCTION,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  mode: 'chat' | 'utility' = 'chat'
 ): Promise<string> => {
-  const payload: any = { prompt };
-  const finalSystemInstruction = systemInstruction || DEFAULT_SYSTEM_INSTRUCTION;
+  const payload: any = { 
+    prompt,
+    mode,
+    isUtility: mode === 'utility'
+  };
+  const finalSystemInstruction = systemInstruction || (mode === 'utility' ? '' : DEFAULT_SYSTEM_INSTRUCTION);
   if (finalSystemInstruction) {
     payload.systemInstruction = finalSystemInstruction;
   }
@@ -1098,10 +1103,21 @@ const callGeminiAPIStream = async (
   return accumulated;
 };
 
-const callGeminiAPI = async (prompt: string, systemInstruction = DEFAULT_SYSTEM_INSTRUCTION, isJson = false) => {
+const callGeminiAPI = async (
+  prompt: string, 
+  systemInstruction = DEFAULT_SYSTEM_INSTRUCTION, 
+  isJson = false,
+  mode: 'chat' | 'utility' = 'chat'
+) => {
   let result = "";
   try {
-    result = await callGeminiAPIStream(prompt, () => {}, systemInstruction);
+    result = await callGeminiAPIStream(
+      prompt, 
+      () => {}, 
+      systemInstruction || (mode === 'utility' ? '' : DEFAULT_SYSTEM_INSTRUCTION),
+      undefined,
+      mode
+    );
     if (isJson) {
       const match = result.match(/\[[\s\S]*\]/);
       if (match) return match[0];
@@ -6288,8 +6304,9 @@ export function App() {
       try {
           const res = await callGeminiAPI(
               cleanedText, 
-              "Generate 3 extremely short, highly relevant follow-up questions the user could ask based on this text. They must be conversational and engaging. Return ONLY a valid JSON array of strings.", 
-              true
+              "Generate 3 extremely short, highly relevant follow-up questions the user could ask based on this text. They must be conversational and engaging. Return ONLY a valid JSON array of strings, e.g. [\"Question 1?\", \"Question 2?\", \"Question 3?\"].", 
+              true,
+              'utility'
           );
           if (res) {
               let parsed = [];
@@ -6653,9 +6670,18 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
           const titlePrompt = `Extract a short 2-4 word title for the message.\n\nMessage: "how do I cook a steak"\nTitle: Cooking a Steak\n\nMessage: "write a python script for scraping"\nTitle: Python Web Scraping\n\nMessage: "${msgText}"\nTitle:`;
 
-          callGeminiAPI(titlePrompt).then(genTitle => {
+          callGeminiAPI(
+            titlePrompt,
+            "You are a concise title generator. Output ONLY a clean 2-4 word title without markdown headers, bold, quotes, or punctuation.",
+            false,
+            'utility'
+          ).then(genTitle => {
             if (genTitle) {
-              let cleanTitle = genTitle.split('\n')[0].replace(/^(Title:|Chat Title:|\*|\[System Directives\]:|Task:|Output:|Response:)/gi, '').replace(/["']/g, '').trim();
+              let cleanTitle = genTitle.split('\n')[0]
+                .replace(/^#+\s*/gm, '')
+                .replace(/^(Title:|Chat Title:|\*|\[System Directives\]:|Task:|Output:|Response:)/gi, '')
+                .replace(/["'*`]/g, '')
+                .trim();
 
               if (cleanTitle.toLowerCase().includes("extract a") || cleanTitle.toLowerCase().includes("message:")) {
                 cleanTitle = msgText.substring(0, 20) + '...';

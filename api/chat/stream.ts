@@ -4,6 +4,7 @@ export const config = {
 
 // Fail-closed server-side secret management
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const WARMUP_SECRET = process.env.WARMUP_SECRET;
 const CHATBOT_TOKEN = process.env.CHATBOT_TOKEN;
 
@@ -41,38 +42,45 @@ function timingSafeCompare(a: string, b: string): boolean {
   const maxLen = Math.max(a.length, b.length);
   for (let i = 0; i < maxLen; i++) {
     const charA = i < a.length ? a.charCodeAt(i) : 0;
-    const charB = i < b.charCodeAt(i) ? b.charCodeAt(i) : 0;
+    const charB = i < b.length ? b.charCodeAt(i) : 0;
     mismatch |= charA ^ charB;
   }
   return mismatch === 0;
 }
 
 interface ModelNode {
+  provider: 'gemini' | 'groq';
   name: string;
   displayName: string;
-  version: string;
+  version?: string;
   inFlight: number;
   cooldownUntil: number;
 }
 
-// PRIMARY: Gemini 3.1 Flash Lite | FALLBACK: Gemini 2.5 Flash
-const PRIMARY_MODEL: ModelNode = { 
-  name: 'gemini-3.1-flash-lite', 
-  displayName: 'Gemini 3.1 Flash Lite',
-  version: 'v1beta', 
-  inFlight: 0, 
-  cooldownUntil: 0 
-};
+// PRIMARY TIER: Google Gemini Pipeline (User Requested Models + Official Free-Tier Fallbacks)
+const GEMINI_PIPELINE: ModelNode[] = [
+  { provider: 'gemini', name: 'gemini-3.1-flash-lite', displayName: 'Gemini 3.1 Flash Lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'gemini', name: 'gemini-3.5-flash-lite', displayName: 'Gemini 3.5 Flash Lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'gemini', name: 'gemma-4-31b', displayName: 'Gemma 4 31B', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'gemini', name: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'gemini', name: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'gemini', name: 'gemini-2.0-flash-lite', displayName: 'Gemini 2.0 Flash Lite', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'gemini', name: 'gemini-1.5-flash', displayName: 'Gemini 1.5 Flash', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'gemini', name: 'gemini-1.5-flash-8b', displayName: 'Gemini 1.5 Flash-8B', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'gemini', name: 'gemma-2-27b-it', displayName: 'Gemma 2 27B IT', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'gemini', name: 'gemma-2-9b-it', displayName: 'Gemma 2 9B IT', version: 'v1beta', inFlight: 0, cooldownUntil: 0 },
+];
 
-const FALLBACK_MODEL: ModelNode = { 
-  name: 'gemini-2.5-flash', 
-  displayName: 'Gemini 2.5 Flash',
-  version: 'v1beta', 
-  inFlight: 0, 
-  cooldownUntil: 0 
-};
-
-const MODEL_PIPELINE: ModelNode[] = [PRIMARY_MODEL, FALLBACK_MODEL];
+// SECONDARY TIER: Groq Fallback Pipeline (User Requested Models + Official Free-Tier Fallbacks)
+const GROQ_PIPELINE: ModelNode[] = [
+  { provider: 'groq', name: 'qwen/qwen3.8-27b', displayName: 'Qwen 3.8 27B', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'groq', name: 'openai/gpt-oss-120b', displayName: 'GPT-OSS 120B', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'groq', name: 'openai/gpt-oss-20b', displayName: 'GPT-OSS 20B', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'groq', name: 'llama-3.3-70b-versatile', displayName: 'Llama 3.3 70B Versatile', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'groq', name: 'llama-3.1-8b-instant', displayName: 'Llama 3.1 8B Instant', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'groq', name: 'mixtral-8x7b-32768', displayName: 'Mixtral 8x7B', inFlight: 0, cooldownUntil: 0 },
+  { provider: 'groq', name: 'gemma2-9b-it', displayName: 'Gemma 2 9B', inFlight: 0, cooldownUntil: 0 },
+];
 
 export const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, and highly capable multimodal AI assistant engineered exclusively by Ali Kassem (in Arabic: علي قاسم - NEVER EVER write "علي كاسم").
 
@@ -98,6 +106,65 @@ YOU MUST Structure EVERY response using Xare's frontend markdown components:
 - Interactive Visuals: Frequently build complete, self-contained HTML/JS/CSS (or SVG) inside a \`\`\`html block to visually or interactively explain concepts, math, data, processes, and UI. Design visuals to be compact, responsive, and properly scaled (use viewBox for SVGs, max-width: 100%, and fit comfortably within 360px-400px height with all controls clearly visible) so they render beautifully without clipping. The chat runs them live instantly—use them actively and never tell users to save files.
 - Keep the tone conversational, confident, and direct. Avoid generic boilerplate disclosures, redundant apologies, or fabricated status/metadata fields unless explicitly requested.
 NEVER RESPOND WITHOUT USING ANY OF THOSE UI STYLINGS`;
+
+/**
+ * Transforms an OpenAI/Groq SSE stream into Gemini SSE format.
+ * Emits `data: {"candidates":[{"content":{"parts":[{"text":"..."}]}}]}\n\n` for seamless client compatibility.
+ */
+function createGroqToGeminiStream(groqStream: ReadableStream<Uint8Array>, onDone?: () => void): ReadableStream<Uint8Array> {
+  const reader = groqStream.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let lineBuffer = '';
+
+  function processLine(line: string, controller: ReadableStreamDefaultController<Uint8Array>) {
+    const trimmed = line.trim();
+    if (!trimmed || !trimmed.startsWith('data: ')) return;
+    const jsonStr = trimmed.slice(6).trim();
+    if (jsonStr === '[DONE]') return;
+    try {
+      const parsed = JSON.parse(jsonStr);
+      const text = parsed.choices?.[0]?.delta?.content;
+      if (text) {
+        const geminiChunk = JSON.stringify({
+          candidates: [{ content: { parts: [{ text }] } }]
+        });
+        controller.enqueue(encoder.encode(`data: ${geminiChunk}\n\n`));
+      }
+    } catch (e) {
+      // Ignore partial chunk parse error
+    }
+  }
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (lineBuffer.trim()) {
+            processLine(lineBuffer, controller);
+          }
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          if (onDone) onDone();
+          controller.close();
+          return;
+        }
+
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop() || '';
+
+        for (const line of lines) {
+          processLine(line, controller);
+        }
+      }
+    },
+    cancel(reason) {
+      if (onDone) onDone();
+      reader.cancel(reason);
+    }
+  });
+}
 
 export default async function handler(req: Request) {
   // CORS Preflight
@@ -125,8 +192,10 @@ export default async function handler(req: Request) {
 
   try {
     // 1. Strict Fail-Closed Environment Check
-    if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: 'Server Configuration Error: Missing GEMINI_API_KEY environment variable' }), {
+    if (!GEMINI_API_KEY && !GROQ_API_KEY) {
+      return new Response(JSON.stringify({ 
+        error: 'Server Configuration Error: Missing AI API keys (GEMINI_API_KEY or GROQ_API_KEY environment variable required)' 
+      }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -208,78 +277,150 @@ export default async function handler(req: Request) {
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    const { prompt, systemInstruction } = body;
+    const { prompt, systemInstruction, mode, isUtility } = body;
+    const isUtilityCall = mode === 'utility' || isUtility === true;
 
-    const finalInstruction = systemInstruction && typeof systemInstruction === 'string' && systemInstruction.trim()
-      ? `${DEFAULT_SYSTEM_INSTRUCTION}\n\n${systemInstruction.trim()}`
-      : DEFAULT_SYSTEM_INSTRUCTION;
+    // Distinguish utility calls (titles, suggestions) from conversation chat to prevent markdown header pollution
+    let finalInstruction: string;
+    if (isUtilityCall) {
+      finalInstruction = systemInstruction && typeof systemInstruction === 'string' && systemInstruction.trim()
+        ? systemInstruction.trim()
+        : 'You are a concise utility assistant. Strictly answer the prompt without conversational filler or markdown headers.';
+    } else {
+      finalInstruction = systemInstruction && typeof systemInstruction === 'string' && systemInstruction.trim()
+        ? `${DEFAULT_SYSTEM_INSTRUCTION}\n\n${systemInstruction.trim()}`
+        : DEFAULT_SYSTEM_INSTRUCTION;
+    }
 
-    const upstreamPayload: any = {
-      contents: [{ parts: [{ text: prompt }] }],
-      systemInstruction: { parts: [{ text: finalInstruction }] },
-    };
-
-    const payloadJson = JSON.stringify(upstreamPayload);
-
-    // 4. Dispatch Pipeline: Primary (Gemini 3.5 Flash Lite) -> Fallback (Gemini 3.1 Flash Lite)
+    // 4. Multi-Tier Fault-Tolerant AI Model Dispatch
     let upstreamRes: Response | null = null;
     let winningModel: ModelNode | null = null;
+    let lastErrorDetails = '';
     const now = Date.now();
 
-    let lastErrorDetails = '';
-    for (let i = 0; i < MODEL_PIPELINE.length; i++) {
-      const candidate = MODEL_PIPELINE[i];
-
-      // If candidate is in active cooldown and we have a fallback, try next
-      if (candidate.cooldownUntil > now && i < MODEL_PIPELINE.length - 1) {
-        continue;
+    // TIER 1: Google Gemini Pipeline (if GEMINI_API_KEY is configured)
+    if (GEMINI_API_KEY) {
+      const upstreamPayload: any = {
+        contents: [{ parts: [{ text: prompt }] }],
+      };
+      if (finalInstruction) {
+        upstreamPayload.systemInstruction = { parts: [{ text: finalInstruction }] };
       }
+      const geminiPayloadJson = JSON.stringify(upstreamPayload);
 
-      candidate.inFlight++;
-      const url = `https://generativelanguage.googleapis.com/${candidate.version}/models/${candidate.name}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+      for (let i = 0; i < GEMINI_PIPELINE.length; i++) {
+        const candidate = GEMINI_PIPELINE[i];
 
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payloadJson,
-          signal: req.signal,
-        });
+        // Skip candidate if cooling down and we have another candidate to try
+        if (candidate.cooldownUntil > now && i < GEMINI_PIPELINE.length - 1) {
+          continue;
+        }
 
-        if (res.ok) {
-          upstreamRes = res;
-          winningModel = candidate;
-          break;
-        } else {
-          const errText = await res.text().catch(() => '');
-          lastErrorDetails = `${candidate.name} [${res.status}]: ${errText.slice(0, 300)}`;
+        candidate.inFlight++;
+        const url = `https://generativelanguage.googleapis.com/${candidate.version || 'v1beta'}/models/${candidate.name}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: geminiPayloadJson,
+            signal: req.signal,
+          });
+
+          if (res.ok) {
+            upstreamRes = res;
+            winningModel = candidate;
+            break;
+          } else {
+            const errText = await res.text().catch(() => '');
+            lastErrorDetails = `Gemini ${candidate.name} [${res.status}]: ${errText.slice(0, 300)}`;
+            candidate.inFlight = Math.max(0, candidate.inFlight - 1);
+            if (res.status === 429 || res.status === 503) {
+              candidate.cooldownUntil = Date.now() + 20000;
+            }
+          }
+        } catch (err: any) {
+          lastErrorDetails = `Gemini ${candidate.name} fetch exception: ${err.message}`;
           candidate.inFlight = Math.max(0, candidate.inFlight - 1);
-          if (res.status === 429 || res.status === 503) {
-            candidate.cooldownUntil = Date.now() + 20000;
+          if (req.signal.aborted) {
+            return new Response(null, { status: 499 });
           }
         }
-      } catch (err: any) {
-        lastErrorDetails = `Fetch exception: ${err.message}`;
-        candidate.inFlight = Math.max(0, candidate.inFlight - 1);
-        if (req.signal.aborted) {
-          return new Response(null, { status: 499 });
+      }
+    }
+
+    // TIER 2: Groq Fallback Pipeline (if Gemini failed/unconfigured & GROQ_API_KEY is configured)
+    if (!winningModel && GROQ_API_KEY) {
+      const groqMessages: any[] = [];
+      if (finalInstruction) {
+        groqMessages.push({ role: 'system', content: finalInstruction });
+      }
+      groqMessages.push({ role: 'user', content: prompt });
+
+      for (let i = 0; i < GROQ_PIPELINE.length; i++) {
+        const candidate = GROQ_PIPELINE[i];
+
+        // Skip candidate if cooling down and we have another candidate to try
+        if (candidate.cooldownUntil > now && i < GROQ_PIPELINE.length - 1) {
+          continue;
+        }
+
+        candidate.inFlight++;
+        const groqPayload = JSON.stringify({
+          model: candidate.name,
+          messages: groqMessages,
+          stream: true,
+          temperature: 0.7,
+        });
+
+        try {
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${GROQ_API_KEY}`
+            },
+            body: groqPayload,
+            signal: req.signal,
+          });
+
+          if (res.ok) {
+            upstreamRes = res;
+            winningModel = candidate;
+            break;
+          } else {
+            const errText = await res.text().catch(() => '');
+            lastErrorDetails = `Groq ${candidate.name} [${res.status}]: ${errText.slice(0, 300)}`;
+            candidate.inFlight = Math.max(0, candidate.inFlight - 1);
+            if (res.status === 429 || res.status === 503) {
+              candidate.cooldownUntil = Date.now() + 20000;
+            }
+          }
+        } catch (err: any) {
+          lastErrorDetails = `Groq ${candidate.name} fetch exception: ${err.message}`;
+          candidate.inFlight = Math.max(0, candidate.inFlight - 1);
+          if (req.signal.aborted) {
+            return new Response(null, { status: 499 });
+          }
         }
       }
     }
 
     if (!upstreamRes || !upstreamRes.body || !winningModel) {
       let availableModels: string[] = [];
-      try {
-        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
-        if (listRes.ok) {
-          const listData = await listRes.json();
-          availableModels = (listData.models || []).map((m: any) => m.name.replace('models/', ''));
-        }
-      } catch (e) {}
+      if (GEMINI_API_KEY) {
+        try {
+          const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            availableModels = (listData.models || []).map((m: any) => m.name.replace('models/', ''));
+          }
+        } catch (e) {}
+      }
 
       return new Response(JSON.stringify({
         error: 'AI Inference Unavailable',
-        details: lastErrorDetails || 'Models are currently rate-limited or unavailable.',
+        details: lastErrorDetails || 'All primary (Gemini) and secondary (Groq) models are currently rate-limited or unavailable.',
         availableModels: availableModels.slice(0, 20)
       }), {
         status: 503,
@@ -298,16 +439,19 @@ export default async function handler(req: Request) {
 
     req.signal.addEventListener('abort', cleanup, { once: true });
 
-    // Zero-copy stream pipe with full lifecycle cleanup
-    const transformStream = new TransformStream({
-      flush() {
-        cleanup();
-      }
-    });
+    let finalStream: ReadableStream<Uint8Array>;
+    if (winningModel.provider === 'groq') {
+      finalStream = createGroqToGeminiStream(upstreamRes.body, cleanup);
+    } else {
+      const transformStream = new TransformStream({
+        flush() {
+          cleanup();
+        }
+      });
+      finalStream = upstreamRes.body.pipeThrough(transformStream);
+    }
 
-    const stream = upstreamRes.body.pipeThrough(transformStream);
-
-    return new Response(stream, {
+    return new Response(finalStream, {
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -315,8 +459,9 @@ export default async function handler(req: Request) {
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
         'x-request-id': requestId,
-        'x-serving-model': `${winningModel.version}/${winningModel.name}`,
-        'x-serving-display': winningModel.displayName,
+        'x-serving-model': winningModel.provider === 'groq' ? `groq/${winningModel.name}` : `${winningModel.version}/${winningModel.name}`,
+        'x-serving-display': winningModel.provider === 'groq' ? `${winningModel.displayName} (via Groq)` : winningModel.displayName,
+        'x-serving-provider': winningModel.provider,
         'x-edge-dispatch-ms': `${dispatchTime.toFixed(2)}`,
         'Access-Control-Allow-Origin': '*',
       },
