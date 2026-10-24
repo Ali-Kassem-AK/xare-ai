@@ -136,3 +136,19 @@
   font-size: 16.5px !important;
 }
 
+
+/* =========================================================
+   BiDi & Mixed Arabic/English Bidirectional Typography
+   Ensures mixed Arabic and English flows naturally without scrambled order
+   ========================================================= */
+[dir="auto"], [dir="rtl"], [dir="ltr"] {
+  text-align: start;
+}
+
+[dir="rtl"] {
+  unicode-bidi: isolate;
+}
+
+code[dir="ltr"] {
+  unicode-bidi: isolate;
+}

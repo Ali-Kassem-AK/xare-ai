@@ -1131,6 +1131,17 @@ export const cleanThinkTags = (text: any) => {
 };
 
 /**
+ * Detects whether the first strong directional character in a string is Arabic/Hebrew/Persian (RTL).
+ * Accurately skips numbers, bullet symbols, punctuation, and markdown syntax.
+ */
+export const isRtlText = (str: any): boolean => {
+  if (!str || typeof str !== 'string') return false;
+  const match = str.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-zA-Z]/);
+  if (!match) return false;
+  return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(match[0]);
+};
+
+/**
  * Generates a completely unique identifier.
  */
 const generateUniqueId = () => {
@@ -2106,7 +2117,7 @@ const renderInline = (text: any, isDarkMode: boolean) => {
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       const innerCode = part.slice(1, -1);
       return (
-        <code key={i} className={`px-2 py-0.5 mx-0.5 rounded-md text-[0.95em] font-mono border break-all whitespace-pre-wrap inline-block max-w-full align-middle transition-colors ${
+        <code key={i} dir="ltr" className={`px-2 py-0.5 mx-0.5 rounded-md text-[0.95em] font-mono border break-all whitespace-pre-wrap inline-block max-w-full align-middle transition-colors [unicode-bidi:isolate] ${
           isDarkMode ? 'bg-slate-800/90 text-cyan-200 border-slate-700/80' : 'bg-slate-200/90 text-blue-900 border-slate-300/80'
         }`}>
           {innerCode}
@@ -2478,14 +2489,17 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                 break;
             }
 
+            const isRtl = isRtlText(bodyRows[0] || restOfFirstLine || '');
             elements.push(
-              <div key={`callout-${elements.length}`} className={`border-l-4 pl-4 pr-3 py-3 my-3 rounded-r-xl text-[13.5px] leading-relaxed overflow-x-auto chat-scroll ${alertStyle}`}>
+              <div key={`callout-${elements.length}`} dir={isRtl ? 'rtl' : 'ltr'} className={`text-start ${
+                isRtl ? 'border-r-4 pr-4 pl-3 rounded-l-xl' : 'border-l-4 pl-4 pr-3 rounded-r-xl'
+              } py-3 my-3 text-[13.5px] leading-relaxed overflow-x-auto chat-scroll ${alertStyle}`}>
                 <div className={`flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider mb-1.5 ${alertBadge}`}>
                   <IconComponent className="w-4 h-4 flex-shrink-0" />
                   <span>{type}</span>
                 </div>
                 {bodyRows.map((qLine, qIdx) => (
-                  <div key={qIdx} className="my-0.5 min-w-0 break-words">
+                  <div key={qIdx} dir="auto" className="my-0.5 min-w-0 break-words text-start">
                     {renderInline(qLine, isDarkMode)}
                   </div>
                 ))}
@@ -2500,10 +2514,13 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
               return qLine;
             });
 
+            const isRtl = isRtlText(cleanRows[0] || '');
             elements.push(
-              <blockquote key={`bq-${elements.length}`} className={`border-l-3 pl-3.5 pr-3 py-2 my-2.5 rounded-r-xl text-[13.5px] leading-relaxed overflow-x-auto chat-scroll ${isDarkMode ? 'border-cyan-400/80 bg-cyan-950/20 text-slate-200' : 'border-blue-500 bg-blue-50/50 text-slate-800'}`}>
+              <blockquote key={`bq-${elements.length}`} dir={isRtl ? 'rtl' : 'ltr'} className={`text-start ${
+                isRtl ? 'border-r-4 pr-3.5 pl-3 rounded-l-xl' : 'border-l-4 pl-3.5 pr-3 rounded-r-xl'
+              } py-2 my-2.5 text-[13.5px] leading-relaxed overflow-x-auto chat-scroll ${isDarkMode ? 'border-cyan-400/80 bg-cyan-950/20 text-slate-200' : 'border-blue-500 bg-blue-50/50 text-slate-800'}`}>
                 {cleanRows.map((qLine, qIdx) => (
-                  <div key={qIdx} className="my-0.5 min-w-0 break-words">
+                  <div key={qIdx} dir="auto" className="my-0.5 min-w-0 break-words text-start">
                     {renderInline(qLine, isDarkMode)}
                   </div>
                 ))}
@@ -2569,7 +2586,8 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                 const tr = c.trim();
                 if (tr.startsWith(':') && tr.endsWith(':')) return 'text-center';
                 if (tr.endsWith(':')) return 'text-right';
-                return 'text-left';
+                if (tr.startsWith(':')) return 'text-left';
+                return 'text-start';
               });
             }
 
@@ -2589,16 +2607,18 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
 
             elements.push(
               <div key={`table-${elements.length}`} className="my-4 overflow-x-auto w-full chat-scroll">
-                <table className="w-full text-left border-collapse min-w-[280px] sm:min-w-full text-sm">
+                <table className="w-full text-start border-collapse min-w-[280px] sm:min-w-full text-sm">
                   <thead>
                     <tr className={`border-b-2 ${isDarkMode ? 'border-slate-700/80' : 'border-slate-300'}`}>
                       {headers.map((h, i) => {
                         const isShortIdx = h.trim() === '#' || h.trim().length <= 2;
-                        const alignClass = alignments[i] || (isShortIdx ? 'text-center' : 'text-left');
+                        const isRtl = isRtlText(h);
+                        const alignClass = alignments[i] || (isShortIdx ? 'text-center' : 'text-start');
                         return (
                           <th 
                             key={i} 
-                            className={`py-2.5 px-3 font-bold text-[12.5px] tracking-wider uppercase whitespace-nowrap align-bottom ${alignClass} ${
+                            dir={isRtl ? 'rtl' : 'ltr'}
+                            className={`py-2.5 px-3 font-bold text-[12.5px] tracking-wider uppercase whitespace-nowrap align-bottom text-start ${alignClass} ${
                               isShortIdx 
                                 ? 'w-10' 
                                 : i === 0 
@@ -2617,11 +2637,13 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
                       <tr key={rIdx} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-100/50'}`}>
                         {row.map((cell, cIdx) => {
                           const isShortIdx = headers[0]?.trim() === '#' || headers[0]?.trim().length <= 2;
-                          const alignClass = alignments[cIdx] || (cIdx === 0 && isShortIdx ? 'text-center' : 'text-left');
+                          const isRtl = isRtlText(cell);
+                          const alignClass = alignments[cIdx] || (cIdx === 0 && isShortIdx ? 'text-center' : 'text-start');
                           return (
                             <td 
                               key={cIdx} 
-                              className={`py-3 px-3 text-[13.5px] leading-relaxed align-top ${alignClass} ${
+                              dir={isRtl ? 'rtl' : 'ltr'}
+                              className={`py-3 px-3 text-[13.5px] leading-relaxed align-top text-start ${alignClass} ${
                                 cIdx === 0 && isShortIdx
                                   ? `font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}` 
                                   : cIdx === 0
@@ -2642,8 +2664,9 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           } else {
             // Render non-table pipe lines as clean standard text
             tableRows.forEach((rowStr) => {
+              const isRtl = isRtlText(rowStr);
               elements.push(
-                <div key={`p-t-${elements.length}`} className={`min-h-[1.5rem] mt-1.5 leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                <div key={`p-t-${elements.length}`} dir={isRtl ? 'rtl' : 'ltr'} className={`min-h-[1.5rem] mt-1.5 leading-relaxed text-start ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
                   {renderInline(rowStr, isDarkMode)}
                 </div>
               );
@@ -2727,8 +2750,9 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         const blockHeaderMatch = trimmedLine.match(/^(Block\s+\d+.*?|Step\s+\d+.*?|Section\s+\d+.*?|Integrated Narrative|Step-by-Step Execution)$/i);
         if (blockHeaderMatch) {
           flushAll();
+          const isRtl = isRtlText(blockHeaderMatch[1]);
           elements.push(
-            <div key={`bh-${lIdx}`} className={`text-base sm:text-lg font-bold mt-5 mb-2 tracking-tight ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-300' : 'text-blue-700'}`}>
+            <div key={`bh-${lIdx}`} dir={isRtl ? 'rtl' : 'ltr'} className={`text-start text-base sm:text-lg font-bold mt-5 mb-2 tracking-tight ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-300' : 'text-blue-700'}`}>
               {renderInline(blockHeaderMatch[1], isDarkMode)}
             </div>
           );
@@ -2741,6 +2765,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           flushAll();
           const level = headerMatch[1].length;
           const content = headerMatch[2];
+          const isRtl = isRtlText(content);
           const sizeClasses = [
             `text-2xl font-extrabold mt-6 mb-3 tracking-tight ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-indigo-200 to-cyan-300' : 'text-blue-950'}`, 
             `text-xl font-bold mt-5 mb-2.5 tracking-tight ${isDarkMode ? 'text-cyan-300' : 'text-blue-900'}`, 
@@ -2749,7 +2774,7 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
             `text-sm font-semibold mt-2.5 mb-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`,
             `text-xs font-semibold mt-2 mb-1 uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`
           ];
-          elements.push(<div key={`h-${lIdx}`} className={sizeClasses[level-1] || sizeClasses[3]}>{renderInline(content, isDarkMode)}</div>);
+          elements.push(<div key={`h-${lIdx}`} dir={isRtl ? 'rtl' : 'ltr'} className={`text-start ${sizeClasses[level-1] || sizeClasses[3]}`}>{renderInline(content, isDarkMode)}</div>);
           return;
         }
 
@@ -2763,23 +2788,24 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           }
 
           const indentMatch = line.match(/^(\s{2,})/);
-          const indentClass = indentMatch ? (indentMatch[1].length >= 4 ? 'ml-6' : 'ml-4') : 'ml-2';
+          const indentClass = indentMatch ? (indentMatch[1].length >= 4 ? 'ms-6' : 'ms-4') : 'ms-2';
 
           // Check for task list checkboxes: [ ] or [x]
           const taskMatch = listContent.match(/^\[([ xX])\]\s+(.*)/);
           if (taskMatch) {
             const isChecked = taskMatch[1].toLowerCase() === 'x';
             const taskText = taskMatch[2];
+            const isRtl = isRtlText(taskText);
             elements.push(
-              <div key={`task-${lIdx}`} className={`flex gap-2.5 ${indentClass} mt-2 items-center`}>
-                <span className={`w-4 h-4 rounded border flex items-center justify-center select-none text-[10px] ${
+              <div key={`task-${lIdx}`} dir={isRtl ? 'rtl' : 'ltr'} className={`flex gap-2.5 ${indentClass} mt-2 items-center text-start`}>
+                <span className={`w-4 h-4 rounded border flex items-center justify-center select-none text-[10px] flex-shrink-0 ${
                   isChecked 
                     ? (isDarkMode ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold' : 'bg-emerald-100 border-emerald-600 text-emerald-700 font-bold') 
                     : (isDarkMode ? 'border-slate-600 bg-slate-800/40' : 'border-slate-400 bg-white')
                 }`}>
                   {isChecked ? '✓' : ''}
                 </span>
-                <span className={`flex-1 ${isChecked ? 'line-through opacity-70' : ''}`}>
+                <span className={`flex-1 min-w-0 ${isChecked ? 'line-through opacity-70' : ''}`} dir="auto">
                   {renderInline(taskText, isDarkMode)}
                 </span>
               </div>
@@ -2789,11 +2815,12 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
 
           // Bullet hierarchy: Level 1 (•), Level 2 (◦), Level 3 (▪)
           const bulletSymbol = indentMatch ? (indentMatch[1].length >= 4 ? '▪' : '◦') : '•';
+          const isRtl = isRtlText(listContent);
 
           elements.push(
-            <div key={`ul-${lIdx}`} className={`flex gap-3 ${indentClass} mt-2 items-baseline`}>
-              <span className={`select-none text-base font-bold leading-none ${isDarkMode ? 'text-cyan-400' : 'text-blue-600'}`}>{bulletSymbol}</span>
-              <span className="flex-1">{renderInline(listContent, isDarkMode)}</span>
+            <div key={`ul-${lIdx}`} dir={isRtl ? 'rtl' : 'ltr'} className={`flex gap-3 ${indentClass} mt-2 items-baseline text-start`}>
+              <span className={`select-none text-base font-bold leading-none flex-shrink-0 ${isDarkMode ? 'text-cyan-400' : 'text-blue-600'}`}>{bulletSymbol}</span>
+              <span className="flex-1 min-w-0" dir="auto">{renderInline(listContent, isDarkMode)}</span>
             </div>
           );
           return;
@@ -2810,21 +2837,22 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
           }
 
           const indentMatch = line.match(/^(\s{2,})/);
-          const indentClass = indentMatch ? (indentMatch[1].length >= 4 ? 'ml-6' : 'ml-4') : 'ml-2';
+          const indentClass = indentMatch ? (indentMatch[1].length >= 4 ? 'ms-6' : 'ms-4') : 'ms-2';
+          const isRtl = isRtlText(numContent);
 
           const isHeaderLike = /^(\*\*.*?\*\*|[A-Z][a-zA-Z0-9\s\-\(\)\/\:\,\.]{3,60})$/.test(numContent);
           if (isHeaderLike && numContent.length > 5) {
             elements.push(
-              <div key={`ol-h-${lIdx}`} className={`text-base sm:text-lg font-bold mt-5 mb-2 flex items-baseline gap-2 tracking-tight ${indentClass} ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-300 to-indigo-200' : 'text-blue-900'}`}>
+              <div key={`ol-h-${lIdx}`} dir={isRtl ? 'rtl' : 'ltr'} className={`text-base sm:text-lg font-bold mt-5 mb-2 flex items-baseline gap-2 tracking-tight text-start ${indentClass} ${isDarkMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-300 to-indigo-200' : 'text-blue-900'}`}>
                 <span className={`text-xs px-2 py-0.5 rounded-md font-mono select-none flex-shrink-0 ${isDarkMode ? 'bg-cyan-950/90 text-cyan-300 border border-cyan-700/60' : 'bg-blue-100 text-blue-800'}`}>{marker}</span>
-                <span className="flex-1">{renderInline(numContent, isDarkMode)}</span>
+                <span className="flex-1 min-w-0" dir="auto">{renderInline(numContent, isDarkMode)}</span>
               </div>
             );
           } else {
             elements.push(
-              <div key={`ol-${lIdx}`} className={`flex gap-2.5 ${indentClass} mt-2 items-baseline`}>
-                <span className={`font-bold text-xs px-2 py-0.5 rounded-md min-w-[24px] text-center select-none ${isDarkMode ? 'bg-blue-950/80 text-cyan-300 border border-cyan-800/40 shadow-sm' : 'bg-blue-100 text-blue-800'}`}>{marker}</span>
-                <span className="flex-1">{renderInline(numContent, isDarkMode)}</span>
+              <div key={`ol-${lIdx}`} dir={isRtl ? 'rtl' : 'ltr'} className={`flex gap-2.5 ${indentClass} mt-2 items-baseline text-start`}>
+                <span className={`font-bold text-xs px-2 py-0.5 rounded-md min-w-[24px] text-center select-none flex-shrink-0 ${isDarkMode ? 'bg-blue-950/80 text-cyan-300 border border-cyan-800/40 shadow-sm' : 'bg-blue-100 text-blue-800'}`}>{marker}</span>
+                <span className="flex-1 min-w-0" dir="auto">{renderInline(numContent, isDarkMode)}</span>
               </div>
             );
           }
@@ -2836,12 +2864,13 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         if (keyValueMatch && keyValueMatch[2] && !trimmedLine.startsWith('http') && keyValueMatch[1].trim().length > 1) {
           const key = keyValueMatch[1].trim();
           const val = keyValueMatch[2].trim();
+          const isRtl = isRtlText(val);
           elements.push(
-            <div key={`kv-${lIdx}`} className="flex flex-col sm:flex-row gap-1 sm:gap-4 my-2 text-[14.5px] leading-relaxed">
+            <div key={`kv-${lIdx}`} dir={isRtl ? 'rtl' : 'ltr'} className="flex flex-col sm:flex-row gap-1 sm:gap-4 my-2 text-[14.5px] leading-relaxed text-start">
               <span className={`font-semibold min-w-[130px] sm:max-w-[180px] flex-shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
                 {key}
               </span>
-              <span className={`flex-1 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+              <span className={`flex-1 min-w-0 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} dir="auto">
                 {renderInline(val, isDarkMode)}
               </span>
             </div>
@@ -2850,8 +2879,9 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         }
 
         // 10. Standard Paragraphs
+        const isRtl = isRtlText(line);
         elements.push(
-          <div key={`p-${lIdx}`} className={`min-h-[1.5rem] mt-1.5 leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+          <div key={`p-${lIdx}`} dir={isRtl ? 'rtl' : 'ltr'} className={`min-h-[1.5rem] mt-1.5 leading-relaxed text-start min-w-0 break-words ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
             {renderInline(line, isDarkMode)}
           </div>
         );
@@ -4781,9 +4811,10 @@ export const ChatMessageItem = React.memo(({
           {msg.sender === 'user' && isEditing ? (
             <div className="space-y-2.5 min-w-[240px] sm:min-w-[320px] max-w-full">
               <textarea
+                dir="auto"
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
-                className={`w-full p-2.5 rounded-xl border text-sm outline-none resize-none ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                className={`w-full p-2.5 rounded-xl border text-sm outline-none resize-none text-start ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
                 rows={3}
               />
               <div className="flex justify-end gap-2">
@@ -4805,7 +4836,7 @@ export const ChatMessageItem = React.memo(({
             !(msg.audio && textToRender === "🎤 Voice Message") && (
               <div 
                 dir="auto" 
-                className={`font-normal w-full chat-content-text min-w-0 break-words [overflow-wrap:anywhere] ${
+                className={`font-normal w-full chat-content-text min-w-0 break-words [overflow-wrap:anywhere] text-start ${
                   msg.sender === 'user' ? 'max-h-[360px] sm:max-h-[460px] md:max-h-[500px] overflow-y-auto chat-scroll pr-1' : ''
                 } ${isStreaming ? 'soft-stream-text' : ''} ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`} 
                 style={{ wordBreak: 'break-word' }}
@@ -8206,7 +8237,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                     title={chat.title || 'New Chat'}
                   >
                     <MessageSquare className={`w-4 h-4 flex-shrink-0 ${currentChatId === chat.id ? (isDarkMode ? 'text-blue-500' : 'text-blue-600') : (isDarkMode ? 'text-slate-500 group-hover:text-slate-400' : 'text-slate-400 group-hover:text-slate-500')}`} />
-                    <span className="truncate">{chat.title || 'New Chat'}</span>
+                    <span className="truncate" dir="auto">{chat.title || 'New Chat'}</span>
                   </button>
                   <button
                     onClick={(e) => {
@@ -8431,15 +8462,19 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
             
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
                 <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
-                {suggestions.map((sug, i) => (
-                    <button 
-                        key={i} 
-                        onClick={() => { setInputValue(sug); setSuggestions([]); setTimeout(() => textareaRef.current?.focus(), 50); }}
-                        className={`whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium border shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 ${isDarkMode ? 'bg-[#0c1324]/90 border-slate-700/60 text-blue-300 hover:bg-slate-800' : 'bg-white/95 border-slate-200/60 text-blue-600 hover:bg-slate-50'}`}
-                    >
-                        {sug}
-                    </button>
-                ))}
+                {suggestions.map((sug, i) => {
+                    const isRtl = isRtlText(sug);
+                    return (
+                        <button 
+                            key={i} 
+                            dir={isRtl ? 'rtl' : 'ltr'}
+                            onClick={() => { setInputValue(sug); setSuggestions([]); setTimeout(() => textareaRef.current?.focus(), 50); }}
+                            className={`whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium border shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 text-start ${isDarkMode ? 'bg-[#0c1324]/90 border-slate-700/60 text-blue-300 hover:bg-slate-800' : 'bg-white/95 border-slate-200/60 text-blue-600 hover:bg-slate-50'}`}
+                        >
+                            {sug}
+                        </button>
+                    );
+                })}
                 </div>
             )}
 
