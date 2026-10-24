@@ -1632,32 +1632,40 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming, isUs
               {/* Fit vs Full Page Scroll View Switcher */}
               <button 
                 type="button"
+                disabled={isStreaming}
                 onClick={handleToggleViewMode}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                  activeLayoutMode === 'scroll'
+                  isStreaming
                     ? (isDarkMode 
-                        ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' 
-                        : 'bg-blue-50 text-blue-700 border border-blue-200')
-                    : (isDarkMode 
-                        ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
-                        : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900')
+                        ? 'opacity-35 cursor-not-allowed pointer-events-none bg-slate-900/40 text-slate-500 border border-slate-800/40' 
+                        : 'opacity-40 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400 border border-slate-200/50')
+                    : activeLayoutMode === 'scroll'
+                      ? (isDarkMode 
+                          ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' 
+                          : 'bg-blue-50 text-blue-700 border border-blue-200')
+                      : (isDarkMode 
+                          ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                          : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900')
                 }`}
-                title={activeLayoutMode === 'scroll' ? "Full Page layout active (click to switch to Fit Screen)" : "Fit Screen layout active (click to switch to Full Page)"}
+                title={isStreaming ? "Visualization is generating..." : (activeLayoutMode === 'scroll' ? "Full Page layout active (click to switch to Fit Screen)" : "Fit Screen layout active (click to switch to Full Page)")}
               >
-                {activeLayoutMode === 'scroll' ? <FileText className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                {activeLayoutMode === 'scroll' ? <FileText className={`w-3.5 h-3.5 ${isStreaming ? 'text-slate-500' : 'text-cyan-400'}`} /> : <Maximize2 className="w-3.5 h-3.5" />}
                 <span className="hidden md:inline">{activeLayoutMode === 'scroll' ? "Full Page" : "Fit Screen"}</span>
               </button>
 
               {/* Expand / Compact Height Toggle */}
               <button 
                 type="button"
+                disabled={isStreaming}
                 onClick={() => setIsExpandedHeight(h => !h)}
                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                  isDarkMode 
-                    ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
-                    : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900'
+                  isStreaming
+                    ? 'opacity-35 cursor-not-allowed pointer-events-none text-slate-500'
+                    : (isDarkMode 
+                        ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                        : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900')
                 }`}
-                title={isExpandedHeight ? "Compact preview height" : "Expand preview height"}
+                title={isStreaming ? "Visualization is generating..." : (isExpandedHeight ? "Compact preview height" : "Expand preview height")}
               >
                 {isExpandedHeight ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 <span className="hidden md:inline">{isExpandedHeight ? "Compact" : "Expand"}</span>
@@ -1666,13 +1674,16 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming, isUs
               {/* Fullscreen Modal Theater Toggle */}
               <button 
                 type="button"
+                disabled={isStreaming}
                 onClick={() => setIsFullscreen(true)}
                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                  isDarkMode 
-                    ? 'hover:bg-slate-800 text-slate-400 hover:text-cyan-300' 
-                    : 'hover:bg-slate-200 text-slate-600 hover:text-blue-700'
+                  isStreaming
+                    ? 'opacity-35 cursor-not-allowed pointer-events-none text-slate-500'
+                    : (isDarkMode 
+                        ? 'hover:bg-slate-800 text-slate-400 hover:text-cyan-300' 
+                        : 'hover:bg-slate-200 text-slate-600 hover:text-blue-700')
                 }`}
-                title="Open fullscreen theater mode"
+                title={isStreaming ? "Visualization is generating..." : "Open fullscreen theater mode"}
               >
                 <Maximize2 className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Fullscreen</span>
@@ -1681,13 +1692,16 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming, isUs
               {/* Reload Sandbox */}
               <button 
                 type="button"
+                disabled={isStreaming}
                 onClick={handleRefresh}
                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                  isDarkMode 
-                    ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
-                    : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900'
+                  isStreaming
+                    ? 'opacity-35 cursor-not-allowed pointer-events-none text-slate-500'
+                    : (isDarkMode 
+                        ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                        : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900')
                 }`}
-                title="Reload visualization"
+                title={isStreaming ? "Visualization is generating..." : "Reload visualization"}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Reset</span>
@@ -1696,13 +1710,16 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming, isUs
               {/* Open in Separate Browser Tab */}
               <button 
                 type="button"
+                disabled={isStreaming}
                 onClick={handleOpenNewTab}
                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
-                  isDarkMode 
-                    ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
-                    : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900'
+                  isStreaming
+                    ? 'opacity-35 cursor-not-allowed pointer-events-none text-slate-500'
+                    : (isDarkMode 
+                        ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' 
+                        : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900')
                 }`}
-                title="Open visualization in full browser tab"
+                title={isStreaming ? "Visualization is generating..." : "Open visualization in full browser tab"}
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Pop Out</span>
@@ -1712,13 +1729,18 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming, isUs
 
           <button 
             type="button"
+            disabled={isStreaming}
             onClick={handleCopy} 
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
-              isDarkMode 
-                ? 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60' 
-                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm'
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+              isStreaming
+                ? (isDarkMode 
+                    ? 'opacity-35 cursor-not-allowed pointer-events-none bg-slate-900/40 text-slate-500 border border-slate-800/40' 
+                    : 'opacity-40 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400 border border-slate-200/50')
+                : 'active:scale-95 ' + (isDarkMode 
+                    ? 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60' 
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm')
             }`}
-            title="Copy code"
+            title={isStreaming ? "Code is generating..." : "Copy code"}
           >
             {isCopied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
             {isCopied ? 'Copied!' : 'Copy Code'}
@@ -5078,8 +5100,13 @@ export function App() {
       const currentTotalLength = currentFullText.length;
       const isAwaitingContinuation = PENDING_CONTINUATIONS.get(msgId) === true;
 
+      const isHtmlPayload = currentFullText.includes('```html') || currentFullText.includes('<!DOCTYPE html') || currentFullText.includes('<html');
+      const maxSpeed = isHtmlPayload 
+        ? Math.max(maxAdaptiveSpeed, Math.ceil(currentTotalLength / 2.5)) 
+        : maxAdaptiveSpeed;
+
       const dynamicCharsPerSecond = (STREAMING_CONFIG.enableAdaptiveSpeed && currentTotalLength > 500) 
-        ? Math.min(maxAdaptiveSpeed, Math.max(baseSpeed, Math.ceil(currentTotalLength / 6))) 
+        ? Math.min(maxSpeed, Math.max(baseSpeed, Math.ceil(currentTotalLength / (isHtmlPayload ? 3 : 6)))) 
         : baseSpeed;
 
       charIndex += dynamicCharsPerSecond * deltaSeconds;
