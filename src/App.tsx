@@ -1716,7 +1716,7 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming, isUs
       </div>
 
       {/* Content Area */}
-      {isRunnable && isStreaming ? (
+      {isRunnable && isStreaming && activeTab === 'preview' ? (
         <div className={`p-8 sm:p-12 flex flex-col items-center justify-center gap-4 transition-all select-none ${isDarkMode ? 'bg-[#060911]' : 'bg-slate-50'}`}>
           <div className="relative flex items-center justify-center">
             {/* Ambient pulsing glow */}
@@ -5506,22 +5506,9 @@ export function App() {
       switch (loadingType) {
         case 'visualization':
           queueSteps([
-            { text: 'Reading Prompt', duration: TOOL_PHASE_DURATIONS.visualization.readingPrompt },
-            { text: 'Understanding Context', duration: TOOL_PHASE_DURATIONS.visualization.understandingContext },
-            { text: 'Architecting System & Component Layout...', duration: TOOL_PHASE_DURATIONS.visualization.architecting },
-            { text: 'Designing Visual Aesthetics & Color Palette...', duration: TOOL_PHASE_DURATIONS.visualization.designingPalette },
-            { text: 'Structuring Semantic HTML5 & DOM Hierarchy...', duration: TOOL_PHASE_DURATIONS.visualization.structuringDom },
-            { text: 'Engineering Native CSS & Responsive Grid...', duration: TOOL_PHASE_DURATIONS.visualization.stylingCss },
-            { text: 'Crafting Smooth GPU Animations & Transitions...', duration: TOOL_PHASE_DURATIONS.visualization.craftingAnimations },
-            { text: 'Developing Interactive Canvas & Systems...', duration: TOOL_PHASE_DURATIONS.visualization.developingCanvas },
-            { text: 'Wiring Real-Time State & Event Listeners...', duration: TOOL_PHASE_DURATIONS.visualization.wiringState },
-            { text: 'Binding User Controls & Touch Interactions...', duration: TOOL_PHASE_DURATIONS.visualization.bindingControls },
-            { text: 'Optimizing Responsive Mobile & Desktop Layout...', duration: TOOL_PHASE_DURATIONS.visualization.optimizingLayout },
-            { text: 'Synthesizing Dynamic Visual Effects & Feedback...', duration: TOOL_PHASE_DURATIONS.visualization.synthesizingVisuals },
-            { text: 'Verifying DOM Hierarchy & Syntax Integrity...', duration: TOOL_PHASE_DURATIONS.visualization.verifyingDom },
-            { text: 'Validating Web APIs & Runtime Sandbox...', duration: TOOL_PHASE_DURATIONS.visualization.validatingApis },
-            { text: 'Compiling Self-Contained Web Sandbox...', duration: TOOL_PHASE_DURATIONS.visualization.compilingSandbox },
-            { text: 'Finalizing Complete Application & Launching...', duration: TOOL_PHASE_DURATIONS.visualization.finalizingApp }
+            { text: 'Reading Prompt', duration: 1200 },
+            { text: 'Understanding Context', duration: 1500 },
+            { text: 'Generating Interactive Visualization...', duration: 15000 }
           ]);
           break;
         case 'code':
@@ -6718,54 +6705,8 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     const activeMode = chatModelModes[targetChatId] || 'xare';
 
     // DIRECT GEMINI MODE ROUTER (If user previously clicked 'Switch to Gemini AI')
+    // Streams token-by-token in real-time for ALL prompts including visualizations
     if (activeMode === 'gemini' && (finalAction === 'chat' || !finalAction || finalAction === 'text' || finalAction === 'build')) {
-      const isVizPrompt = isVisualizationPrompt(finalMessageText) || finalAction === 'build' || Boolean(toolLabel && toolLabel.includes('Build'));
-      if (isVizPrompt) {
-        setLoadingType('visualization');
-        setLoadingPhase('Sending');
-        setIsLoading(true);
-        setActiveLoadingChatId(targetChatId);
-        try {
-          const initialGemini = await callGeminiAPI(finalMessageText);
-          let fullHtml = initialGemini || "";
-          const check = checkHtmlCodeCompleteness(fullHtml);
-          if (!check.isComplete) {
-            setLoadingPhase('Building complete website code...');
-            fullHtml = await ensureCompleteHtmlCode(
-              fullHtml,
-              targetChatId,
-              currentUser,
-              (phase) => setLoadingPhase(phase)
-            );
-          } else if (/<!doctype\s+html/i.test(fullHtml) && !fullHtml.includes('```')) {
-            fullHtml = '```html\n' + fullHtml.trim() + '\n```';
-          }
-          const geminiMsg = {
-            id: generateUniqueId(),
-            text: fullHtml,
-            sender: 'bot',
-            modelEngine: 'gemini',
-            timestamp: new Date()
-          };
-          setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
-            ...c,
-            messages: sortMessagesChronologically([...(c.messages || []).filter((m: any) => m.id !== geminiMsg.id), geminiMsg]),
-            updatedAt: new Date()
-          } : c));
-          setIsLoading(false);
-          setActiveLoadingChatId(null);
-          setLoadingType(null);
-          triggerSuggestions(fullHtml);
-          persistBotMessageToFirestore(targetChatId, geminiMsg, fullHtml);
-          return;
-        } catch (err) {
-          console.error("Gemini visualization generation error:", err);
-          setIsLoading(false);
-          setActiveLoadingChatId(null);
-          setLoadingType(null);
-        }
-      }
-
       const newGeminiMsg = {
         id: generateUniqueId(),
         text: "",
@@ -6925,55 +6866,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           
           setChatModelModes(prev => ({ ...prev, [targetChatId]: 'gemini' }));
 
-          const isViz = isVisualizationPrompt(finalMessageText) || finalAction === 'build' || Boolean(toolLabel && toolLabel.includes('Build'));
-          if (isViz) {
-            setLoadingType('visualization');
-            setLoadingPhase('Sending');
-            setIsLoading(true);
-            setActiveLoadingChatId(targetChatId);
-            try {
-              const geminiRes = await callGeminiAPI(finalMessageText);
-              let fullHtml = geminiRes || "";
-              const check = checkHtmlCodeCompleteness(fullHtml);
-              if (!check.isComplete) {
-                setLoadingPhase('Building complete website code...');
-                fullHtml = await ensureCompleteHtmlCode(
-                  fullHtml,
-                  targetChatId,
-                  currentUser,
-                  (phase) => setLoadingPhase(phase)
-                );
-              } else if (/<!doctype\s+html/i.test(fullHtml) && !fullHtml.includes('```')) {
-                fullHtml = '```html\n' + fullHtml.trim() + '\n```';
-              }
-              const geminiMsg = {
-                id: generateUniqueId(),
-                text: fullHtml,
-                sender: 'bot',
-                modelEngine: 'gemini',
-                timestamp: new Date()
-              };
-              setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
-                ...c,
-                messages: sortMessagesChronologically([...(c.messages || []).filter((m: any) => m.id !== geminiMsg.id), geminiMsg]),
-                updatedAt: new Date()
-              } : c));
-              setIsLoading(false);
-              setActiveLoadingChatId(null);
-              setLoadingType(null);
-              triggerSuggestions(fullHtml);
-              persistBotMessageToFirestore(targetChatId, geminiMsg, fullHtml);
-              return;
-            } catch (err) {
-              console.error("Gemini fallback visualization error:", err);
-              setIsLoading(false);
-              setActiveLoadingChatId(null);
-              setLoadingType(null);
-              showLocalBotMessage("I am currently unable to process this request. Please try again in a moment.");
-              return;
-            }
-          }
-          
+          // Streams token-by-token in real-time for all prompts including visualizations
           const newGeminiMsg = {
             id: generateUniqueId(),
             text: "",
@@ -7192,26 +7085,12 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
             };
 
            let processedBotText = rawBotText;
-           const completeness = checkHtmlCodeCompleteness(processedBotText);
-           const isHtmlViz = isHtmlVisualizationResponse(processedBotText) || completeness.isHtml || (isVisualizationPrompt(finalMessageText) && (processedBotText.includes('<') || processedBotText.includes('```'))) || finalAction === 'build' || Boolean(toolLabel && toolLabel.includes('Build'));
-
-           if (isHtmlViz) {
-             setLoadingType('visualization');
-             if (!completeness.isComplete) {
-               setLoadingPhase('Building complete website code...');
-               processedBotText = await ensureCompleteHtmlCode(
-                 processedBotText,
-                 targetChatId,
-                 currentUser,
-                 (phase) => setLoadingPhase(phase)
-               );
-             } else if (/<!doctype\s+html/i.test(processedBotText) && !processedBotText.includes('```')) {
-               processedBotText = '```html\n' + processedBotText.trim() + '\n```';
-             }
+           if (/<!doctype\s+html/i.test(processedBotText) && !processedBotText.includes('```')) {
+             processedBotText = '```html\n' + processedBotText.trim() + '\n```';
            }
 
-           // Only stream normal messages; HTML visualizations run instantly with no fake tokens flow
-           const shouldStream = Boolean(processedBotText && finalAction !== 'generate_image' && !isHtmlViz);
+           // Stream all messages smoothly (including HTML visualizations) token-by-token
+           const shouldStream = Boolean(processedBotText && finalAction !== 'generate_image');
            
            if (shouldStream) {
              ACTIVELY_STREAMING_IDS.add(taskId);
@@ -7481,65 +7360,32 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         callGeminiAPI(finalMessageText).then(async geminiRes => {
           const rawGeminiAnswer = geminiRes || "I am currently unable to process this request. Please try again in a few minutes.";
           let finalAnswer = rawGeminiAnswer;
-          const completeness = checkHtmlCodeCompleteness(finalAnswer);
-          const isHtmlViz = isHtmlVisualizationResponse(finalAnswer) || completeness.isHtml || (isVisualizationPrompt(finalMessageText) && (finalAnswer.includes('<') || finalAnswer.includes('```'))) || finalAction === 'build' || Boolean(toolLabel && toolLabel.includes('Build'));
-
-          if (isHtmlViz) {
-            setLoadingType('visualization');
-            if (!completeness.isComplete) {
-              setLoadingPhase('Building complete website code...');
-              finalAnswer = await ensureCompleteHtmlCode(
-                finalAnswer,
-                targetChatId,
-                currentUser,
-                (phase) => setLoadingPhase(phase)
-              );
-            } else if (/<!doctype\s+html/i.test(finalAnswer) && !finalAnswer.includes('```')) {
-              finalAnswer = '```html\n' + finalAnswer.trim() + '\n```';
-            }
-            const completedGeminiMsg = {
-              id: generateUniqueId(),
-              text: finalAnswer,
-              sender: 'bot',
-              modelEngine: 'gemini',
-              timestamp: new Date()
-            };
-            setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
-              ...c,
-              messages: sortMessagesChronologically([...(c.messages || []).filter((m: any) => m.id !== completedGeminiMsg.id), completedGeminiMsg]),
-              updatedAt: new Date()
-            } : c));
-            setIsLoading(false);
-            setActiveLoadingChatId(null);
-            setLoadingType(null);
-            setIsGeneratingImage(false);
-            setStreamingMessageId(null);
-            triggerSuggestions(finalAnswer);
-            persistBotMessageToFirestore(targetChatId, completedGeminiMsg, finalAnswer);
-          } else {
-            const newGeminiMsg = {
-              id: generateUniqueId(),
-              text: "",
-              sender: 'bot',
-              modelEngine: 'gemini',
-              timestamp: new Date()
-            };
-            STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
-            setStreamingMessageId(newGeminiMsg.id);
-            setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
-              ...c,
-              messages: sortMessagesChronologically([...(c.messages || []).filter((m: any) => m.id !== newGeminiMsg.id), newGeminiMsg]),
-              updatedAt: new Date()
-            } : c));
-            setIsLoading(false);
-            setActiveLoadingChatId(null);
-            setLoadingType(null);
-            setIsGeneratingImage(false);
-            streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
-              triggerSuggestions(finalAnswer);
-              persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
-            });
+          if (/<!doctype\s+html/i.test(finalAnswer) && !finalAnswer.includes('```')) {
+            finalAnswer = '```html\n' + finalAnswer.trim() + '\n```';
           }
+          const newGeminiMsg = {
+            id: generateUniqueId(),
+            text: "",
+            sender: 'bot',
+            modelEngine: 'gemini',
+            timestamp: new Date()
+          };
+          ACTIVELY_STREAMING_IDS.add(newGeminiMsg.id);
+          STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: "" });
+          setStreamingMessageId(newGeminiMsg.id);
+          setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
+            ...c,
+            messages: sortMessagesChronologically([...(c.messages || []).filter((m: any) => m.id !== newGeminiMsg.id), newGeminiMsg]),
+            updatedAt: new Date()
+          } : c));
+          setIsLoading(false);
+          setActiveLoadingChatId(null);
+          setLoadingType(null);
+          setIsGeneratingImage(false);
+          streamBotResponse(newGeminiMsg.id, finalAnswer, targetChatId, () => {
+            triggerSuggestions(finalAnswer);
+            persistBotMessageToFirestore(targetChatId, newGeminiMsg, finalAnswer);
+          });
         }).catch(err => {
           console.error("Auto Gemini fallback error:", err);
           setIsLoading(false);
@@ -8563,115 +8409,18 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                         </div>
                       </div>
                     </div>
-                  ) : (() => {
-                    const isVizMode = loadingType === 'visualization' || (loadingPhase && (
-                      loadingPhase.toLowerCase().includes('visualization') ||
-                      loadingPhase.toLowerCase().includes('architecting') ||
-                      loadingPhase.toLowerCase().includes('website') ||
-                      loadingPhase.toLowerCase().includes('sandbox') ||
-                      loadingPhase.toLowerCase().includes('building complete') ||
-                      loadingPhase.toLowerCase().includes('structuring') ||
-                      loadingPhase.toLowerCase().includes('engineering') ||
-                      loadingPhase.toLowerCase().includes('crafting') ||
-                      loadingPhase.toLowerCase().includes('developing') ||
-                      loadingPhase.toLowerCase().includes('wiring') ||
-                      loadingPhase.toLowerCase().includes('compiling') ||
-                      loadingPhase.toLowerCase().includes('finalizing complete')
-                    ));
-
-                    const isInitialTextPhase = loadingPhase === 'Sending' || loadingPhase === 'Reading Prompt' || loadingPhase === 'Understanding Context';
-
-                    if (isVizMode && !isInitialTextPhase) {
-                      return (
-                        <div className={`my-2 rounded-2xl overflow-hidden border shadow-lg transition-all ${isDarkMode ? 'border-slate-800/90 bg-[#050810]' : 'border-slate-200 bg-[#f8fafc]'} w-full animate-float-up`}>
-                          {/* Header Bar - Exact Match to CodeBlock Header */}
-                          <div className={`flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b select-none ${isDarkMode ? 'bg-[#080c16]/95 border-slate-800/80 text-slate-300' : 'bg-slate-100/95 border-slate-200 text-slate-700'}`}>
-                            <div className="flex items-center gap-2 sm:gap-3">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider ${isDarkMode ? 'bg-cyan-950/70 text-cyan-400 border border-cyan-800/40' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
-                                HTML
-                              </span>
-                              <span className="text-[11px] font-mono opacity-70 hidden xs:flex items-center gap-1.5 text-cyan-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
-                                Building live sandbox...
-                              </span>
-
-                              {/* Interactive Code / Preview Toggle Tabs */}
-                              <div className={`flex items-center p-0.5 rounded-lg border text-xs font-semibold ${isDarkMode ? 'bg-slate-900/90 border-slate-800 text-slate-400' : 'bg-slate-200/80 border-slate-300 text-slate-600'}`}>
-                                <div className={`flex items-center gap-1 px-2.5 py-1 rounded-md ${isDarkMode ? 'bg-cyan-500/20 text-cyan-300 shadow-sm border border-cyan-500/30' : 'bg-white text-blue-700 shadow-sm'}`}>
-                                  <Play className="w-3 h-3 fill-current text-cyan-400" />
-                                  <span>Live Preview</span>
-                                </div>
-                                <div className="flex items-center gap-1 px-2.5 py-1 rounded-md opacity-40 cursor-not-allowed">
-                                  <Code className="w-3 h-3" />
-                                  <span>Code</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Action Controls - Exact Match to CodeBlock Controls */}
-                            <div className="flex items-center gap-1 sm:gap-1.5">
-                              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${isDarkMode ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-                                <FileText className="w-3.5 h-3.5 text-cyan-400" />
-                                <span className="hidden md:inline">Full Page</span>
-                              </div>
-
-                              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                                <ChevronDown className="w-3.5 h-3.5" />
-                                <span className="hidden md:inline">Expand</span>
-                              </div>
-
-                              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                                <Maximize2 className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Fullscreen</span>
-                              </div>
-
-                              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                                <RotateCcw className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Reset</span>
-                              </div>
-
-                              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Pop Out</span>
-                              </div>
-
-                              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold opacity-50 ${isDarkMode ? 'bg-slate-800/90 text-slate-300 border border-slate-700/60' : 'bg-white text-slate-600 border border-slate-200 shadow-sm'}`}>
-                                <Copy className="w-3.5 h-3.5" />
-                                <span>Copy Code</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Big Window Content Body */}
-                          <div className={`p-8 sm:p-14 min-h-[380px] sm:min-h-[460px] flex flex-col items-center justify-center gap-5 transition-all select-none relative overflow-hidden ${isDarkMode ? 'bg-[#060911]' : 'bg-slate-50'}`}>
-                            {/* Ambient Glows */}
-                            <div className="absolute w-80 h-80 bg-cyan-500/10 blur-[90px] rounded-full pointer-events-none" />
-                            <div className="absolute w-64 h-64 bg-blue-500/10 blur-[80px] rounded-full pointer-events-none" />
-
-                            {/* Builder Step Text */}
-                            <div className="text-center z-10 max-w-lg px-4 flex flex-col items-center">
-                              <h3 className={`text-base sm:text-lg font-semibold tracking-wide animate-modern-glow ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                                {loadingPhase}
-                              </h3>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div 
-                        style={{ '--glow-sweep-speed': `${GLOW_ANIMATION_CONFIG.textGlowSweepSpeedSec}s` } as React.CSSProperties}
-                        className="py-1.5 flex items-center gap-2.5"
-                      >
-                        <span className={`text-[15px] font-semibold tracking-wide animate-modern-glow ${
-                          isDarkMode ? 'text-slate-300' : 'text-slate-600'
-                        }`}>
-                          {loadingPhase}
-                        </span>
-                      </div>
-                    );
-                  })()}
+                  ) : (
+                    <div 
+                      style={{ '--glow-sweep-speed': `${GLOW_ANIMATION_CONFIG.textGlowSweepSpeedSec}s` } as React.CSSProperties}
+                      className="py-1.5 flex items-center gap-2.5"
+                    >
+                      <span className={`text-[15px] font-semibold tracking-wide animate-modern-glow ${
+                        isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                      }`}>
+                        {loadingPhase || 'Thinking...'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
