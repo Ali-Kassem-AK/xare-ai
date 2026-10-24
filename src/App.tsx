@@ -5,7 +5,7 @@ import {
   FileText, Menu, Plus, MessageSquare, Settings, Play, Pause, X, 
   LogOut, AlignLeft, CheckCircle, Code, Languages, 
   Globe, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, AudioLines, Copy, Brain, Download,
-  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, Minimize2, ExternalLink, ArrowUp,
+  Github, Linkedin, ZoomIn, ZoomOut, RotateCcw, RotateCw, Pencil, Maximize2, Minimize2, ExternalLink, ArrowUp, ArrowDown,
   Info, Lightbulb, AlertTriangle, AlertCircle, Trash2, Hammer, Box, Square
 } from 'lucide-react';
 import katex from 'katex';
@@ -5825,19 +5825,21 @@ export function App() {
   const isTouchActiveRef = useRef(false);
   const touchStartYRef = useRef<number | null>(null);
 
-  const setScrolledUpLock = (val: boolean) => {
+  const setScrolledUpLock = useCallback((val: boolean) => {
+    if (isUserScrolledUpRef.current === val) return;
     isUserScrolledUpRef.current = val;
     GLOBAL_IS_USER_SCROLLED_UP = val;
     setIsUserScrolledUp(val);
-  };
+  }, []);
 
   const handleWheel = (e: React.WheelEvent) => {
     if (e.deltaY < 0) {
-      // User is scrolling UP - instantly lock auto-scroll with zero delay
+      // User is scrolling UP with mouse wheel or trackpad - immediately lock auto-scroll
       setScrolledUpLock(true);
-    } else if (chatContainerRef.current) {
+    } else if (e.deltaY > 0 && chatContainerRef.current) {
+      // User is scrolling DOWN - only unlock when reached the bottom
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-      if (scrollHeight - scrollTop - clientHeight <= 40) {
+      if (scrollHeight - scrollTop - clientHeight <= 15) {
         setScrolledUpLock(false);
       }
     }
@@ -5852,7 +5854,7 @@ export function App() {
     if (touchStartYRef.current !== null) {
       const currentY = e.touches[0].clientY;
       const deltaY = currentY - touchStartYRef.current;
-      if (deltaY > 2) { // Finger dragging down -> content scrolling UP
+      if (deltaY > 2) { // Finger dragging down -> content scrolling UP -> lock immediately
         setScrolledUpLock(true);
       }
     }
@@ -5860,11 +5862,13 @@ export function App() {
 
   const handleTouchEnd = () => {
     isTouchActiveRef.current = false;
+    touchStartYRef.current = null;
     if (chatContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-      if (scrollHeight - scrollTop - clientHeight > 40) {
+      const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+      if (distanceToBottom > 25) {
         setScrolledUpLock(true);
-      } else {
+      } else if (distanceToBottom <= 15) {
         setScrolledUpLock(false);
       }
     }
@@ -5875,14 +5879,13 @@ export function App() {
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
     const distanceToBottom = scrollHeight - scrollTop - clientHeight;
     
-    if (distanceToBottom > 80) {
-      if (!isUserScrolledUpRef.current && (isTouchActiveRef.current || touchStartYRef.current !== null)) {
-        setScrolledUpLock(true);
-      }
-    } else {
-      if (isUserScrolledUpRef.current && !isTouchActiveRef.current) {
-        setScrolledUpLock(false);
-      }
+    // Smooth auto-scroll lock: if user is scrolled away from bottom by >25px,
+    // lock immediately across all inputs (wheel, trackpad, scrollbar drag, touch, keyboard).
+    if (distanceToBottom > 25) {
+      setScrolledUpLock(true);
+    } else if (distanceToBottom <= 15) {
+      // Only unlock when user reaches the very bottom
+      setScrolledUpLock(false);
     }
   };
 
@@ -6084,6 +6087,7 @@ export function App() {
       streamingAnimFrameRef.current = null;
     }
     setStreamingMessageId(null);
+    setScrolledUpLock(false);
     setCurrentChatId(chatId);
     setSuggestions([]);
     if (window.innerWidth < 1024) {
@@ -6214,6 +6218,7 @@ export function App() {
     setPendingAttachment(null);
 
     cancelRecording();
+    setScrolledUpLock(false);
 
     const newChatId = generateUniqueId();
     const newChat = {
@@ -8486,6 +8491,26 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           </div>
 
           <div className={`flex-none relative w-full p-2 sm:p-4 z-20 pb-3 sm:pb-5 chat-bottom-bar ${isDarkMode ? 'bg-[#030407]' : 'bg-[#f8fafc]'}`}>
+            {isUserScrolledUp && (
+              <div className="max-w-5xl mx-auto relative h-0 pointer-events-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScrolledUpLock(false);
+                    scrollToBottom(true);
+                  }}
+                  className={`pointer-events-auto absolute -top-12 sm:-top-14 right-3 sm:right-6 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-lg border text-xs font-semibold transition-all duration-200 hover:scale-105 active:scale-95 animate-fade-in ${
+                    isDarkMode 
+                      ? 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border-slate-700/80 backdrop-blur-md' 
+                      : 'bg-white/95 hover:bg-slate-50 text-slate-700 border-slate-200/90 backdrop-blur-md'
+                  }`}
+                  title="Scroll to bottom"
+                >
+                  <ArrowDown className="w-3.5 h-3.5 text-blue-500" />
+                  <span className="hidden xs:inline sm:inline">Scroll to bottom</span>
+                </button>
+              </div>
+            )}
             
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
                 <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
