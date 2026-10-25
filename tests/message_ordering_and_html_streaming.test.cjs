@@ -636,7 +636,7 @@ runTest('Should verify Build tool runs initial text steps then transitions to bi
   assert.ok(appTsx.includes('Building live sandbox...'), 'Big window must include live sandbox indicator');
   assert.ok(appTsx.includes('Live Preview'), 'Big window must include Live Preview tab');
   assert.ok(appTsx.includes('Full Page'), 'Big window must include Full Page control');
-  assert.ok(appTsx.includes('Copy Code'), 'Big window must include Copy Code control');
+  assert.ok(appTsx.includes("{isCopied ? 'Copied!' : 'Copy'}"), 'Big window must include Copy control');
 
   // Verify big window renders clean glowing step text while circle, subtitle, and progress bar are removed
   assert.ok(!appTsx.includes('Architecting complete code from start to finish'), 'Subtitle sentence must be removed');

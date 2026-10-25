@@ -1762,10 +1762,10 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming, isUs
                     ? 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60' 
                     : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm')
             }`}
-            title={isStreaming ? "Code is generating..." : "Copy code"}
+            title={isStreaming ? (isTextBlock ? "Text is generating..." : "Content is generating...") : "Copy"}
           >
             {isCopied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-            {isCopied ? 'Copied!' : 'Copy Code'}
+            {isCopied ? 'Copied!' : 'Copy'}
           </button>
         </div>
       </div>
