@@ -8887,9 +8887,9 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                     type="button"
                     onClick={() => stopRecordingAndSend()}
                     title="Send Voice Note"
-                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-950/50 active:scale-95 cursor-pointer"
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-950/40 active:scale-95 cursor-pointer"
                   >
-                    <ArrowUp className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
+                    <ArrowUp className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2.2]" />
                   </button>
                 </div>
               ) : (
@@ -8996,7 +8996,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                         setShowAttachMenu(!showAttachMenu);
                         if (showAttachMenu) setActiveSubMenu(null);
                       }}
-                      className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
+                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all flex items-center justify-center ${
                         isToolOrAttachmentActive || isLoading
                           ? 'opacity-30 cursor-not-allowed text-slate-500'
                           : showAttachMenu
@@ -9009,7 +9009,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                           : "Add attachment or preset tool"
                       }
                     >
-                      <Plus className={`w-5 h-5 transition-transform duration-300 ${showAttachMenu && !isToolOrAttachmentActive ? 'rotate-45' : 'rotate-0'}`} />
+                      <Plus className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-300 ${showAttachMenu && !isToolOrAttachmentActive ? 'rotate-45' : 'rotate-0'}`} />
                     </button>
                   );
                 })()}
@@ -9131,11 +9131,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                           }
                         }}
                         title="Start Live Voice Call"
-                        className={`p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center ${
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all flex items-center justify-center ${
                           isDarkMode ? 'text-purple-400 hover:bg-purple-950/40 hover:text-purple-300' : 'text-purple-600 hover:bg-purple-50'
                         }`}
                       >
-                        <AudioLines className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.2} />
+                        <AudioLines className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={2.2} />
                       </button>
                     )}
 
@@ -9145,34 +9145,34 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                         type="button"
                         onClick={handleStopResponse}
                         title="Stop response"
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-950/50 active:scale-95 transition-all flex-shrink-0 cursor-pointer animate-fade-in"
+                        className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-950/40 active:scale-95 transition-all flex-shrink-0 cursor-pointer animate-fade-in"
                         aria-label="Stop response"
                       >
-                        <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 bg-white rounded-[2.5px]" />
+                        <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-white rounded-[2px]" />
                       </button>
                     ) : (inputValue.trim() || pendingAttachment) ? (
                       <button
                         type="submit"
                         disabled={Boolean(pendingAttachment?.isUploading)}
                         title={pendingAttachment?.isUploading ? "Uploading file..." : "Send Message"}
-                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
                           pendingAttachment?.isUploading
                             ? 'bg-[#183670] text-[#7d99cc] cursor-not-allowed shadow-none'
-                            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-950/50 active:scale-95 disabled:opacity-50 cursor-pointer'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-950/40 active:scale-95 disabled:opacity-50 cursor-pointer'
                         }`}
                       >
-                        <ArrowUp className={`w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5] ${pendingAttachment?.isUploading ? 'text-[#7d99cc]' : 'text-white'}`} />
+                        <ArrowUp className={`w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2.2] ${pendingAttachment?.isUploading ? 'text-[#7d99cc]' : 'text-white'}`} />
                       </button>
                     ) : (
                       <button
                         type="button"
                         onClick={startRecording}
                         title="Record Voice Note"
-                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all shadow-md active:scale-95 flex-shrink-0 ${
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 flex-shrink-0 ${
                           isDarkMode ? 'bg-slate-800/80 text-slate-300 border border-slate-700/60 hover:bg-slate-700/80' : 'bg-slate-200/80 text-slate-700 hover:bg-slate-300'
                         }`}
                       >
-                        <Mic className="w-5 h-5" />
+                        <Mic className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                       </button>
                     )}
                   </div>
