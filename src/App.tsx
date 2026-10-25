@@ -4834,11 +4834,14 @@ export const ChatMessageItem = React.memo(({
     <div
       className={`flex gap-4 items-start chat-message-card group w-full min-w-0 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
     >
-      <div className={`flex flex-col min-w-0 ${msg.sender === 'user' ? 'items-end w-fit max-w-[88%] sm:max-w-[80%] md:max-w-[75%]' : 'items-start w-full'}`}>
+      <div className={`flex flex-col min-w-0 ${msg.sender === 'user' ? (isEditing ? 'items-end w-full max-w-[95%] sm:max-w-[85%] md:max-w-[78%]' : 'items-end w-fit max-w-[88%] sm:max-w-[80%] md:max-w-[75%]') : 'items-start w-full'}`}>
         <div
           className={`${
             msg.sender === 'user'
-            ? (isDarkMode ? 'bg-[#090e1a] text-slate-100 border border-slate-800/80 shadow-sm' : 'bg-[#f0f4f9] text-slate-900 shadow-sm') + ' rounded-[24px] px-4 sm:px-5 py-3 max-w-full overflow-hidden break-words'
+            ? (isEditing
+                ? (isDarkMode ? 'bg-[#2f2f2f] text-slate-100 border border-white/10 shadow-lg' : 'bg-[#f4f4f4] text-slate-900 border border-slate-200/80 shadow-md') + ' rounded-[20px] p-3.5 sm:p-4 w-full overflow-hidden'
+                : (isDarkMode ? 'bg-[#090e1a] text-slate-100 border border-slate-800/80 shadow-sm' : 'bg-[#f0f4f9] text-slate-900 shadow-sm') + ' rounded-[24px] px-4 sm:px-5 py-3 max-w-full overflow-hidden break-words'
+              )
             : (isDarkMode ? 'text-slate-100' : 'text-slate-900') + ' w-full py-1 px-0 overflow-hidden break-words'
           } ${isStreaming ? (isDarkMode ? 'soft-stream-text' : '') : ''} transition-all duration-300`}
         >
@@ -4847,26 +4850,64 @@ export const ChatMessageItem = React.memo(({
           {msg.document && <LocalDocumentRenderer src={msg.document} fileName={msg.fileName} isDarkMode={isDarkMode} />}
 
           {msg.sender === 'user' && isEditing ? (
-            <div className="space-y-2.5 min-w-[240px] sm:min-w-[320px] max-w-full">
+            <div className="flex flex-col w-full min-w-[240px] sm:min-w-[340px] max-w-full">
               <textarea
                 dir="auto"
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = 'auto';
+                    el.style.height = `${Math.min(Math.max(el.scrollHeight, 68), 350)}px`;
+                  }
+                }}
                 value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                className={`w-full p-2.5 rounded-xl border text-sm outline-none resize-none text-start ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
-                rows={3}
+                autoFocus
+                onChange={(e) => {
+                  setEditText(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${Math.min(Math.max(e.target.scrollHeight, 68), 350)}px`;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSaveEdit();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setIsEditing(false);
+                    setEditText(msg.text);
+                  }
+                }}
+                className={`w-full bg-transparent border-0 outline-none ring-0 focus:ring-0 focus:outline-none resize-none text-[14.5px] leading-relaxed text-start chat-scroll p-0 m-0 ${
+                  isDarkMode ? 'text-white placeholder-slate-400' : 'text-slate-900 placeholder-slate-400'
+                }`}
+                rows={2}
+                placeholder="Edit message..."
               />
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end items-center gap-2 mt-3 pt-1">
                 <button
-                  onClick={() => setIsEditing(false)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditText(msg.text);
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
+                    isDarkMode 
+                      ? 'bg-[#3f3f3f] hover:bg-[#484848] text-white/90 hover:text-white' 
+                      : 'bg-[#e3e3e3] hover:bg-[#d5d5d5] text-[#0d0d0d]'
+                  }`}
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleSaveEdit}
-                  className="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                  disabled={!editText.trim()}
+                  className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all shadow-sm active:scale-95 ${
+                    isDarkMode
+                      ? 'bg-white hover:bg-[#ececec] text-black disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100'
+                      : 'bg-black hover:bg-[#202020] text-white disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100'
+                  }`}
                 >
-                  Save & Submit
+                  Send
                 </button>
               </div>
             </div>
