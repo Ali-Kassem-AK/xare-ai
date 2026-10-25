@@ -536,6 +536,10 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `Role: You are Xare, a chill, smart, a
 - If asked about your architecture, tech stack, or how you work, call/execute \`get_xare_architecture1\`.
 - Translate its descriptive content into the user's query language while STRICTLY preserving all 5 columns of the architecture table and keeping all markdown image tags ('![alt](url)') intact at the end.
 
+[TRANSLATE & GRAMMAR FORMATTING DIRECTIVES]
+- When translating text: ALWAYS enclose the complete translated sentence/text inside a \`\`\`text ... \`\`\` block so users can 1-click copy it immediately, followed by the comparison table.
+- When correcting grammar or improving text (e.g. Corrected Version, Improved Version): ALWAYS enclose each version's text inside its own \`\`\`text ... \`\`\` block so users can 1-click copy the exact sentence without manually selecting it.
+
 [MANDATORY FRONTEND UI STYLING - ALL RESPONSES]
 YOU MUST Structure EVERY response using Xare's frontend markdown components:
 - Use \`### Header\` for clear section breaks.
@@ -1349,6 +1353,8 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming, isUs
   }, [isFullscreen]);
 
   const cleanLang = useMemo(() => (lang || '').toLowerCase().trim(), [lang]);
+  const isTextBlock = useMemo(() => cleanLang === 'text' || cleanLang === 'txt' || cleanLang === 'plain' || cleanLang === 'sentence', [cleanLang]);
+  const isRtlCode = useMemo(() => /[\u0600-\u06FF]/.test(code || ''), [code]);
 
   const isRunnable = useMemo(() => {
     if (isUserMessage) return false;
@@ -1798,15 +1804,20 @@ export const CodeBlock = React.memo(({ code, lang, isDarkMode, isStreaming, isUs
         </div>
       ) : (
         <div className="overflow-x-auto p-3 sm:p-4 chat-scroll flex items-start max-w-full">
-          {/* Line Numbers Column */}
-          <div className={`select-none font-mono text-[12px] sm:text-[12.5px] text-right pr-2.5 sm:pr-3.5 mr-2.5 sm:mr-3.5 border-r leading-relaxed flex-shrink-0 ${isDarkMode ? 'text-slate-600 border-slate-800/80' : 'text-slate-400 border-slate-200'}`}>
-            {lines.map((_, idx) => (
-              <div key={idx}>{idx + 1}</div>
-            ))}
-          </div>
+          {/* Line Numbers Column (omitted for short text blocks for sleek snippet presentation) */}
+          {(!isTextBlock || lines.length > 4) && (
+            <div className={`select-none font-mono text-[12px] sm:text-[12.5px] text-right pr-2.5 sm:pr-3.5 mr-2.5 sm:mr-3.5 border-r leading-relaxed flex-shrink-0 ${isDarkMode ? 'text-slate-600 border-slate-800/80' : 'text-slate-400 border-slate-200'}`}>
+              {lines.map((_, idx) => (
+                <div key={idx}>{idx + 1}</div>
+              ))}
+            </div>
+          )}
 
           {/* Code Content */}
-          <pre className={`flex-1 font-mono text-[12.5px] sm:text-[13.5px] leading-relaxed max-w-full overflow-x-auto ${isUserMessage ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'}`}>
+          <pre 
+            dir={isRtlCode ? 'rtl' : 'ltr'}
+            className={`flex-1 font-mono text-[12.5px] sm:text-[13.5px] leading-relaxed max-w-full overflow-x-auto ${(isTextBlock || isUserMessage) ? 'whitespace-pre-wrap break-words [overflow-wrap:anywhere]' : 'whitespace-pre'}`}
+          >
             <code 
               className={isDarkMode ? 'text-slate-200' : 'text-slate-800'}
               dangerouslySetInnerHTML={{ __html: highlightedCode }}
@@ -2409,6 +2420,39 @@ const formatMessageText = (text: any, isDarkMode: boolean, isStreaming: boolean 
         formatText = (prefix ? prefix.trimEnd() + '\n\n' : '') + '```' + detectedLang + '\n' + rawCode + '\n```';
       }
     }
+  }
+
+  // Auto-wrap Translation and Grammar sections into 1-click copyable text blocks
+  if (!isUserMessage) {
+    // 1. Auto-wrap Corrected Version
+    formatText = formatText.replace(
+      /(?:^|\n)([\d\.\s\*\#]*(?:Corrected Version|النسخة المصححة)[\s\:\*]*\n+)(?!```)([\s\S]*?)(?=(?:\n+[\d\.\s\*\#]*(?:Improved Version|النسخة المحسنة)|$))/i,
+      (match, header, content) => {
+        const trimmed = content.trim();
+        if (!trimmed || trimmed.startsWith('```')) return match;
+        return '\n' + header.trim() + '\n```text\n' + trimmed + '\n```\n';
+      }
+    );
+
+    // 2. Auto-wrap Improved Version
+    formatText = formatText.replace(
+      /(?:^|\n)([\d\.\s\*\#]*(?:Improved Version|النسخة المحسنة)[\s\:\*]*\n+)(?!```)([\s\S]*?)(?=(?:\n+[\d\.\s\*\#]*[A-Z]|#|$))/i,
+      (match, header, content) => {
+        const trimmed = content.trim();
+        if (!trimmed || trimmed.startsWith('```')) return match;
+        return '\n' + header.trim() + '\n```text\n' + trimmed + '\n```\n';
+      }
+    );
+
+    // 3. Auto-wrap Complete Translation
+    formatText = formatText.replace(
+      /(?:^|\n)([\#\*\s]*(?:الترجمة الكاملة|Complete Translation|Translation)[\s\:\*]*\n+)(?!```)([\s\S]*?)(?=(?:\n+[\#\*\s]*(?:جدول المقارنة|Comparison Table|Notes)|---|\n+\||\n+#|$))/i,
+      (match, header, content) => {
+        const trimmed = content.trim();
+        if (!trimmed || trimmed.startsWith('```')) return match;
+        return '\n' + header.trim() + '\n```text\n' + trimmed + '\n```\n';
+      }
+    );
   }
 
   if (isStreaming) {
@@ -5354,18 +5398,18 @@ export function App() {
     label: 'Translate', 
     hasSubMenu: true,
     subItems: [
-      { label: 'Arabic', action: 'translate', prompt: 'Translate the following text into Egyptian Arabic. Output the complete translation first, followed by a two-column table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
-      { label: 'English', action: 'translate', prompt: 'Translate the following text into English. Output the complete translation first, followed by a two-column table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
-      { label: 'Turkish', action: 'translate', prompt: 'Translate the following text into Turkish. Output the complete translation first, followed by a two-column table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
-      { label: 'French', action: 'translate', prompt: 'Translate the following text into French. Output the complete translation first, followed by a two-column table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
-      { label: 'Spanish', action: 'translate', prompt: 'Translate the following text into Spanish. Output the complete translation first, followed by a two-column table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' }
+      { label: 'Arabic', action: 'translate', prompt: 'Translate the following text into Egyptian Arabic.\n1. Output the complete translation inside a ```text ... ``` block so the user can easily 1-click copy it.\n2. Follow it with a two-column Markdown table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
+      { label: 'English', action: 'translate', prompt: 'Translate the following text into English.\n1. Output the complete translation inside a ```text ... ``` block so the user can easily 1-click copy it.\n2. Follow it with a two-column Markdown table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
+      { label: 'Turkish', action: 'translate', prompt: 'Translate the following text into Turkish.\n1. Output the complete translation inside a ```text ... ``` block so the user can easily 1-click copy it.\n2. Follow it with a two-column Markdown table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
+      { label: 'French', action: 'translate', prompt: 'Translate the following text into French.\n1. Output the complete translation inside a ```text ... ``` block so the user can easily 1-click copy it.\n2. Follow it with a two-column Markdown table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' },
+      { label: 'Spanish', action: 'translate', prompt: 'Translate the following text into Spanish.\n1. Output the complete translation inside a ```text ... ``` block so the user can easily 1-click copy it.\n2. Follow it with a two-column Markdown table mapping each original sentence to its translation:\n\n', placeholder: 'Type text to translate...' }
     ]
   },
   { 
     icon: CheckCircle, 
     label: 'Fix grammar', 
     action: 'fix', 
-    prompt: 'Provide two versions of the following text: 1. **Corrected Version:** Fix only grammar, spelling, and punctuation in one pass. Preserve the original wording, structure, tone, and meaning. Do not rewrite or polish. 2. **Improved Version:** Rewrite for clarity, flow, and readability while preserving the original meaning and tone. Label both versions in this order. Do not include explanations or additional versions, \n\n', 
+    prompt: 'Provide two versions of the following text:\n\n1. ### Corrected Version\nFix only grammar, spelling, and punctuation in one pass. Preserve the original wording, structure, tone, and meaning. Output the corrected text inside a ```text ... ``` block so the user can easily 1-click copy it.\n\n2. ### Improved Version\nRewrite for clarity, flow, and readability while preserving the original meaning and tone. Output the improved text inside a ```text ... ``` block so the user can easily 1-click copy it.\n\nDo not include explanations or additional versions:\n\n', 
     placeholder: 'Paste text to fix...' 
   },
 ];
