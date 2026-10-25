@@ -16,7 +16,6 @@ const assert = require('assert');
     });
     const page = await context.newPage();
 
-    // Start vite preview or navigate to local server
     console.log('Navigating to http://localhost:4173...');
     await page.goto('http://localhost:4173', { waitUntil: 'networkidle', timeout: 30000 });
 
@@ -30,11 +29,11 @@ const assert = require('assert');
     // Locate chat textarea
     const textarea = page.locator('textarea');
     await textarea.waitFor({ state: 'visible', timeout: 15000 });
-    await textarea.fill('Hello world, tell me a 1-sentence joke.');
+    const initialPrompt = 'Can you suggest 3 great books on distributed systems?';
+    await textarea.fill(initialPrompt);
     await textarea.press('Enter');
 
     console.log('Sent initial message, waiting for user bubble...');
-    // Locate the user message card
     const userCard = page.locator('.chat-message-card.justify-end').first();
     await userCard.waitFor({ state: 'visible', timeout: 10000 });
 
@@ -50,22 +49,34 @@ const assert = require('assert');
 
     await page.waitForTimeout(800);
 
-    // Check for "Cancel" and "Send" buttons
-    const cancelBtn = page.locator('button:has-text("Cancel")').first();
-    const sendBtn = page.locator('button:has-text("Send")').first();
+    // Locate the edit textarea inside the user card
+    const editTextarea = userCard.locator('textarea').first();
+    await editTextarea.waitFor({ state: 'visible', timeout: 5000 });
 
-    assert.ok(await cancelBtn.isVisible(), 'Cancel button should be visible in edit mode');
-    assert.ok(await sendBtn.isVisible(), 'Send button should be visible in edit mode');
-    console.log('✅ Found Cancel and Send buttons inside modern edit container!');
+    // Verify cursor position is at the very last letter (end of string)
+    const cursorPos = await editTextarea.evaluate(el => ({
+      start: el.selectionStart,
+      end: el.selectionEnd,
+      length: el.value.length
+    }));
+    console.log(`Cursor verification: start=${cursorPos.start}, end=${cursorPos.end}, length=${cursorPos.length}`);
+    assert.strictEqual(cursorPos.start, cursorPos.length, 'Cursor selectionStart should be at the end of the text');
+    assert.strictEqual(cursorPos.end, cursorPos.length, 'Cursor selectionEnd should be at the end of the text');
+    console.log('✅ Verified cursor points to the last letter upon entering edit mode!');
 
-    // Capture screenshot of the edit prompt UI
-    const screenshotPath = 'C:/Users/alika/.gemini/antigravity/brain/1cb7ba5b-9988-4e50-80be-53f5895baf33/chatgpt_edit_prompt_modern.png';
+    // Capture screenshot of the new soft-vibes edit prompt UI
+    const screenshotPath = 'C:/Users/alika/.gemini/antigravity/brain/1cb7ba5b-9988-4e50-80be-53f5895baf33/chatgpt_edit_prompt_soft_vibes.png';
     await page.screenshot({ path: screenshotPath, fullPage: false });
     console.log(`Saved screenshot to ${screenshotPath}`);
 
-    // Test editing text and clicking Send
-    const editTextarea = userCard.locator('textarea').first();
-    await editTextarea.fill('Hello world, give me 3 quick tips for learning TypeScript.');
+    // Check for "Cancel" and "Send" buttons
+    const cancelBtn = page.locator('button:has-text("Cancel")').first();
+    const sendBtn = page.locator('button:has-text("Send")').first();
+    assert.ok(await cancelBtn.isVisible(), 'Cancel button should be visible in edit mode');
+    assert.ok(await sendBtn.isVisible(), 'Send button should be visible in edit mode');
+
+    // Type additional text from cursor position
+    await editTextarea.type(' Also include recent publications.');
     await page.waitForTimeout(400);
 
     console.log('Clicking Send button...');
@@ -74,10 +85,10 @@ const assert = require('assert');
 
     // Verify user card updated
     const updatedText = await userCard.textContent();
-    assert.ok(updatedText.includes('TypeScript'), 'User card should reflect updated text after Send');
+    assert.ok(updatedText.includes('recent publications'), 'User card should reflect updated text after Send');
     console.log('✅ Edit prompt submitted and updated user card successfully!');
 
-    console.log('\nALL EDIT PROMPT UI TESTS PASSED WITH 100% SUCCESS!');
+    console.log('\nALL TESTS PASSED WITH 100% SUCCESS!');
   } catch (err) {
     console.error('Test error:', err);
     process.exit(1);
