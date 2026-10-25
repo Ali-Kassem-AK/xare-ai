@@ -8740,7 +8740,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           <div className={`flex-none relative w-full p-2 sm:p-4 z-20 pb-3 sm:pb-5 chat-bottom-bar ${isDarkMode ? 'bg-[#030407]' : 'bg-[#f8fafc]'}`}>
             {/* ChatGPT-style Centered Circular Scroll-To-Bottom Button */}
             {isUserScrolledUp && (
-              <div className="max-w-5xl mx-auto relative h-0 pointer-events-none">
+              <div className="max-w-4xl mx-auto relative h-0 pointer-events-none">
                 <button
                   type="button"
                   onClick={() => {
@@ -8761,7 +8761,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
             )}
             
             {suggestions.length > 0 && (!isLoading || activeLoadingChatId !== currentChatId) && (
-                <div className="flex gap-2 max-w-5xl mx-auto mb-3 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
+                <div className="flex gap-2 max-w-4xl mx-auto mb-2 overflow-x-auto chat-scroll pb-1 scrollbar-hide pointer-events-auto px-1">
                 {suggestions.map((sug, i) => {
                     const isRtl = isRtlText(sug);
                     return (
@@ -8778,7 +8778,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                 </div>
             )}
 
-            <div className="relative max-w-5xl mx-auto pointer-events-auto">
+            <div className="relative max-w-4xl mx-auto pointer-events-auto">
               
               <input type="file" accept="image/*" className="hidden" ref={imageInputRef} onChange={handleImageSelect} />
               <input type="file" accept="application/pdf" className="hidden" ref={documentInputRef} onChange={handleDocumentSelect} />
@@ -8786,7 +8786,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
               {isRecording || isPreviewingAudio ? (
                 /* Modern Inline Voice Note Bar (Matching Image 2 without changing Xare main colors) */
                 <div 
-                  className={`relative flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 w-full chat-input-form animate-float-up ${
+                  className={`relative flex items-center gap-1 sm:gap-2 p-1 sm:p-1.5 rounded-[1.75rem] border transition-all duration-300 w-full chat-input-form animate-float-up ${
                     isDarkMode 
                       ? 'bg-[#070e1c] border-blue-500/30 shadow-[0_8px_32px_0_rgba(2,10,35,0.85)]' 
                       : 'bg-white border-slate-200/90 shadow-xl'
@@ -8797,7 +8797,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                     type="button"
                     onClick={cancelRecording}
                     title={isPreviewingAudio ? "Discard Voice Note" : "Cancel Recording"}
-                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 active:scale-95 cursor-pointer ${
+                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 active:scale-95 cursor-pointer ${
                       isDarkMode
                         ? 'bg-[#0c1324] hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/60 shadow-sm'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 border border-slate-200 shadow-sm'
@@ -8895,14 +8895,14 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
               ) : (
                 <form 
                   onSubmit={handleSendMessage}
-                  className={`relative flex items-end gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-[2.5rem] border transition-all duration-300 w-full chat-input-form ${
+                  className={`relative flex items-end gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-[1.75rem] border transition-all duration-300 w-full chat-input-form ${
                     isDarkMode 
                       ? 'bg-[#070e1c] border-blue-500/30 shadow-[0_8px_32px_0_rgba(2,10,35,0.85)] focus-within:border-cyan-400/60' 
                       : 'bg-white border-slate-200/90 shadow-xl focus-within:border-blue-400'
                   }`}
                 >
               {/* Integrated + Attachment Button */}
-              <div className="relative flex-shrink-0" ref={attachMenuRef}>
+              <div className="relative flex-shrink-0 self-center" ref={attachMenuRef}>
                 {showAttachMenu && (
                   <div 
                     className={`absolute bottom-full left-0 mb-3 w-56 sm:w-64 p-2 rounded-2xl border shadow-2xl z-50 animate-float-up ${
@@ -9114,12 +9114,12 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                       onFocus={handleTextareaFocus}
                       dir="auto"
                       placeholder={activeTool ? activeTool.placeholder : "Ask Xare anything..."}
-                      className={`w-full max-h-48 min-h-[38px] sm:min-h-[46px] px-2 sm:px-3 bg-transparent outline-none resize-none text-[15px] ${activeTool || pendingAttachment ? 'pt-1 pb-2' : 'py-2 sm:py-3'} ${isDarkMode ? 'text-slate-100 placeholder-slate-400' : 'text-slate-900 placeholder-slate-500'}`}
+                      className={`w-full max-h-48 min-h-[32px] sm:min-h-[36px] px-2 sm:px-2.5 bg-transparent outline-none resize-none text-[14px] sm:text-[14.5px] leading-relaxed ${activeTool || pendingAttachment ? 'pt-0.5 pb-1.5' : 'py-1.5 sm:py-2'} ${isDarkMode ? 'text-slate-100 placeholder-slate-400' : 'text-slate-900 placeholder-slate-500'}`}
                       rows={1}
                     />
                   </div>
 
-                  <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 pr-1">
+                  <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 pr-0.5 sm:pr-1 self-center">
                     {!inputValue.trim() && !pendingAttachment && !isRecording && (
                       <button
                         type="button"
@@ -9180,7 +9180,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
               )}
               </div>
 
-              <div className={`text-center mt-4 text-[11px] font-medium pointer-events-auto chat-disclaimer ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+              <div className={`text-center mt-2.5 text-[11px] font-medium pointer-events-auto chat-disclaimer ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                 Xare is AI and can make mistakes. Check important info.
               </div>
           </div>
