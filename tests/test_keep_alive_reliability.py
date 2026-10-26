@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Comprehensive SRE Reliability Test Suite for Keep-Alive & Self-Healing Architecture
-Covers all mandatory reliability scenarios:
-  1. Both Spaces healthy -> clean monitoring pass (no restarts attempted).
+Comprehensive SRE Reliability & Regression Test Suite for Keep-Alive Architecture
+Covers all required regression and failure scenarios:
+  1. Both Spaces healthy -> clean monitoring pass (zero restarts attempted).
   2. Space sleeping -> recovers via POST /restart and verifies health.
   3. Space RUNNING but application unhealthy -> zombie restart & recovers.
   4. Recovery fails after allowed attempts -> marks failed & dispatches alert.
@@ -10,14 +10,19 @@ Covers all mandatory reliability scenarios:
   6. Credentials missing or rejected (HTTP 401/403) -> caught and alerted.
   7. Heartbeat due (>=6 days) -> updates timestamp file.
   8. Monitoring step fails but heartbeat step still runs.
-  9. Scheduled workflow fails -> watchdog detects failure conclusion.
-  10. Expected scheduled run never appears -> watchdog detects missing/delayed run.
-  11. Notification request fails (HTTP 500) -> gracefully handled without masking error.
-  12. Previously failing service recovers -> recovery notification sent.
-  13. Watchdog detects overdue heartbeat (>7 days).
-  14. Watchdog detects Space direct out-of-band failure (HTTP 502).
-  15. Watchdog check-in signals (start, ok, fail).
-  16. Alert secret redaction prevents token and webhook URL leaks.
+  9. Recent successful pull_request run does NOT hide an overdue schedule.
+  10. Recent successful workflow_dispatch run does NOT hide an overdue schedule.
+  11. Recent successful scheduled run on main is recognized as valid and healthy.
+  12. Failed scheduled run generates an incident.
+  13. Overdue scheduled run generates an incident.
+  14. Zero scheduled runs on main is reported as unverified/unhealthy (NOT a pass).
+  15. GitHub Actions API failures do not result in a false healthy verdict.
+  16. Notification request fails (HTTP 500) -> gracefully handled without masking error.
+  17. Previously failing service recovers -> recovery notification sent.
+  18. Watchdog detects overdue heartbeat (>7 days).
+  19. Watchdog detects Space direct out-of-band failure (HTTP 502).
+  20. Watchdog check-in signals (start, ok, fail).
+  21. Alert secret redaction prevents token and webhook URL leaks.
 """
 
 import json
@@ -190,65 +195,232 @@ class TestHeartbeatAndWorkflow(unittest.TestCase):
     # ---------------------------------------------------------
     def test_heartbeat_evaluates_independently_of_monitoring_outcome(self):
         """Simulate workflow logic where heartbeat runs with if: always() regardless of monitor failure."""
-        monitor_failed = True
-        # Heartbeat evaluation should proceed normally
         needs_update, reason, _ = hm.should_update_heartbeat(filepath=self.heartbeat_path)
         self.assertTrue(needs_update, "Heartbeat initialization must succeed even if monitor had failed")
 
 
-class TestWatchdogAndAlerts(unittest.TestCase):
+class TestWatchdogScheduledCadenceRegressions(unittest.TestCase):
+    """
+    Critical regression suite verifying that manual or PR CI executions
+    CANNOT deceive the watchdog or conceal a stopped, delayed, or missing production schedule.
+    """
 
     # ---------------------------------------------------------
-    # SCENARIO 9: Scheduled Workflow Fails -> Watchdog Detects
+    # REGRESSION 1: Recent successful pull_request run does NOT hide overdue schedule
     # ---------------------------------------------------------
     @patch("scripts.watchdog.make_request")
-    def test_watchdog_detects_failed_workflow_run(self, mock_req):
-        mock_body = json.dumps({
-            "workflow_runs": [{
-                "id": 999123,
-                "html_url": "https://github.com/mock/runs/999123",
-                "event": "schedule",
-                "status": "completed",
-                "conclusion": "failure",
-                "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            }]
-        })
-        mock_req.return_value = (200, mock_body, None)
-
-        res = wd.check_github_workflow_cadence(repo="mock/repo", workflow_name="keep-alive.yml")
-        self.assertFalse(res["healthy"])
-        self.assertEqual(res["category"], "WORKFLOW_RUN_FAILED")
-        self.assertIn("failed with conclusion: failure", res["message"])
-
-    # ---------------------------------------------------------
-    # SCENARIO 10: Expected Scheduled Run Never Appears
-    # ---------------------------------------------------------
-    @patch("scripts.watchdog.make_request")
-    def test_watchdog_detects_missed_or_delayed_scheduled_run(self, mock_req):
+    def test_pr_run_does_not_hide_overdue_schedule(self, mock_req):
         now = datetime.now(timezone.utc)
-        # Last run was 65 minutes ago (threshold is 45 minutes)
-        old_time = (now - timedelta(minutes=65)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        mock_body = json.dumps({
+        # Scheduled run was 65 minutes ago (overdue)
+        old_sched_time = (now - timedelta(minutes=65)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        sched_body = json.dumps({
             "workflow_runs": [{
-                "id": 888456,
-                "html_url": "https://github.com/mock/runs/888456",
+                "id": 111,
+                "html_url": "https://github.com/mock/runs/111",
                 "event": "schedule",
                 "status": "completed",
                 "conclusion": "success",
-                "created_at": old_time,
+                "created_at": old_sched_time,
             }]
         })
-        mock_req.return_value = (200, mock_body, None)
+        # General query returns a recent successful PR run 2 minutes ago
+        pr_body = json.dumps({
+            "workflow_runs": [{
+                "id": 999,
+                "event": "pull_request",
+                "head_branch": "fix/test",
+                "status": "completed",
+                "conclusion": "success",
+                "created_at": (now - timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }]
+        })
+
+        mock_req.side_effect = [
+            (200, sched_body, None),  # Query 1: event=schedule&branch=main
+            (200, pr_body, None),     # Query 2: general runs
+        ]
 
         res = wd.check_github_workflow_cadence(
-            repo="mock/repo", workflow_name="keep-alive.yml", max_delay_minutes=45, now=now
+            repo="mock/repo", branch="main", max_delay_minutes=45, now=now
         )
-        self.assertFalse(res["healthy"])
-        self.assertEqual(res["category"], "RUN_MISSED_OR_DELAYED")
-        self.assertIn("Expected keep-alive run is overdue", res["message"])
+        self.assertFalse(res["healthy"], "Recent PR success must not conceal overdue schedule")
+        self.assertEqual(res["category"], "SCHEDULED_RUN_CONFIRMED_MISSING")
+        self.assertIn("Confirmed missing scheduled run", res["message"])
 
     # ---------------------------------------------------------
-    # SCENARIO 11: Notification Request Fails -> Handled Gracefully
+    # REGRESSION 2: Recent successful workflow_dispatch run does NOT hide overdue schedule
+    # ---------------------------------------------------------
+    @patch("scripts.watchdog.make_request")
+    def test_workflow_dispatch_does_not_hide_overdue_schedule(self, mock_req):
+        now = datetime.now(timezone.utc)
+        # Scheduled run was 70 minutes ago (overdue)
+        old_sched_time = (now - timedelta(minutes=70)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        sched_body = json.dumps({
+            "workflow_runs": [{
+                "id": 222,
+                "html_url": "https://github.com/mock/runs/222",
+                "event": "schedule",
+                "status": "completed",
+                "conclusion": "success",
+                "created_at": old_sched_time,
+            }]
+        })
+        # General query returns a recent successful manual dispatch 3 minutes ago
+        dispatch_body = json.dumps({
+            "workflow_runs": [{
+                "id": 888,
+                "event": "workflow_dispatch",
+                "head_branch": "main",
+                "status": "completed",
+                "conclusion": "success",
+                "created_at": (now - timedelta(minutes=3)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }]
+        })
+
+        mock_req.side_effect = [
+            (200, sched_body, None),
+            (200, dispatch_body, None),
+        ]
+
+        res = wd.check_github_workflow_cadence(
+            repo="mock/repo", branch="main", max_delay_minutes=45, now=now
+        )
+        self.assertFalse(res["healthy"], "Recent workflow_dispatch must not conceal overdue schedule")
+        self.assertEqual(res["category"], "SCHEDULED_RUN_CONFIRMED_MISSING")
+
+    # ---------------------------------------------------------
+    # REGRESSION 3: Recent successful scheduled run on main is recognized as valid
+    # ---------------------------------------------------------
+    @patch("scripts.watchdog.make_request")
+    def test_valid_recent_scheduled_run_on_main_passes(self, mock_req):
+        now = datetime.now(timezone.utc)
+        # Scheduled run was 12 minutes ago (on-time)
+        sched_time = (now - timedelta(minutes=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        sched_body = json.dumps({
+            "workflow_runs": [{
+                "id": 333,
+                "html_url": "https://github.com/mock/runs/333",
+                "event": "schedule",
+                "status": "completed",
+                "conclusion": "success",
+                "created_at": sched_time,
+            }]
+        })
+
+        mock_req.side_effect = [
+            (200, sched_body, None),
+            (200, "{}", None),
+        ]
+
+        res = wd.check_github_workflow_cadence(
+            repo="mock/repo", branch="main", now=now
+        )
+        self.assertTrue(res["healthy"], "Recent scheduled run on main must pass")
+        self.assertEqual(res["category"], "SCHEDULED_RUN_ON_TIME")
+        self.assertIn("Latest scheduled run #333 on 'main' completed with success", res["message"])
+
+    # ---------------------------------------------------------
+    # REGRESSION 4: Failed scheduled run generates an incident
+    # ---------------------------------------------------------
+    @patch("scripts.watchdog.make_request")
+    def test_failed_scheduled_run_triggers_incident(self, mock_req):
+        now = datetime.now(timezone.utc)
+        sched_time = (now - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        sched_body = json.dumps({
+            "workflow_runs": [{
+                "id": 444,
+                "html_url": "https://github.com/mock/runs/444",
+                "event": "schedule",
+                "status": "completed",
+                "conclusion": "failure",
+                "created_at": sched_time,
+            }]
+        })
+
+        mock_req.side_effect = [
+            (200, sched_body, None),
+            (200, "{}", None),
+        ]
+
+        res = wd.check_github_workflow_cadence(repo="mock/repo", branch="main", now=now)
+        self.assertFalse(res["healthy"])
+        self.assertEqual(res["category"], "SCHEDULED_RUN_FAILED")
+        self.assertIn("failed with conclusion: failure", res["message"])
+
+    # ---------------------------------------------------------
+    # REGRESSION 5: Overdue scheduled run generates an incident
+    # ---------------------------------------------------------
+    @patch("scripts.watchdog.make_request")
+    def test_overdue_scheduled_run_triggers_incident(self, mock_req):
+        now = datetime.now(timezone.utc)
+        # Scheduled run was 55 minutes ago (exceeds max_delay 45)
+        sched_time = (now - timedelta(minutes=55)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        sched_body = json.dumps({
+            "workflow_runs": [{
+                "id": 555,
+                "html_url": "https://github.com/mock/runs/555",
+                "event": "schedule",
+                "status": "completed",
+                "conclusion": "success",
+                "created_at": sched_time,
+            }]
+        })
+
+        mock_req.side_effect = [
+            (200, sched_body, None),
+            (200, "{}", None),
+        ]
+
+        res = wd.check_github_workflow_cadence(
+            repo="mock/repo", branch="main", max_delay_minutes=45, now=now
+        )
+        self.assertFalse(res["healthy"])
+        self.assertEqual(res["category"], "SCHEDULED_RUN_CONFIRMED_MISSING")
+
+    # ---------------------------------------------------------
+    # REGRESSION 6: Zero scheduled runs on main is reported as UNVERIFIED / UNHEALTHY (NOT A PASS)
+    # ---------------------------------------------------------
+    @patch("scripts.watchdog.make_request")
+    def test_no_scheduled_runs_on_main_reports_unverified_unhealthy(self, mock_req):
+        # Scheduled query returns zero runs
+        sched_body = json.dumps({"workflow_runs": []})
+        # General query returns some recent PR / manual runs
+        gen_body = json.dumps({
+            "workflow_runs": [{
+                "id": 777,
+                "event": "workflow_dispatch",
+                "head_branch": "fix/repair",
+                "conclusion": "success",
+            }]
+        })
+
+        mock_req.side_effect = [
+            (200, sched_body, None),
+            (200, gen_body, None),
+        ]
+
+        res = wd.check_github_workflow_cadence(repo="mock/repo", branch="main")
+        self.assertFalse(res["healthy"], "Zero scheduled runs must NEVER report healthy")
+        self.assertFalse(res["verified"], "Must be marked unverified")
+        self.assertEqual(res["category"], "NO_SCHEDULED_RUNS_ON_BRANCH")
+        self.assertIn("No scheduled workflow runs (event=schedule) have ever executed", res["message"])
+
+    # ---------------------------------------------------------
+    # REGRESSION 7: GitHub Actions API failures do not result in a false healthy verdict
+    # ---------------------------------------------------------
+    @patch("scripts.watchdog.make_request")
+    def test_github_api_failure_does_not_give_false_healthy(self, mock_req):
+        mock_req.return_value = (500, "", "HTTPError 500: Server Error")
+        res = wd.check_github_workflow_cadence(repo="mock/repo", branch="main")
+        self.assertFalse(res["healthy"], "API error must NOT yield a healthy status")
+        self.assertEqual(res["category"], "WATCHDOG_GITHUB_API_ERROR")
+        self.assertIn("Failed to query GitHub Actions API", res["message"])
+
+
+class TestAlertsAndDirectWatchdog(unittest.TestCase):
+
+    # ---------------------------------------------------------
+    # SCENARIO 16: Notification Request Fails -> Handled Gracefully
     # ---------------------------------------------------------
     @patch("urllib.request.urlopen")
     def test_notification_transport_error_does_not_raise(self, mock_urlopen):
@@ -265,7 +437,7 @@ class TestWatchdogAndAlerts(unittest.TestCase):
         self.assertFalse(result, "Should return False when webhook transport fails")
 
     # ---------------------------------------------------------
-    # SCENARIO 12: Previously Failing Service Recovers -> Recovery Alert Sent
+    # SCENARIO 17: Previously Failing Service Recovers -> Recovery Alert Sent
     # ---------------------------------------------------------
     @patch("scripts.alert_manager.send_webhook_notification")
     @patch("scripts.keep_alive_monitor.check_application_health")
@@ -289,7 +461,7 @@ class TestWatchdogAndAlerts(unittest.TestCase):
         self.assertEqual(payload["severity"], "RESOLVED")
 
     # ---------------------------------------------------------
-    # SCENARIO 13: Watchdog Detects Overdue Heartbeat (>7 days)
+    # SCENARIO 18: Watchdog Detects Overdue Heartbeat (>7 days)
     # ---------------------------------------------------------
     @patch("scripts.watchdog.make_request")
     def test_watchdog_detects_overdue_heartbeat(self, mock_req):
@@ -308,7 +480,7 @@ class TestWatchdogAndAlerts(unittest.TestCase):
         self.assertIn("is overdue", res["message"])
 
     # ---------------------------------------------------------
-    # SCENARIO 14: Watchdog Detects Space Direct Failure Out-of-band
+    # SCENARIO 19: Watchdog Detects Space Direct Failure Out-of-band
     # ---------------------------------------------------------
     @patch("scripts.watchdog.make_request")
     def test_watchdog_detects_direct_space_failure(self, mock_req):
@@ -326,7 +498,7 @@ class TestWatchdogAndAlerts(unittest.TestCase):
         self.assertFalse(res["results"]["AliiiS/24-7_n8n"]["healthy"])
 
     # ---------------------------------------------------------
-    # SCENARIO 15: Watchdog Check-in Signals (Start, OK, Fail)
+    # SCENARIO 20: Watchdog Check-in Signals (Start, OK, Fail)
     # ---------------------------------------------------------
     @patch("urllib.request.urlopen")
     def test_watchdog_checkin_signals(self, mock_urlopen):
@@ -347,7 +519,7 @@ class TestWatchdogAndAlerts(unittest.TestCase):
         self.assertEqual(mock_urlopen.call_args[0][0].full_url, "https://hc-ping.com/mock-uuid/fail")
 
     # ---------------------------------------------------------
-    # SCENARIO 16: Secret Redaction in Alert Payloads
+    # SCENARIO 21: Secret Redaction in Alert Payloads
     # ---------------------------------------------------------
     def test_secret_redaction_in_alerts(self):
         secret_string = "Error with hf_AbCdEfGhIjKlMnOpQrStUvWxYz012345 and ghp_AbCdEfGhIjKlMnOpQrStUvWxYz012345"
