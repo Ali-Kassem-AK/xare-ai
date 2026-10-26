@@ -1,0 +1,29 @@
+name: CI Reliability Tests
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main, fix/keep-alive-reliability ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Run Keep-Alive Reliability Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Test Suite
+        run: python tests/test_keep_alive_reliability.py
