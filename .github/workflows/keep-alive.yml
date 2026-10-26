@@ -1,9 +1,20 @@
 name: 🤗 HuggingFace Space Keep-Alive
 
+# Scheduled execution cadence:
+# Runs every 20 minutes at minutes 7, 27, and 47 past the hour (UTC):
+# - 20-minute frequency maintains zero-sleep persistence on free Hugging Face Spaces.
+# - Offsetting from :00 and :30 avoids the peak-traffic runner queuing spikes on GitHub Actions.
+# NOTE: GitHub Actions schedule triggers are best-effort and subject to system runner load.
 on:
   schedule:
-    - cron: "*/25 * * * *" # Every 25 minutes, 24/7/365
-  workflow_dispatch:       # Manual trigger for instant testing
+    - cron: "7,27,47 * * * *"
+  workflow_dispatch:
+    inputs:
+      force_heartbeat:
+        description: "Force heartbeat file update regardless of elapsed time"
+        type: boolean
+        default: false
+        required: false
 
 permissions:
   contents: write
@@ -17,188 +28,42 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Check Status, Auto-Wake If Sleeping, and Ping Spaces
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Keep-Alive & Self-Healing Monitor
+        id: monitor
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           SPACE_IDS: ${{ vars.SPACE_IDS || 'AliiiS/24-7_n8n,AliiiS/pdf-to-image-api' }}
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: python scripts/keep_alive_monitor.py
+
+      - name: Evaluate 60-Day Inactivity Prevention Heartbeat
+        # Runs on scheduled runs or manual forced triggers, even if the monitor step failed.
+        if: always() && !cancelled() && (github.event_name == 'schedule' || inputs.force_heartbeat == true)
+        id: heartbeat
         run: |
-          python3 - << 'EOF'
-          import json
-          import os
-          import sys
-          import time
-          import urllib.error
-          import urllib.request
-          from datetime import datetime, timezone
-
-          HF_TOKEN = os.environ.get("HF_TOKEN", "").strip()
-          raw_spaces = os.environ.get("SPACE_IDS", "AliiiS/24-7_n8n,AliiiS/pdf-to-image-api")
-          SPACE_IDS = [s.strip() for s in raw_spaces.split(",") if s.strip()]
-
-          SLEEP_STAGES = {"SLEEPING", "PAUSED", "STOPPED", "RUNTIME_ERROR", "BUILD_ERROR"}
-          BUILDING_STAGES = {"BUILDING", "APP_STARTING", "STARTING"}
-
-          # Space-specific lightweight health check paths
-          HEALTH_ENDPOINTS = {
-              "AliiiS/24-7_n8n": ["/healthz", "/"],
-              "AliiiS/pdf-to-image-api": ["/docs", "/"],
-          }
-
-          def get_headers(with_auth=True):
-              headers = {
-                  "User-Agent": "Mozilla/5.0 (HuggingFace-Space-KeepAlive/2.0)",
-                  "Accept": "application/json, text/html, */*",
-              }
-              if with_auth and HF_TOKEN:
-                  headers["Authorization"] = f"Bearer {HF_TOKEN}"
-              return headers
-
-          def get_space_info(space_id):
-              url = f"https://huggingface.co/api/spaces/{space_id}"
-              req = urllib.request.Request(url, headers=get_headers(with_auth=True), method="GET")
-              with urllib.request.urlopen(req, timeout=30) as resp:
-                  return json.loads(resp.read().decode("utf-8"))
-
-          def wake_space(space_id):
-              url = f"https://huggingface.co/api/spaces/{space_id}/restart"
-              req = urllib.request.Request(
-                  url,
-                  data=b"{}",
-                  headers={**get_headers(with_auth=True), "Content-Type": "application/json"},
-                  method="POST",
-              )
-              with urllib.request.urlopen(req, timeout=30) as resp:
-                  return resp.status
-
-          def wait_until_running(space_id, max_wait=120, poll_interval=10):
-              elapsed = 0
-              while elapsed < max_wait:
-                  time.sleep(poll_interval)
-                  elapsed += poll_interval
-                  try:
-                      info = get_space_info(space_id)
-                      stage = info.get("runtime", {}).get("stage", "UNKNOWN")
-                      print(f"  ⏳ [{elapsed}s/{max_wait}s] {space_id} runtime stage: {stage}")
-                      if stage == "RUNNING":
-                          return info
-                  except Exception as e:
-                      print(f"  ⚠ Poll warning at {elapsed}s: {e}")
-              return get_space_info(space_id)
-
-          def resolve_public_url(space_id, info=None):
-              if info and isinstance(info, dict):
-                  host = info.get("host") or info.get("runtime", {}).get("host")
-                  if host:
-                      return host if host.startswith("http") else f"https://{host}"
-              subdomain = space_id.replace("/", "-").replace("_", "-").lower()
-              return f"https://{subdomain}.hf.space"
-
-          def ping_url(base_url, retries=4, delay=15):
-              last_err = None
-              for attempt in range(1, retries + 1):
-                  try:
-                      req = urllib.request.Request(base_url, headers=get_headers(with_auth=False), method="GET")
-                      with urllib.request.urlopen(req, timeout=30) as resp:
-                          return resp.status
-                  except urllib.error.HTTPError as e:
-                      if e.code in (200, 201, 204, 301, 302, 401, 403, 404):
-                          return e.code
-                      last_err = f"HTTP {e.code}"
-                  except Exception as e:
-                      last_err = str(e)
-                  if attempt < retries:
-                      print(f"  ⏳ Ping attempt {attempt}/{retries} failed ({last_err}). Retrying in {delay}s...")
-                      time.sleep(delay)
-              raise RuntimeError(f"Failed after {retries} attempts: {last_err}")
-
-          print("=" * 64)
-          print("HuggingFace Space Keep-Alive & Self-Healing Monitor")
-          print(f"Timestamp (UTC): {datetime.now(timezone.utc).isoformat()}")
-          print(f"HF_TOKEN Configured: {'YES' if bool(HF_TOKEN) else 'NO (CRITICAL!)'}")
-          print(f"Target Spaces ({len(SPACE_IDS)}): {', '.join(SPACE_IDS)}")
-          print("=" * 64 + "\n")
-
-          if not HF_TOKEN:
-              print("❌ ERROR: HF_TOKEN secret is empty! Cannot guarantee auto-wake if a Space sleeps.")
-              sys.exit(1)
-
-          results = []
-          failed = 0
-
-          for space_id in SPACE_IDS:
-              print(f"━━━ Processing: {space_id} ━━━")
-              woken = False
-              stage = "UNKNOWN"
-              info = None
-
-              try:
-                  info = get_space_info(space_id)
-                  stage = info.get("runtime", {}).get("stage", "UNKNOWN")
-                  print(f"ℹ Initial API stage: {stage}")
-
-                  if stage in SLEEP_STAGES:
-                      print(f"↺ Space {space_id} is {stage}! Sending authenticated wake-up POST /restart ...")
-                      wake_status = wake_space(space_id)
-                      woken = True
-                      print(f"✓ Wake-up command accepted (HTTP {wake_status}). Polling until RUNNING...")
-                      info = wait_until_running(space_id, max_wait=120, poll_interval=10)
-                      stage = info.get("runtime", {}).get("stage", stage)
-                  elif stage in BUILDING_STAGES:
-                      print(f"⏳ Space {space_id} is currently {stage}. Waiting for RUNNING...")
-                      info = wait_until_running(space_id, max_wait=120, poll_interval=10)
-                      stage = info.get("runtime", {}).get("stage", stage)
-              except Exception as e:
-                  print(f"❌ Failed querying/waking {space_id} via HF API: {e}")
-
-              public_url = resolve_public_url(space_id, info)
-              paths_to_ping = HEALTH_ENDPOINTS.get(space_id, ["/"])
-              ping_success = False
-              last_status = None
-
-              for path in paths_to_ping:
-                  target_url = public_url.rstrip("/") + path
-                  try:
-                      status_code = ping_url(target_url, retries=4, delay=15)
-                      print(f"✓ Pinged {target_url} → HTTP {status_code}")
-                      last_status = f"HTTP {status_code}"
-                      ping_success = True
-                  except Exception as e:
-                      print(f"⚠ Ping failed for {target_url}: {e}")
-                      last_status = str(e)
-
-              if ping_success:
-                  print(f"✅ Completed {space_id} — stage={stage}, woken={woken}, ping={last_status}\n")
-                  results.append((space_id, stage, woken, True, last_status))
-              else:
-                  print(f"❌ All pings failed for {space_id}: {last_status}\n")
-                  results.append((space_id, stage, woken, False, last_status))
-                  failed += 1
-
-          print("=" * 64)
-          print("EXECUTION SUMMARY")
-          print("=" * 64)
-          for space_id, stage, woken, ok, detail in results:
-              icon = "✅" if ok else "❌"
-              woken_str = ", woken=YES" if woken else ", woken=NO"
-              print(f"{icon} {space_id} [stage={stage}{woken_str}] -> {detail}")
-          print(f"Total: {len(SPACE_IDS)} | Success: {len(SPACE_IDS) - failed} | Failed: {failed}")
-          print("=" * 64)
-
-          if failed > 0:
-              sys.exit(1)
-          EOF
-
-      - name: Prevent GitHub 60-Day Scheduled Workflow Expiration (Weekly Heartbeat)
-        # Every Sunday between 00:00 and 00:25 UTC, update .last-keepalive to keep repo active forever
-        if: github.event_name == 'schedule'
-        run: |
-          DAY=$(date -u +%u)
-          HOUR=$(date -u +%H)
-          MIN=$(date -u +%M)
-          if [ "$DAY" = "7" ] && [ "$HOUR" = "00" ] && [ "$MIN" -lt "30" ]; then
-            date -u +"%Y-%m-%dT%H:%M:%SZ" > .last-keepalive
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .last-keepalive
-            git diff --staged --quiet || (git commit -m "chore: weekly heartbeat to prevent 60-day schedule disable [skip ci]" && git push)
+          if [ "${{ inputs.force_heartbeat }}" = "true" ]; then
+            python -c "import scripts.heartbeat_manager as hm; hm.write_heartbeat(); print('Forced heartbeat written')"
+            echo "heartbeat_updated=true" >> "$GITHUB_OUTPUT"
+          else
+            python scripts/heartbeat_manager.py
           fi
+
+      - name: Commit and Push Heartbeat (When Threshold Reached)
+        if: always() && !cancelled() && steps.heartbeat.outputs.heartbeat_updated == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .last-keepalive
+          git diff --staged --quiet || (git commit -m "chore: refresh keep-alive heartbeat to prevent 60-day schedule disable [skip ci]" && git push origin HEAD)
+
+      - name: Enforce Overall Job Status
+        # If the health monitor step failed, fail the overall run so GitHub alerts/badges reflect the failure.
+        if: always() && steps.monitor.outcome == 'failure'
+        run: |
+          echo "::error::Hugging Face Space Keep-Alive Monitor failed. One or more Spaces are unhealthy or unrecoverable."
+          exit 1

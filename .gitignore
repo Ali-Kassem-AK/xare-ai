@@ -10,3 +10,7 @@ dist
 .vercel
 
 .agents/
+
+__pycache__/
+*.pyc
+
