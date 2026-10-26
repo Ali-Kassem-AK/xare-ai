@@ -1,10 +1,10 @@
 name: 🤗 HuggingFace Space Keep-Alive
 
 # Scheduled execution cadence:
-# Runs every 20 minutes at minutes 7, 27, and 47 past the hour (UTC):
-# - 20-minute frequency maintains zero-sleep persistence on free Hugging Face Spaces.
-# - Offsetting from :00 and :30 avoids the peak-traffic runner queuing spikes on GitHub Actions.
-# NOTE: GitHub Actions schedule triggers are best-effort and subject to system runner load.
+# Runs at minutes 7, 27, and 47 past each hour (UTC):
+# - 20-minute cadence provides frequent wakeups to prevent inactivity timeout on Hugging Face Spaces.
+# - Offsetting from :00 and :30 avoids the heaviest runner queue spikes on GitHub Actions.
+# NOTE: GitHub Actions schedule triggers are best-effort; runner load may introduce jitter (5-30m).
 on:
   schedule:
     - cron: "7,27,47 * * * *"
@@ -39,6 +39,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           SPACE_IDS: ${{ vars.SPACE_IDS || 'AliiiS/24-7_n8n,AliiiS/pdf-to-image-api' }}
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          WATCHDOG_CHECKIN_URL: ${{ secrets.WATCHDOG_CHECKIN_URL }}
         run: python scripts/keep_alive_monitor.py
 
       - name: Evaluate 60-Day Inactivity Prevention Heartbeat
@@ -61,9 +62,13 @@ jobs:
           git add .last-keepalive
           git diff --staged --quiet || (git commit -m "chore: refresh keep-alive heartbeat to prevent 60-day schedule disable [skip ci]" && git push origin HEAD)
 
-      - name: Enforce Overall Job Status
-        # If the health monitor step failed, fail the overall run so GitHub alerts/badges reflect the failure.
-        if: always() && steps.monitor.outcome == 'failure'
+      - name: Enforce Overall Job Status & Dispatch Failure Alert
+        # If the health monitor step failed, dispatch alert and fail the overall run.
+        if: always() && !cancelled() && steps.monitor.outcome == 'failure'
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          python -c "import scripts.alert_manager as am, os; am.notify_incident(os.environ.get('ALERT_WEBHOOK_URL'), category='WORKFLOW_FAILED', severity='CRITICAL', title='Keep-Alive Workflow Failed', summary='One or more Spaces failed health verification and recovery in run ${{ github.run_id }}.', run_url=os.environ.get('GITHUB_RUN_URL'))"
           echo "::error::Hugging Face Space Keep-Alive Monitor failed. One or more Spaces are unhealthy or unrecoverable."
           exit 1

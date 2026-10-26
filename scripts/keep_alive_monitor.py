@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 """
-Hugging Face Spaces Keep-Alive & Self-Healing Monitor
+Hugging Face Spaces Self-Healing Keep-Alive & Incident Monitor
 Target Spaces:
-  - AliiiS/24-7_n8n (n8n automation server)
-  - AliiiS/pdf-to-image-api (PDF-to-Image FastAPI microservice)
+  - AliiiS/24-7_n8n (n8n workflow automation engine)
+  - AliiiS/pdf-to-image-api (PDF-to-Image FastAPI conversion microservice)
+
+Architecture:
+  - Performs non-intrusive health checks against public application endpoints.
+  - Detects sleeping, stopped, and crashed/zombie container states.
+  - Executes bounded, controlled recovery restarts (maximum 1 restart attempt per space per run).
+  - Dispatches categorized notifications (incidents and recovery) via ALERT_WEBHOOK_URL.
+  - Sends execution check-ins to external dead-man's watchdogs (WATCHDOG_CHECKIN_URL).
+  - Adheres to production safety: healthy services are NEVER restarted.
 """
 
 import json
@@ -22,6 +30,15 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
+# Import alert manager
+try:
+    import scripts.alert_manager as am
+except ImportError:
+    try:
+        import alert_manager as am
+    except ImportError:
+        am = None
+
 SLEEP_STAGES = {"SLEEPING", "PAUSED", "STOPPED", "RUNTIME_ERROR", "BUILD_ERROR"}
 BUILDING_STAGES = {"BUILDING", "APP_STARTING", "STARTING", "RUNNING_BUILDING", "RUNNING_APP_STARTING"}
 
@@ -31,18 +48,18 @@ HEALTH_SPECS = {
         "endpoint": "/healthz",
         "expected_code": 200,
         "body_validator": lambda body: '"status":"ok"' in body.replace(" ", ""),
-        "description": "n8n healthz status verification",
+        "description": "n8n /healthz status endpoint",
     },
     "AliiiS/pdf-to-image-api": {
         "endpoint": "/",
         "expected_code": 200,
         "body_validator": lambda body: "Alive and awake!" in body,
-        "description": "PDF API root status verification",
+        "description": "PDF API root status endpoint",
     },
 }
 
 
-def get_headers(with_auth=True, token=""):
+def get_headers(with_auth: bool = True, token: str = "") -> dict:
     headers = {
         "User-Agent": "Mozilla/5.0 (HuggingFace-Space-KeepAlive/3.0)",
         "Accept": "application/json, text/html, */*",
@@ -52,19 +69,30 @@ def get_headers(with_auth=True, token=""):
     return headers
 
 
-def get_space_info(space_id, token="", timeout=30):
+def get_github_run_url() -> str:
+    """Build the GitHub Actions execution URL if running inside GitHub CI."""
+    server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
+    if repo and run_id:
+        return f"{server}/{repo}/actions/runs/{run_id}"
+    return None
+
+
+def get_space_info(space_id: str, token: str = "", timeout: int = 25) -> dict:
     url = f"https://huggingface.co/api/spaces/{space_id}"
     req = urllib.request.Request(url, headers=get_headers(with_auth=True, token=token), method="GET")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
-        if e.code == 401 or e.code == 403:
+        if e.code in (401, 403):
             raise PermissionError(f"Authentication failed for Space {space_id} (HTTP {e.code}) - check HF_TOKEN permissions.")
         raise
 
 
-def wake_space(space_id, token="", timeout=30):
+def wake_space(space_id: str, token: str = "", timeout: int = 25) -> int:
+    """Initiates an authenticated restart/wake command on Hugging Face Spaces API."""
     url = f"https://huggingface.co/api/spaces/{space_id}/restart"
     req = urllib.request.Request(
         url,
@@ -76,7 +104,8 @@ def wake_space(space_id, token="", timeout=30):
         return resp.status
 
 
-def wait_until_running(space_id, token="", max_wait=120, poll_interval=10):
+def wait_until_running(space_id: str, token: str = "", max_wait: int = 120, poll_interval: int = 10) -> dict:
+    """Polls space until it reaches RUNNING or times out."""
     elapsed = 0
     while elapsed < max_wait:
         time.sleep(poll_interval)
@@ -92,7 +121,7 @@ def wait_until_running(space_id, token="", max_wait=120, poll_interval=10):
     return get_space_info(space_id, token=token)
 
 
-def resolve_public_url(space_id, info=None):
+def resolve_public_url(space_id: str, info: dict = None) -> str:
     if info and isinstance(info, dict):
         host = info.get("host") or info.get("runtime", {}).get("host")
         if host:
@@ -101,7 +130,7 @@ def resolve_public_url(space_id, info=None):
     return f"https://{subdomain}.hf.space"
 
 
-def check_application_health(public_url, spec, retries=3, delay=10, timeout=20):
+def check_application_health(public_url: str, spec: dict, retries: int = 3, initial_delay: int = 5, timeout: int = 15) -> tuple:
     """
     Strict application-level health check.
     Rejects 401, 403, 404, 5xx, timeouts, and body mismatches.
@@ -112,6 +141,8 @@ def check_application_health(public_url, spec, retries=3, delay=10, timeout=20):
     validator = spec.get("body_validator")
 
     last_error = None
+    delay = initial_delay
+
     for attempt in range(1, retries + 1):
         try:
             req = urllib.request.Request(target_url, headers=get_headers(with_auth=False), method="GET")
@@ -122,7 +153,7 @@ def check_application_health(public_url, spec, retries=3, delay=10, timeout=20):
                 if status != expected_code:
                     last_error = f"HTTP {status} (expected {expected_code})"
                 elif validator and not validator(body):
-                    last_error = f"HTTP {status} but body validation failed (body snippet: {body[:100]!r})"
+                    last_error = f"HTTP {status} but body validator failed (snippet: {body[:80]!r})"
                 else:
                     return True, f"HTTP {status} (healthy)", None
         except urllib.error.HTTPError as e:
@@ -135,51 +166,84 @@ def check_application_health(public_url, spec, retries=3, delay=10, timeout=20):
         if attempt < retries:
             print(f"  [RETRY] Health attempt {attempt}/{retries} failed ({last_error}). Retrying in {delay}s...")
             time.sleep(delay)
+            delay *= 2  # Exponential backoff
 
     return False, last_error, target_url
 
 
-def send_alert_webhook(webhook_url, message, details=None):
-    """Optionally dispatches a webhook notification (Discord, Slack, or generic HTTP webhook)."""
-    if not webhook_url:
+def ping_external_watchdog(checkin_url: str, status: str = "ok", message: str = None) -> bool:
+    """Sends execution signal to an external watchdog / dead-man's snitch (e.g. Healthchecks.io)."""
+    if not checkin_url or not checkin_url.strip():
         return False
+    base_url = checkin_url.strip().rstrip("/")
+    target_url = base_url
+    if status == "start":
+        target_url = f"{base_url}/start"
+    elif status == "fail":
+        target_url = f"{base_url}/fail"
+
     try:
-        payload = {
-            "content": f"[ALERT] HF Spaces Keep-Alive: {message}",
-            "text": f"[ALERT] HF Spaces Keep-Alive: {message}",
-            "details": details or {},
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        data = json.dumps(payload).encode("utf-8")
+        data = message.encode("utf-8") if message else None
         req = urllib.request.Request(
-            webhook_url,
+            target_url,
             data=data,
-            headers={"Content-Type": "application/json", "User-Agent": "HF-KeepAlive-Alert/1.0"},
-            method="POST",
+            headers={"User-Agent": "XareAI-KeepAlive-Checkin/3.0"},
+            method="POST" if data else "GET",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
-            return resp.status in (200, 204)
+            return resp.status == 200
     except Exception as e:
-        print(f"[WARN] Webhook delivery failed: {e}")
+        print(f"[WARN] External watchdog check-in failed ({target_url}): {e}")
         return False
 
 
-def run_monitor(hf_token, space_ids, webhook_url=None, max_wait=120):
+def run_monitor(
+    hf_token: str,
+    space_ids: list,
+    webhook_url: str = None,
+    checkin_url: str = None,
+    max_wait: int = 120,
+) -> tuple:
+    """
+    Main monitoring and self-healing loop.
+    Returns (success: bool, results: list).
+    """
+    run_url = get_github_run_url()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
     print("=" * 64)
     print("Hugging Face Spaces Self-Healing Keep-Alive Monitor v3.0")
-    print(f"Timestamp (UTC): {datetime.now(timezone.utc).isoformat()}")
+    print(f"Timestamp (UTC): {now_iso}")
     print(f"HF_TOKEN Configured: {'YES' if bool(hf_token) else 'NO (CRITICAL!)'}")
     print(f"Target Spaces ({len(space_ids)}): {', '.join(space_ids)}")
+    print(f"External Watchdog Check-in: {'CONFIGURED' if bool(checkin_url) else 'NOT CONFIGURED (Unverified)'}")
+    print(f"Alert Webhook: {'CONFIGURED' if bool(webhook_url) else 'NOT CONFIGURED (Unverified)'}")
     print("=" * 64 + "\n")
 
+    # Signal start to external watchdog
+    if checkin_url:
+        ping_external_watchdog(checkin_url, status="start")
+
+    # Guard: Missing credentials
     if not hf_token:
-        error_msg = "HF_TOKEN is empty or missing! Cannot query or wake sleeping Spaces."
+        error_msg = "HF_TOKEN environment variable is missing or empty! Cannot authenticate with Hugging Face API."
         print(f"[ERROR] {error_msg}")
-        send_alert_webhook(webhook_url, error_msg)
+        if webhook_url and am:
+            am.notify_incident(
+                webhook_url=webhook_url,
+                category="CREDENTIALS_INVALID",
+                severity="CRITICAL",
+                title="Hugging Face Credentials Missing",
+                summary=error_msg,
+                run_url=run_url,
+            )
+        if checkin_url:
+            ping_external_watchdog(checkin_url, status="fail", message=error_msg)
         return False, [("GLOBAL", "UNKNOWN", False, False, error_msg)]
 
     results = []
     failed_count = 0
+    recovered_spaces = []
 
     for space_id in space_ids:
         print(f"--- Processing Space: {space_id} ---")
@@ -196,13 +260,30 @@ def run_monitor(hf_token, space_ids, webhook_url=None, max_wait=120):
             info = get_space_info(space_id, token=hf_token)
             stage = info.get("runtime", {}).get("stage", "UNKNOWN")
             print(f"[INFO] Initial Lifecycle Stage: {stage}")
+        except PermissionError as e:
+            err_str = f"Authentication/permission error: {e}"
+            print(f"[ERROR] {err_str}")
+            results.append((space_id, "AUTH_ERROR", False, False, err_str))
+            failed_count += 1
+            if webhook_url and am:
+                am.notify_incident(
+                    webhook_url=webhook_url,
+                    category="CREDENTIALS_INVALID",
+                    severity="CRITICAL",
+                    title=f"HF Auth Failure: {space_id}",
+                    summary=err_str,
+                    service=space_id,
+                    run_url=run_url,
+                )
+            continue
         except Exception as e:
-            print(f"[ERROR] Failed to fetch info for {space_id}: {e}")
-            results.append((space_id, "ERROR", False, False, f"API error: {e}"))
+            err_str = f"Hugging Face API request failed: {e}"
+            print(f"[ERROR] {err_str}")
+            results.append((space_id, "API_ERROR", False, False, err_str))
             failed_count += 1
             continue
 
-        # Step 2: Handle sleeping or building lifecycle states
+        # Step 2: Handle sleeping, paused, or building states
         if stage in SLEEP_STAGES:
             print(f"[RECOVER] Space {space_id} is in sleep/error state ({stage})! Issuing POST /restart...")
             try:
@@ -212,9 +293,20 @@ def run_monitor(hf_token, space_ids, webhook_url=None, max_wait=120):
                 info = wait_until_running(space_id, token=hf_token, max_wait=max_wait)
                 stage = info.get("runtime", {}).get("stage", stage)
             except Exception as e:
-                print(f"[ERROR] Wake-up failed for {space_id}: {e}")
-                results.append((space_id, stage, False, False, f"Wake-up failed: {e}"))
+                err_str = f"Wake-up command failed: {e}"
+                print(f"[ERROR] {err_str}")
+                results.append((space_id, stage, False, False, err_str))
                 failed_count += 1
+                if webhook_url and am:
+                    am.notify_incident(
+                        webhook_url=webhook_url,
+                        category="RECOVERY_FAILED",
+                        severity="CRITICAL",
+                        title=f"Wake-up Failed: {space_id}",
+                        summary=err_str,
+                        service=space_id,
+                        run_url=run_url,
+                    )
                 continue
         elif stage in BUILDING_STAGES:
             print(f"[WAIT] Space {space_id} is currently {stage}. Polling until RUNNING...")
@@ -229,16 +321,16 @@ def run_monitor(hf_token, space_ids, webhook_url=None, max_wait=120):
 
         # Step 4: True Self-Healing - Recover zombie RUNNING instances that fail health checks
         if not is_healthy and stage == "RUNNING":
-            print(f"[WARN] Space {space_id} is reported RUNNING, but application health check failed: {health_detail}")
-            print(f"[RECOVER] Initiating controlled application recovery restart...")
+            print(f"[WARN] Space {space_id} reports RUNNING, but application health check failed: {health_detail}")
+            print(f"[RECOVER] Initiating controlled application recovery restart (max 1 attempt)...")
             try:
                 wake_status = wake_space(space_id, token=hf_token)
                 woken = True
                 print(f"[OK] Recovery restart accepted (HTTP {wake_status}). Waiting for container reboot...")
                 info = wait_until_running(space_id, token=hf_token, max_wait=max_wait)
                 stage = info.get("runtime", {}).get("stage", stage)
-                # Re-verify health after reboot
-                is_healthy, health_detail, target_url = check_application_health(public_url, spec, retries=4, delay=15)
+                # Re-verify health after reboot with 4 retries
+                is_healthy, health_detail, target_url = check_application_health(public_url, spec, retries=4, initial_delay=10)
             except Exception as e:
                 health_detail = f"Recovery restart failed: {e}"
                 is_healthy = False
@@ -246,6 +338,8 @@ def run_monitor(hf_token, space_ids, webhook_url=None, max_wait=120):
         if is_healthy:
             print(f"[SUCCESS] Healthy: {space_id} -- stage={stage}, recovered={woken}, check={health_detail}\n")
             results.append((space_id, stage, woken, True, health_detail))
+            if woken:
+                recovered_spaces.append((space_id, stage, health_detail))
         else:
             print(f"[FAILURE] Unhealthy: {space_id} -- stage={stage}, recovered={woken}, error={health_detail}\n")
             results.append((space_id, stage, woken, False, health_detail))
@@ -262,10 +356,38 @@ def run_monitor(hf_token, space_ids, webhook_url=None, max_wait=120):
     print(f"Total Spaces: {len(space_ids)} | Healthy: {len(space_ids) - failed_count} | Unhealthy: {failed_count}")
     print("=" * 64)
 
+    # Recovery Notifications (if any space was successfully recovered this run)
+    if recovered_spaces and webhook_url and am:
+        for r_space, r_stage, r_detail in recovered_spaces:
+            am.notify_recovery(
+                webhook_url=webhook_url,
+                service=r_space,
+                summary=f"Space {r_space} was in an unhealthy/sleeping state and has been successfully recovered to {r_stage} ({r_detail}).",
+                details={"space": r_space, "stage": r_stage, "check": r_detail},
+                run_url=run_url,
+            )
+
+    # Failure Notification & Watchdog Fail Signal
     if failed_count > 0:
-        alert_msg = f"{failed_count} of {len(space_ids)} Spaces failed health checks!"
-        send_alert_webhook(webhook_url, alert_msg, details={"results": results})
+        summary_lines = [f"{sid}: {err}" for sid, _, _, ok, err in results if not ok]
+        alert_msg = f"{failed_count} of {len(space_ids)} Spaces failed health checks:\n" + "\n".join(summary_lines)
+        if webhook_url and am:
+            am.notify_incident(
+                webhook_url=webhook_url,
+                category="SPACES_UNHEALTHY",
+                severity="CRITICAL",
+                title="Hugging Face Spaces Unhealthy",
+                summary=alert_msg,
+                details={"results": results},
+                run_url=run_url,
+            )
+        if checkin_url:
+            ping_external_watchdog(checkin_url, status="fail", message=alert_msg)
         return False, results
+
+    # Success Signal to External Watchdog
+    if checkin_url:
+        ping_external_watchdog(checkin_url, status="ok", message=f"All {len(space_ids)} Spaces healthy.")
 
     return True, results
 
@@ -275,7 +397,8 @@ if __name__ == "__main__":
     raw_spaces = os.environ.get("SPACE_IDS", "AliiiS/24-7_n8n,AliiiS/pdf-to-image-api")
     spaces = [s.strip() for s in raw_spaces.split(",") if s.strip()]
     webhook = os.environ.get("ALERT_WEBHOOK_URL", "").strip()
+    checkin = os.environ.get("WATCHDOG_CHECKIN_URL", "").strip()
 
-    success, _ = run_monitor(token, spaces, webhook_url=webhook)
+    success, _ = run_monitor(token, spaces, webhook_url=webhook, checkin_url=checkin)
     if not success:
         sys.exit(1)
