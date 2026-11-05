@@ -3348,27 +3348,67 @@ export const XareLogo = ({
   showText = false, 
   isDarkMode = true, 
   style = {},
-  scale = 4.2,
-  x = "-11%",
+  scale = 1,
+  x = "0%",
   y = "0%"
+}: {
+  className?: string;
+  showText?: boolean;
+  isDarkMode?: boolean;
+  style?: React.CSSProperties;
+  scale?: number;
+  x?: string;
+  y?: string;
 }) => {
+  const [imgSrc, setImgSrc] = useState('/logo.png');
+  const [imgFailed, setImgFailed] = useState(false);
+
   // Dynamic shadow classes depending on theme to make the logo "pop" with a modern glow
   const shadowClass = isDarkMode 
     ? 'drop-shadow-[0_0px_15px_rgba(59,130,246,0.8)]' 
     : 'drop-shadow-[0_0px_12px_rgba(29,78,216,0.6)]';
 
-  // --- THE MAGIC CSS TRICK ---
-  // mix-blend-screen ensures that any solid black background on her PNG becomes totally transparent in dark mode!
-  const blendModeClass = isDarkMode ? 'mix-blend-screen' : '';
+  // Support backward compatibility if legacy 25%-canvas scale (>= 2.0) is passed
+  const effectiveScale = scale >= 2.0 ? scale / 3.8 : scale;
+  const effectiveX = scale >= 2.0 && (x === "-8%" || x === "-11%" || x === "-20%") ? "0%" : x;
+  const effectiveY = scale >= 2.0 && (y === "40%" || y === "35%") ? "0%" : y;
+
+  const handleImageError = () => {
+    if (imgSrc === '/logo.png') {
+      setImgSrc('/android-chrome-512x512.png');
+    } else if (imgSrc === '/android-chrome-512x512.png') {
+      setImgSrc('/favicon.svg');
+    } else if (imgSrc === '/favicon.svg') {
+      setImgSrc('/favicon.png');
+    } else {
+      setImgFailed(true);
+    }
+  };
 
   return (
     <div className={`flex flex-col items-center justify-center ${className}`} style={style}>
-      <img 
-        src="https://i.ibb.co/MyFHkWcW/Untitled-3-1-1-1.png" 
-        alt="Xare Logo"
-        className={`w-full h-full object-contain pointer-events-none select-none ${shadowClass} ${blendModeClass}`}
-        style={{ transform: `translate(${x}, ${y}) scale(${scale})` }}
-      />
+      {!imgFailed ? (
+        <img 
+          src={imgSrc} 
+          alt="Xare Logo"
+          className={`w-full h-full object-contain pointer-events-none select-none ${shadowClass}`}
+          style={{ transform: `translate(${effectiveX}, ${effectiveY}) scale(${effectiveScale})` }}
+          onError={handleImageError}
+        />
+      ) : (
+        <svg viewBox="0 0 512 512" className={`w-full h-full ${shadowClass}`}>
+          <defs>
+            <linearGradient id="xareFallbackGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#2563eb" />
+            </linearGradient>
+          </defs>
+          <path 
+            d="M 90 40 L 420 40 L 420 60 L 110 60 L 110 460 L 90 460 Z M 200 150 L 370 150 L 120 420 L 370 420 L 370 400 L 160 400 L 390 170 L 390 150 Z" 
+            fill="url(#xareFallbackGrad)" 
+          />
+        </svg>
+      )}
       
       {showText && (
         <span className={`mt-1 font-extrabold text-[0.6em] tracking-widest ${isDarkMode ? 'text-blue-500' : 'text-blue-700'}`}>
@@ -4548,9 +4588,6 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
           {/* ========================================== */}
           <XareLogo 
             className="w-14 h-14 sm:w-20 sm:h-20" 
-            scale={7.0} 
-            x="-20%" 
-            y="40%"
             isDarkMode={isDarkMode} 
           />
         </div>
@@ -8252,8 +8289,6 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           {/* ========================================== */}
           <XareLogo 
             className="w-32 h-32 mb-4 drop-shadow-xl" 
-            scale={3.0} 
-            x="-9%" 
             isDarkMode={isDarkMode} 
           />
           <Loader2 className={`w-8 h-8 animate-spin ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
@@ -8282,8 +8317,6 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                 <div className="flex items-center justify-center mb-4">
                   <XareLogo 
                     className="w-20 h-20" 
-                    scale={3.0} 
-                    x="-11%" 
                     isDarkMode={isDarkMode} 
                   />
                 </div>
@@ -8379,9 +8412,6 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                 <XareLogo 
                   className="w-20 h-20 animate-pulse" 
                   style={{ animationDuration: '4s' }} 
-                  scale={3.3} 
-                  x="-11%"
-                  y="35%"
                   isDarkMode={true} 
                 />
               </div>
@@ -8603,8 +8633,6 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                 {/* ========================================== */}
                 <XareLogo 
                   className="w-10 h-10 sm:w-12 sm:h-12 -ml-1" 
-                  scale={4.0} 
-                  x="-8%" 
                   isDarkMode={isDarkMode} 
                 />
               </div>
@@ -8662,7 +8690,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                     className="cursor-pointer hover:scale-105 active:scale-95 transition-transform" 
                     title="Create New Chat"
                   >
-                    <XareLogo className="w-16 h-16 sm:w-20 sm:h-20 mb-6 drop-shadow-2xl" scale={3.4} x="-8%" isDarkMode={isDarkMode} />
+                    <XareLogo className="w-16 h-16 sm:w-20 sm:h-20 mb-6 drop-shadow-2xl" isDarkMode={isDarkMode} />
                   </div>
                   <h1 className={`text-2xl sm:text-4xl font-bold tracking-tight mb-3 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                     What can I help with today?
@@ -8695,8 +8723,6 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                     {/* ========================================== */}
                     <XareLogo 
                       className="w-8 h-8 sm:w-9 sm:h-9" 
-                      scale={3.4} 
-                      x="-8%" 
                       isDarkMode={isDarkMode} 
                     />
                   </div>
@@ -9210,7 +9236,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
         <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-[#030407] text-white p-6 text-center">
           <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl max-w-md w-full space-y-4 backdrop-blur-xl">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/20">
-              <XareLogo className="w-8 h-8" scale={2.5} x="-8%" isDarkMode={true} />
+              <XareLogo className="w-8 h-8" isDarkMode={true} />
             </div>
             <h2 className="text-xl font-bold text-slate-100">Session Sync Recovery</h2>
             <p className="text-xs text-slate-400 leading-relaxed">
