@@ -270,8 +270,21 @@ export default async function handler(req: Request) {
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    const { prompt, systemInstruction, mode, isUtility } = body;
+    const { prompt, systemInstruction, mode, isUtility, media } = body;
     const isUtilityCall = mode === 'utility' || isUtility === true;
+
+    // Validate media attachment if provided (e.g. voice notes, audio, images)
+    let validMedia: { mimeType: string; data: string } | null = null;
+    if (media && typeof media === 'object' && media.data && media.mimeType) {
+      let rawData = String(media.data);
+      if (rawData.includes(',')) rawData = rawData.split(',')[1];
+      if (rawData.length <= 15 * 1024 * 1024) {
+        validMedia = {
+          mimeType: String(media.mimeType).split(';')[0].trim(),
+          data: rawData
+        };
+      }
+    }
 
     // Distinguish utility calls (titles, suggestions) from conversation chat to prevent markdown header pollution
     let finalInstruction: string;
@@ -293,8 +306,19 @@ export default async function handler(req: Request) {
 
     // TIER 1: Google Gemini Pipeline (if GEMINI_API_KEY is configured)
     if (GEMINI_API_KEY) {
+      const parts: any[] = [];
+      if (validMedia) {
+        parts.push({
+          inlineData: {
+            mimeType: validMedia.mimeType,
+            data: validMedia.data
+          }
+        });
+      }
+      parts.push({ text: prompt });
+
       const upstreamPayload: any = {
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts }],
       };
       if (finalInstruction) {
         upstreamPayload.systemInstruction = { parts: [{ text: finalInstruction }] };
@@ -344,11 +368,41 @@ export default async function handler(req: Request) {
 
     // TIER 2: Groq Fallback Pipeline (if Gemini failed/unconfigured & GROQ_API_KEY is configured)
     if (!winningModel && GROQ_API_KEY) {
+      let effectivePrompt = prompt;
+      if (validMedia && validMedia.mimeType.startsWith('audio/')) {
+        try {
+          const binaryStr = atob(validMedia.data);
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+          const ext = validMedia.mimeType.includes('ogg') ? 'ogg' : (validMedia.mimeType.includes('wav') ? 'wav' : 'webm');
+          const whisperForm = new FormData();
+          whisperForm.append('file', new Blob([bytes], { type: validMedia.mimeType }), `voice_note.${ext}`);
+          whisperForm.append('model', 'whisper-large-v3');
+
+          const whisperRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` },
+            body: whisperForm,
+            signal: req.signal
+          });
+          if (whisperRes.ok) {
+            const whisperJson: any = await whisperRes.json();
+            if (whisperJson?.text) {
+              effectivePrompt = `[User Voice Message Transcription]: "${whisperJson.text}"\n\nPlease answer the user's spoken request directly.`;
+            }
+          }
+        } catch (whisperErr) {
+          console.warn('[GROQ_WHISPER_FALLBACK_ERROR]:', whisperErr);
+        }
+      }
+
       const groqMessages: any[] = [];
       if (finalInstruction) {
         groqMessages.push({ role: 'system', content: finalInstruction });
       }
-      groqMessages.push({ role: 'user', content: prompt });
+      groqMessages.push({ role: 'user', content: effectivePrompt });
 
       for (let i = 0; i < GROQ_PIPELINE.length; i++) {
         const candidate = GROQ_PIPELINE[i];

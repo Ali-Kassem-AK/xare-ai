@@ -1044,13 +1044,17 @@ const callGeminiAPIStream = async (
   onChunk: (accumulatedText: string, chunk: string) => void,
   systemInstruction = DEFAULT_SYSTEM_INSTRUCTION,
   signal?: AbortSignal,
-  mode: 'chat' | 'utility' = 'chat'
+  mode: 'chat' | 'utility' = 'chat',
+  media?: { mimeType: string; data: string }
 ): Promise<string> => {
   const payload: any = { 
     prompt,
     mode,
     isUtility: mode === 'utility'
   };
+  if (media && media.data && media.mimeType) {
+    payload.media = media;
+  }
   const finalSystemInstruction = systemInstruction || (mode === 'utility' ? '' : DEFAULT_SYSTEM_INSTRUCTION);
   if (finalSystemInstruction) {
     payload.systemInstruction = finalSystemInstruction;
@@ -1111,7 +1115,8 @@ const callGeminiAPI = async (
   prompt: string, 
   systemInstruction = DEFAULT_SYSTEM_INSTRUCTION, 
   isJson = false,
-  mode: 'chat' | 'utility' = 'chat'
+  mode: 'chat' | 'utility' = 'chat',
+  media?: { mimeType: string; data: string }
 ) => {
   let result = "";
   try {
@@ -1120,7 +1125,8 @@ const callGeminiAPI = async (
       () => {}, 
       systemInstruction || (mode === 'utility' ? '' : DEFAULT_SYSTEM_INSTRUCTION),
       undefined,
-      mode
+      mode,
+      media
     );
     if (isJson) {
       const match = result.match(/\[[\s\S]*\]/);
@@ -3640,7 +3646,7 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
   }, [src]);
 
   useEffect(() => {
-    if (!cleanSrc || cleanSrc.includes('undefined') || cleanSrc.includes('[object')) {
+    if (!cleanSrc || cleanSrc.includes('undefined') || cleanSrc.includes('[object') || cleanSrc.length < 50) {
       setIsInvalid(true);
     } else {
       setIsInvalid(false);
@@ -3652,17 +3658,33 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
     if (!audio || isInvalid) return;
 
     const updateDuration = () => {
+      if (!audio) return;
       if (audio.duration && audio.duration !== Infinity && !isNaN(audio.duration)) {
         setDuration(audio.duration);
       } 
       else if (audio.duration === Infinity) {
-        const originalTime = audio.currentTime;
-        audio.currentTime = Number.MAX_SAFE_INTEGER;
-        audio.ontimeupdate = () => {
-          audio.ontimeupdate = null; 
-          setDuration(audio.duration);
-          audio.currentTime = originalTime; 
-        };
+        try {
+          if (audio.seekable && audio.seekable.length > 0) {
+            const seekEnd = audio.seekable.end(audio.seekable.length - 1);
+            if (seekEnd > 0 && seekEnd !== Infinity && !isNaN(seekEnd)) {
+              setDuration(seekEnd);
+              return;
+            }
+          }
+          const originalTime = audio.currentTime;
+          audio.currentTime = 1e10;
+          audio.ontimeupdate = () => {
+            audio.ontimeupdate = null; 
+            if (audio.duration && audio.duration !== Infinity && !isNaN(audio.duration)) {
+              setDuration(audio.duration);
+            } else if (audio.currentTime > 0) {
+              setDuration(audio.currentTime);
+            }
+            audio.currentTime = originalTime; 
+          };
+        } catch (e) {
+          // Safe ignore for seek boundary
+        }
       }
     };
 
@@ -3670,14 +3692,20 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
       updateDuration();
     }
 
+    const handleError = () => {
+      if (audio.error && (audio.error.code === 3 || audio.error.code === 4)) {
+        setIsInvalid(true);
+      }
+    };
+
     audio.addEventListener('loadedmetadata', updateDuration);
     audio.addEventListener('durationchange', updateDuration);
-    audio.addEventListener('error', () => setIsInvalid(true));
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.removeEventListener('loadedmetadata', updateDuration);
       audio.removeEventListener('durationchange', updateDuration);
-      audio.removeEventListener('error', () => setIsInvalid(true));
+      audio.removeEventListener('error', handleError);
       audio.ontimeupdate = null;
     };
   }, [cleanSrc, isInvalid]);
@@ -3696,7 +3724,9 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
         }).catch(error => {
           console.error("Audio playback error:", error);
           setIsPlaying(false);
-          setIsInvalid(true); 
+          if (error.name !== 'NotAllowedError' && error.name !== 'AbortError') {
+            setIsInvalid(true); 
+          }
         });
       } else {
         setIsPlaying(true);
@@ -6566,7 +6596,8 @@ export function App() {
   const streamGeminiWithCodeContinuation = useCallback(async (
     promptText: string,
     msgId: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    media?: { mimeType: string; data: string }
   ): Promise<string> => {
     let finalAnswer = await callGeminiAPIStream(promptText, (accumulated) => {
       STREAMING_TEXT_VAULT.set(msgId, { fullText: accumulated, partialText: accumulated });
@@ -6574,7 +6605,7 @@ export function App() {
       if (chatContainerRef.current && !isUserScrolledUpRef.current && !isTouchActiveRef.current) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
       }
-    }, DEFAULT_SYSTEM_INSTRUCTION, signal);
+    }, DEFAULT_SYSTEM_INSTRUCTION, signal, 'chat', media);
 
     let geminiContinuations = 0;
     const MAX_CONTINUATIONS = 3;
@@ -6910,7 +6941,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           }
         }
       }
-    } else if (attachmentFile && (attachmentFile instanceof File || attachmentFile instanceof Blob)) {
+    } else if (attachmentFile && (attachmentFile instanceof File || attachmentFile instanceof Blob) && attachmentType !== 'audio') {
       try {
         setUploadingFileName(attachmentFile.name);
         setUploadProgress(0);
@@ -7060,7 +7091,32 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
       const geminiController = new AbortController();
       activeAbortControllerRef.current = geminiController;
       try {
-        const finalAnswer = await streamGeminiWithCodeContinuation(finalMessageText, newGeminiMsg.id, geminiController.signal);
+        let directPrompt = finalMessageText;
+        let directMedia: { mimeType: string; data: string } | undefined = undefined;
+
+        if (attachmentType === 'audio') {
+          let audioBase64 = attachmentData;
+          if (!audioBase64 && attachmentFile) {
+            try {
+              audioBase64 = await new Promise<string>((res) => {
+                const r = new FileReader();
+                r.onload = () => res(r.result as string);
+                r.onerror = () => res('');
+                r.readAsDataURL(attachmentFile);
+              });
+            } catch (e) {}
+          }
+          if (audioBase64) {
+            const detectedMime = uploadedMimeType || attachmentFile?.type || 'audio/webm';
+            directMedia = {
+              mimeType: detectedMime,
+              data: audioBase64
+            };
+            directPrompt = "Please listen to this voice message carefully, understand the spoken content, and provide a comprehensive response to the user's request.";
+          }
+        }
+
+        const finalAnswer = await streamGeminiWithCodeContinuation(directPrompt, newGeminiMsg.id, geminiController.signal, directMedia);
 
         STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: finalAnswer });
         setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
@@ -7223,7 +7279,33 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
           setIsGeneratingImage(false);
 
           try {
-            const finalAnswer = await streamGeminiWithCodeContinuation(finalMessageText, newGeminiMsg.id);
+            let fallbackPrompt = finalMessageText;
+            let fallbackMedia: { mimeType: string; data: string } | undefined = undefined;
+
+            if (attachmentType === 'audio') {
+              let audioDataToUse = attachmentData;
+              if (!audioDataToUse && attachmentFile) {
+                try {
+                  audioDataToUse = await new Promise<string>((resolve) => {
+                    const r = new FileReader();
+                    r.onload = () => resolve(r.result as string);
+                    r.onerror = () => resolve('');
+                    r.readAsDataURL(attachmentFile);
+                  });
+                } catch (e) {}
+              }
+
+              if (audioDataToUse) {
+                const detectedMime = uploadedMimeType || attachmentFile?.type || 'audio/webm';
+                fallbackMedia = {
+                  mimeType: detectedMime,
+                  data: audioDataToUse
+                };
+                fallbackPrompt = "Please listen to this voice message carefully, understand the spoken request, and provide a comprehensive, helpful response.";
+              }
+            }
+
+            const finalAnswer = await streamGeminiWithCodeContinuation(fallbackPrompt, newGeminiMsg.id, undefined, fallbackMedia);
             STREAMING_TEXT_VAULT.set(newGeminiMsg.id, { fullText: finalAnswer, partialText: finalAnswer });
             setChatHistory(prev => prev.map(c => c.id === targetChatId ? {
               ...c,
@@ -8133,7 +8215,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
         console.warn("AudioContext visualizer fallback:", audioErr);
       }
 
-      mediaRecorder.start();
+      mediaRecorder.start(250);
       setIsRecording(true);
       setIsPreviewingAudio(false);
       setRecordedAudioBlob(null);
@@ -8148,6 +8230,11 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
   const stopRecordingAndSend = () => {
     if (recordedAudioBlob) {
+      if (recordedAudioBlob.size < 500) {
+        console.warn("[VOICE_RECORDING] Audio blob too small or empty (<500B), discarding.");
+        cleanupRecordingState();
+        return;
+      }
       const mimeType = recordedAudioBlob.type || 'audio/webm';
       const voiceFile = new File([recordedAudioBlob], 'voice_message.webm', { type: mimeType });
       updateUsage('voiceMessagesCount');
@@ -8157,9 +8244,20 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
     }
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        if (mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.requestData();
+        }
+      } catch (e) {}
+
       mediaRecorderRef.current.onstop = () => {
         const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        if (!audioBlob || audioBlob.size < 500) {
+          console.warn("[VOICE_RECORDING] Audio blob too small or empty (<500B), discarding.");
+          cleanupRecordingState();
+          return;
+        }
         const voiceFile = new File([audioBlob], 'voice_message.webm', { type: mimeType });
         updateUsage('voiceMessagesCount');
         sendMessageToBackend("🎤 Voice Message", null, 'audio', "", null, null, null, false, voiceFile);
@@ -8173,9 +8271,20 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
 
   const stopRecordingAndPreview = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        if (mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.requestData();
+        }
+      } catch (e) {}
+
       mediaRecorderRef.current.onstop = () => {
         const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        if (!audioBlob || audioBlob.size < 500) {
+          console.warn("[VOICE_RECORDING] Preview audio blob too small, discarding.");
+          cleanupRecordingState();
+          return;
+        }
         setRecordedAudioBlob(audioBlob);
         setIsRecording(false);
         setIsPreviewingAudio(true);
