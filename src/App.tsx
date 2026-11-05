@@ -4993,10 +4993,10 @@ export const ChatMessageItem = React.memo(({
                     setIsEditing(false);
                     setEditText(msg.text);
                   }}
-                  className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
+                  className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all ${
                     isDarkMode 
-                      ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white' 
-                      : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700 hover:text-slate-900'
+                      ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60' 
+                      : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700 hover:text-slate-900 border border-slate-300/60'
                   }`}
                 >
                   Cancel
@@ -5005,10 +5005,10 @@ export const ChatMessageItem = React.memo(({
                   type="button"
                   onClick={handleSaveEdit}
                   disabled={!editText.trim()}
-                  className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all shadow-sm active:scale-95 ${
+                  className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all shadow-md active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 ${
                     isDarkMode
-                      ? 'bg-white hover:bg-slate-100 text-black disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100'
-                      : 'bg-slate-900 hover:bg-black text-white disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100'
+                      ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-950/40 border border-blue-400/30'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 border border-blue-600/20'
                   }`}
                 >
                   Send
