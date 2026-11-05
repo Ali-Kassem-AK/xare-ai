@@ -3654,42 +3654,72 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
   }, [cleanSrc]);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || isInvalid) return;
+    if (!cleanSrc || isInvalid) return;
 
-    const updateDuration = () => {
-      if (!audio) return;
-      if (audio.duration && audio.duration !== Infinity && !isNaN(audio.duration)) {
-        setDuration(audio.duration);
-      } 
-      else if (audio.duration === Infinity) {
+    // Ensure playback position and progress always initialize at the beginning (0:00)
+    setCurrentTime(0);
+    setProgress(0);
+    setIsPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+    }
+
+    // Probe duration using an isolated headless Audio instance
+    // so the live player's currentTime and progress are NEVER disrupted
+    const probe = new Audio();
+    probe.src = cleanSrc;
+
+    const onProbeLoaded = () => {
+      if (probe.duration && probe.duration !== Infinity && !isNaN(probe.duration) && probe.duration > 0) {
+        setDuration(probe.duration);
+      } else {
+        // Chromium WebM recorded audio without duration header: seek probe to determine real length
         try {
-          if (audio.seekable && audio.seekable.length > 0) {
-            const seekEnd = audio.seekable.end(audio.seekable.length - 1);
-            if (seekEnd > 0 && seekEnd !== Infinity && !isNaN(seekEnd)) {
-              setDuration(seekEnd);
+          if (probe.seekable && probe.seekable.length > 0) {
+            const end = probe.seekable.end(probe.seekable.length - 1);
+            if (end > 0 && isFinite(end)) {
+              setDuration(end);
               return;
             }
           }
-          const originalTime = audio.currentTime;
-          audio.currentTime = 1e10;
-          audio.ontimeupdate = () => {
-            audio.ontimeupdate = null; 
-            if (audio.duration && audio.duration !== Infinity && !isNaN(audio.duration)) {
-              setDuration(audio.duration);
-            } else if (audio.currentTime > 0) {
-              setDuration(audio.currentTime);
+          probe.currentTime = 1e10;
+          probe.ontimeupdate = () => {
+            probe.ontimeupdate = null;
+            if (probe.duration && probe.duration !== Infinity && !isNaN(probe.duration)) {
+              setDuration(probe.duration);
+            } else if (probe.currentTime > 0 && isFinite(probe.currentTime)) {
+              setDuration(probe.currentTime);
             }
-            audio.currentTime = originalTime; 
           };
         } catch (e) {
-          // Safe ignore for seek boundary
+          // Ignore probe seek errors
         }
       }
     };
 
+    probe.addEventListener('loadedmetadata', onProbeLoaded);
+    probe.addEventListener('durationchange', onProbeLoaded);
+
+    return () => {
+      probe.removeEventListener('loadedmetadata', onProbeLoaded);
+      probe.removeEventListener('durationchange', onProbeLoaded);
+      probe.ontimeupdate = null;
+      probe.src = '';
+    };
+  }, [cleanSrc, isInvalid]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || isInvalid) return;
+
+    const updateFromMainAudio = () => {
+      if (audio.duration && audio.duration !== Infinity && !isNaN(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
+    };
+
     if (audio.readyState >= 1) {
-      updateDuration();
+      updateFromMainAudio();
     }
 
     const handleError = () => {
@@ -3698,15 +3728,14 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
       }
     };
 
-    audio.addEventListener('loadedmetadata', updateDuration);
-    audio.addEventListener('durationchange', updateDuration);
+    audio.addEventListener('loadedmetadata', updateFromMainAudio);
+    audio.addEventListener('durationchange', updateFromMainAudio);
     audio.addEventListener('error', handleError);
 
     return () => {
-      audio.removeEventListener('loadedmetadata', updateDuration);
-      audio.removeEventListener('durationchange', updateDuration);
+      audio.removeEventListener('loadedmetadata', updateFromMainAudio);
+      audio.removeEventListener('durationchange', updateFromMainAudio);
       audio.removeEventListener('error', handleError);
-      audio.ontimeupdate = null;
     };
   }, [cleanSrc, isInvalid]);
 
@@ -3717,6 +3746,13 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
+      // If audio already completed or sits near end, rewind to start
+      if (duration > 0 && audioRef.current.currentTime >= duration - 0.2) {
+        audioRef.current.currentTime = 0;
+        setCurrentTime(0);
+        setProgress(0);
+      }
+
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
@@ -3740,21 +3776,26 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
     setCurrentTime(current);
     
     if (duration > 0 && isFinite(duration)) {
-      setProgress((current / duration) * 100);
+      setProgress(Math.min(100, Math.max(0, (current / duration) * 100)));
     }
   };
 
   const handleSeek = (e) => {
-    if (!audioRef.current || isInvalid) return;
-    const seekTime = (e.target.value / 100) * duration;
+    if (!audioRef.current || isInvalid || !duration) return;
+    const seekPercent = parseFloat(e.target.value);
+    const seekTime = (seekPercent / 100) * duration;
     audioRef.current.currentTime = seekTime;
-    setProgress(e.target.value);
+    setCurrentTime(seekTime);
+    setProgress(seekPercent);
   };
 
   const handleEnded = () => {
     setIsPlaying(false);
     setProgress(0);
     setCurrentTime(0);
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+    }
   };
 
   const formatAudioTime = (time) => {

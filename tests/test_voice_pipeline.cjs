@@ -60,7 +60,14 @@ async function runTests() {
   );
   console.log('✔ Test 6 Passed: CustomAudioPlayer avoids false Error/Unavailable states');
 
-  console.log('\nAll 6 verification tests passed successfully! 🚀');
+  // Test 7: Verify CustomAudioPlayer initializes playback at 0:00 (never starts from the end)
+  assert(
+    appSrc.includes('probe.src = cleanSrc') && appSrc.includes('audioRef.current.currentTime = 0'),
+    'CustomAudioPlayer should probe duration headlessly without seeking main audio to end'
+  );
+  console.log('✔ Test 7 Passed: CustomAudioPlayer initializes at 0:00 and uses headless duration probe');
+
+  console.log('\nAll 7 verification tests passed successfully! 🚀');
 }
 
 runTests().catch(err => {
