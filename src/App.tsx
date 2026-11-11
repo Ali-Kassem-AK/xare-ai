@@ -3371,7 +3371,7 @@ export const XareLogo = ({
 
   // Dynamic shadow classes depending on theme to make the logo "pop" with a modern glow
   const shadowClass = isDarkMode 
-    ? 'drop-shadow-[0_0px_15px_rgba(59,130,246,0.8)]' 
+    ? 'drop-shadow-[0_0px_15px_rgba(37,99,235,0.85)]' 
     : 'drop-shadow-[0_0px_12px_rgba(29,78,216,0.6)]';
 
   // Support backward compatibility if legacy 25%-canvas scale (>= 2.0) is passed
@@ -3405,7 +3405,7 @@ export const XareLogo = ({
         <svg viewBox="0 0 512 512" className={`w-full h-full ${shadowClass}`}>
           <defs>
             <linearGradient id="xareFallbackGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#38bdf8" />
+              <stop offset="0%" stopColor="#3b82f6" />
               <stop offset="100%" stopColor="#2563eb" />
             </linearGradient>
           </defs>

@@ -36,7 +36,7 @@ function buildIco(images) {
 }
 
 async function main() {
-  console.log('Generating logo assets with optimized framing (slightly larger)...');
+  console.log('Generating dark blue branded logo assets...');
   const browser = await chromium.launch({ channel: 'chrome' });
   const page = await browser.newPage({ viewport: { width: 1200, height: 1200 } });
 
@@ -76,7 +76,6 @@ async function main() {
       const w = srcImg.naturalWidth;
       const h = srcImg.naturalHeight;
 
-      // 1. Process master canvas with alpha keying
       const masterCv = document.createElement('canvas');
       masterCv.width = w;
       masterCv.height = h;
@@ -97,17 +96,21 @@ async function main() {
         } else {
           const alpha = Math.min(255, ((maxVal - 35) / (255 - 35)) * 320);
           d[i + 3] = Math.round(alpha);
-          if (maxVal < 140) {
-            const boost = 140 / Math.max(1, maxVal);
-            d[i] = Math.min(255, Math.round(r * boost * 0.8));
-            d[i + 1] = Math.min(255, Math.round(g * boost * 1.1));
-            d[i + 2] = Math.min(255, Math.round(b * boost * 1.2));
-          }
+
+          // Dark blue transformation:
+          // Shift away from aqua/cyan into rich royal & deep sapphire blue
+          const nr = Math.min(255, Math.round(r * 0.55 + b * 0.18));
+          const ng = Math.min(255, Math.round(g * 0.58));
+          const nb = Math.min(255, Math.round(b * 1.35 + 15));
+
+          d[i] = nr;
+          d[i + 1] = ng;
+          d[i + 2] = nb;
         }
       }
       masterCtx.putImageData(imgData, 0, 0);
 
-      // 2. Crop tightly around the glow (sx: 50, sy: 48, sw: 924, sh: 924) to enlarge the emblem inside the frame
+      // Crop tightly around emblem to preserve the requested larger framing
       const cropW = 924;
       const cropH = 924;
       const cropX = 50;
@@ -128,9 +131,10 @@ async function main() {
     const buffer = Buffer.from(base64Data, 'base64');
     generatedImages[item.name] = { buffer, size: item.size, dataUrl };
     fs.writeFileSync(path.join(publicDir, item.name), buffer);
+    console.log(`Generated dark blue asset: public/${item.name}`);
   }
 
-  // 3. Generate multi-resolution favicon.ico
+  // Generate multi-resolution favicon.ico
   const icoBuffer = buildIco([
     { width: 16, height: 16, buffer: generatedImages['favicon-16x16.png'].buffer },
     { width: 32, height: 32, buffer: generatedImages['favicon-32x32.png'].buffer },
@@ -138,7 +142,7 @@ async function main() {
   ]);
   fs.writeFileSync(path.join(publicDir, 'favicon.ico'), icoBuffer);
 
-  // 4. Update SVG favicon
+  // Update SVG favicon
   const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -152,7 +156,7 @@ async function main() {
   fs.writeFileSync(path.join(publicDir, 'favicon.svg'), svgContent);
 
   await browser.close();
-  console.log('Optimized branding assets generated successfully!');
+  console.log('All dark blue branding assets generated successfully!');
 }
 
 main().catch(console.error);
