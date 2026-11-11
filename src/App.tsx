@@ -8466,7 +8466,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
               <div className="relative z-10 flex flex-col items-center mb-6 mt-1 text-center">
                 <div className="flex items-center justify-center mb-4">
                   <XareLogo 
-                    className="w-20 h-20" 
+                    className="w-24 h-24" 
                     isDarkMode={isDarkMode} 
                   />
                 </div>
@@ -8782,7 +8782,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                 {/* 5. LOGO INSTANCE: Top Header Bar */}
                 {/* ========================================== */}
                 <XareLogo 
-                  className="w-10 h-10 sm:w-12 sm:h-12 -ml-1" 
+                  className="w-11 h-11 sm:w-13 sm:h-13 -ml-1" 
                   isDarkMode={isDarkMode} 
                 />
               </div>
@@ -8840,7 +8840,7 @@ Cutoff point was: "...${check.cutoffSnippet}"`;
                     className="cursor-pointer hover:scale-105 active:scale-95 transition-transform" 
                     title="Create New Chat"
                   >
-                    <XareLogo className="w-16 h-16 sm:w-20 sm:h-20 mb-6 drop-shadow-2xl" isDarkMode={isDarkMode} />
+                    <XareLogo className="w-24 h-24 sm:w-28 sm:h-28 mb-6 drop-shadow-2xl" isDarkMode={isDarkMode} />
                   </div>
                   <h1 className={`text-2xl sm:text-4xl font-bold tracking-tight mb-3 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                     What can I help with today?
