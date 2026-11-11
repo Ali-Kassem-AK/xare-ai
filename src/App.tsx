@@ -3410,7 +3410,7 @@ export const XareLogo = ({
             </linearGradient>
           </defs>
           <path 
-            d="M 90 40 L 420 40 L 420 60 L 110 60 L 110 460 L 90 460 Z M 200 150 L 370 150 L 120 420 L 370 420 L 370 400 L 160 400 L 390 170 L 390 150 Z" 
+            d="M 120 135 L 200 135 L 392 377 L 312 377 Z M 392 135 L 312 135 L 120 377 L 200 377 Z" 
             fill="url(#xareFallbackGrad)" 
           />
         </svg>
