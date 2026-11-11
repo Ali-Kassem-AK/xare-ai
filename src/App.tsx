@@ -3890,7 +3890,7 @@ export const CustomAudioPlayer = ({ src, sender, isDarkMode }) => {
 // --- WEBHOOK CONFIGURATION
 // ==========================================
 
-const N8N_WEBHOOK_URL = "https://aliiis-24-7-n8n.hf.space/webhook/xare-ai-v2";
+const N8N_WEBHOOK_URL = "https://aliiis-24-7-n8n.hf.space/webhook-test/xare-ai-v2";
 
 // ==========================================
 // --- UTILITY FUNCTIONS
