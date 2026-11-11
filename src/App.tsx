@@ -4658,7 +4658,7 @@ export const DeepgramOrb = ({ isDarkMode, onClose }) => {
           {/* 1. LOGO INSTANCE: Deepgram Voice Orb */}
           {/* ========================================== */}
           <XareLogo 
-            className="w-14 h-14 sm:w-20 sm:h-20" 
+            className="w-full h-full p-0.5 sm:p-1" 
             isDarkMode={isDarkMode} 
           />
         </div>
