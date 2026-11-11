@@ -36,7 +36,7 @@ function buildIco(images) {
 }
 
 async function main() {
-  console.log('Generating complete set of high-contrast logo & favicon assets...');
+  console.log('Generating pure standalone enlarged X logo & favicon assets (no background circle)...');
   const browser = await chromium.launch({ channel: 'chrome' });
   const page = await browser.newPage({ viewport: { width: 1200, height: 1200 } });
 
@@ -61,9 +61,10 @@ async function main() {
     const w = img.naturalWidth;
     const h = img.naturalHeight;
 
-    // Body bounds: minX: 235, maxX: 787 (552px), minY: 254, maxY: 764 (510px)
     // Center: X=511, Y=509.
-    const tightSize = 560;
+    // Body bounds: width: 552, height: 510.
+    // Ultra-tight crop (535px) so the X touches the edges and fills 100% of the canvas:
+    const tightSize = 535;
     const tightX = 511 - tightSize / 2;
     const tightY = 509 - tightSize / 2;
 
@@ -81,16 +82,17 @@ async function main() {
       const b = d[i + 2];
       const maxVal = Math.max(r, g, b);
 
-      if (maxVal < 25) {
+      if (maxVal < 18) {
         d[i + 3] = 0;
       } else {
-        const alpha = Math.min(255, ((maxVal - 25) / (255 - 25)) * 360);
+        const norm = (maxVal - 18) / (255 - 18);
+        const alpha = Math.min(255, Math.pow(norm, 0.75) * 320);
         d[i + 3] = Math.round(alpha);
 
-        // Rich royal sapphire dark blue with luminous accents:
-        const nr = Math.min(255, Math.round((r * 0.65 + b * 0.22) * 1.35));
-        const ng = Math.min(255, Math.round((g * 0.72) * 1.35));
-        const nb = Math.min(255, Math.round((b * 1.45 + 25) * 1.35));
+        // Dark royal sapphire blue core with luminous cyan-sapphire glowing edges
+        const nr = Math.min(255, Math.round((r * 0.72 + b * 0.28) * 1.4));
+        const ng = Math.min(255, Math.round((g * 0.78) * 1.4));
+        const nb = Math.min(255, Math.round((b * 1.55 + 35) * 1.4));
 
         d[i] = nr;
         d[i + 1] = ng;
@@ -99,8 +101,25 @@ async function main() {
     }
     ctx.putImageData(imgData, 0, 0);
 
-    // 1. Transparent UI Logo (Header, Hero, Live call orb)
-    function generateTransparentLogo(targetSize) {
+    // Generator function for pure standalone X (transparent background, NO circle)
+    function renderStandaloneX(targetSize, cropBoxSize = tightSize) {
+      const outCv = document.createElement('canvas');
+      outCv.width = targetSize;
+      outCv.height = targetSize;
+      const outCtx = outCv.getContext('2d');
+      outCtx.imageSmoothingEnabled = true;
+      outCtx.imageSmoothingQuality = 'high';
+
+      const cropX = 511 - cropBoxSize / 2;
+      const cropY = 509 - cropBoxSize / 2;
+
+      // Pure transparent background
+      outCtx.drawImage(cv, cropX, cropY, cropBoxSize, cropBoxSize, 0, 0, targetSize, targetSize);
+      return outCv.toDataURL('image/png');
+    }
+
+    // Transparent UI Logo (standard framing for header/hero/voice orb)
+    function renderUILogo(targetSize) {
       const outCv = document.createElement('canvas');
       outCv.width = targetSize;
       outCv.height = targetSize;
@@ -111,53 +130,21 @@ async function main() {
       return outCv.toDataURL('image/png');
     }
 
-    // 2. High-contrast circular tab favicon badge (100% full-bleed parity with GitHub/Vercel)
-    function generateCircularFavicon(size) {
-      const outCv = document.createElement('canvas');
-      outCv.width = size;
-      outCv.height = size;
-      const outCtx = outCv.getContext('2d');
-      outCtx.imageSmoothingEnabled = true;
-      outCtx.imageSmoothingQuality = 'high';
-
-      // Midnight obsidian solid circular backing
-      outCtx.fillStyle = '#020617';
-      outCtx.beginPath();
-      const r = size / 2 - 0.75;
-      outCtx.arc(size / 2, size / 2, r, 0, Math.PI * 2);
-      outCtx.fill();
-
-      // High-contrast sapphire/cyan outer rim
-      outCtx.strokeStyle = '#3b82f6';
-      outCtx.lineWidth = Math.max(1, size * 0.035);
-      outCtx.stroke();
-
-      // Tight emblem filling ~90% of the circle
-      const pad = Math.round(size * 0.055);
-      const drawSize = size - pad * 2;
-      outCtx.drawImage(cv, tightX, tightY, tightSize, tightSize, pad, pad, drawSize, drawSize);
-
-      return outCv.toDataURL('image/png');
-    }
-
     return {
-      logo512: generateTransparentLogo(512),
-      f16: generateCircularFavicon(16),
-      f32: generateCircularFavicon(32),
-      f48: generateCircularFavicon(48),
-      f128: generateCircularFavicon(128),
-      f192: generateCircularFavicon(192),
-      f512: generateCircularFavicon(512)
+      logo512: renderUILogo(512),
+      f16: renderStandaloneX(16),
+      f32: renderStandaloneX(32),
+      f48: renderStandaloneX(48),
+      f128: renderStandaloneX(128),
+      f192: renderStandaloneX(192),
+      f512: renderStandaloneX(512)
     };
   });
 
-  const transparentFiles = [
+  const filesToWrite = [
     { name: 'logo.png', dataUrl: assets.logo512 },
     { name: 'xare-logo.png', dataUrl: assets.logo512 },
-    { name: 'favicon.png', dataUrl: assets.logo512 }
-  ];
-
-  const faviconFiles = [
+    { name: 'favicon.png', dataUrl: assets.f512 },
     { name: 'favicon-16x16.png', dataUrl: assets.f16, width: 16, height: 16 },
     { name: 'favicon-32x32.png', dataUrl: assets.f32, width: 32, height: 32 },
     { name: 'favicon-48x48.png', dataUrl: assets.f48, width: 48, height: 48 },
@@ -166,17 +153,11 @@ async function main() {
     { name: 'android-chrome-512x512.png', dataUrl: assets.f512, width: 512, height: 512 }
   ];
 
-  for (const item of transparentFiles) {
-    const buf = Buffer.from(item.dataUrl.replace(/^data:image\/png;base64,/, ''), 'base64');
-    fs.writeFileSync(path.join(publicDir, item.name), buf);
-    console.log(`Generated transparent UI asset: public/${item.name}`);
-  }
-
   const icoImages = [];
-  for (const item of faviconFiles) {
+  for (const item of filesToWrite) {
     const buf = Buffer.from(item.dataUrl.replace(/^data:image\/png;base64,/, ''), 'base64');
     fs.writeFileSync(path.join(publicDir, item.name), buf);
-    console.log(`Generated favicon asset: public/${item.name}`);
+    console.log(`Generated: public/${item.name}`);
 
     if (item.name.startsWith('favicon-')) {
       icoImages.push({ width: item.width, height: item.height, buffer: buf });
@@ -188,7 +169,7 @@ async function main() {
   fs.writeFileSync(path.join(publicDir, 'favicon.ico'), icoBuffer);
   console.log('Generated: public/favicon.ico');
 
-  // SVG Favicon
+  // SVG Favicon: Pure standalone transparent X
   const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
   <image href="${assets.f128}" width="128" height="128" />
 </svg>
@@ -197,7 +178,7 @@ async function main() {
   console.log('Generated: public/favicon.svg');
 
   await browser.close();
-  console.log('All branding and favicon assets successfully generated!');
+  console.log('All standalone X logo and favicon assets successfully generated!');
 }
 
 main().catch(console.error);
